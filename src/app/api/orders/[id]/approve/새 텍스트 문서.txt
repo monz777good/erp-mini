@@ -1,0 +1,18 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(_: Request, ctx: { params: { id: string } }) {
+  try {
+    const id = ctx.params.id;
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: { status: "APPROVED" },
+    });
+
+    return NextResponse.json({ ok: true, order: updated });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ ok: false, message: "서버 오류" }, { status: 500 });
+  }
+}
