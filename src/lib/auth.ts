@@ -1,16 +1,18 @@
-// src/lib/auth.ts
-import { getSessionUser } from "@/lib/session";
+import { getSessionUser, requireAdmin, requireUser, saveSessionUser, clearSession } from "@/lib/session";
 
-export { getSessionUser }; // ✅ 어떤 파일이 '@/lib/auth'에서 getSessionUser를 import해도 OK
+export {
+  getSessionUser,
+  requireAdmin,
+  requireUser,
+  saveSessionUser,
+  clearSession,
+};
 
-export async function requireUser(req?: Request) {
-  const user = await getSessionUser(req);
-  return user ?? null;
+// ✅ 옛 코드 호환: 이름만 남겨둠 (req 무시)
+export async function getUserFromRequest() {
+  return getSessionUser();
 }
-
-export async function requireAdmin(req?: Request) {
-  const user = await getSessionUser(req);
-  if (!user) return null;
-  if (String(user.role ?? "").toUpperCase() !== "ADMIN") return null;
-  return user;
+export async function getUserIdCookie() {
+  const u = await getSessionUser();
+  return u?.id ?? null;
 }

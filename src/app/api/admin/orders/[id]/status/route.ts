@@ -1,25 +1,39 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/session";
 
-export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ ok: false }, { status: 401 });
-  if (user.role !== "ADMIN") return NextResponse.json({ ok: false }, { status: 403 });
+export const runtime = "nodejs";
 
-  const { id } = await ctx.params;
-  const body = await req.json().catch(() => null);
-  const status = (body?.status ?? "").toUpperCase();
+type Params = { id: string };
+type Ctx = { params: Params | Promise<Params> };
 
-  const allowed = ["APPROVED", "REJECTED", "DONE"];
-  if (!allowed.includes(status)) {
-    return NextResponse.json({ ok: false, error: "status가 잘못됨" }, { status: 400 });
+const ALLOWED = new Set(["REQUESTED", "APPROVED", "REJECTED", "DONE"]);
+
+export async function PATCH(req: NextRequest, ctx: Ctx) {
+  const admin = await requireAdmin();
+  if (admin instanceof NextResponse) return admin;
+
+  const p = await ctx.params; // ✅ Promise든 object든 OK
+  const id = p?.id;
+
+  if (!id) {
+    return NextResponse.json({ ok: false, message: "id 필요" }, { status: 400 });
   }
 
-  const updated = await prisma.order.update({
+  const body = await req.json().catch(() => ({}));
+  const status = String(body?.status ?? "").toUpperCase().trim();
+
+  if (!ALLOWED.has(status)) {
+    return NextResponse.json(
+      { ok: false, message: "status는 REQUESTED/APPROVED/REJECTED/DONE만" },
+      { status: 400 }
+    );
+  }
+
+  const order = await prisma.order.update({
     where: { id },
     data: { status: status as any },
   });
 
-  return NextResponse.json({ ok: true, order: updated });
+  return NextResponse.json({ ok: true, order });
 }

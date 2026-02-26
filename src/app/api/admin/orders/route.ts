@@ -1,86 +1,52 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/session";
+import { requireAdmin } from "@/lib/session";
+import { OrderStatus } from "@prisma/client";
 
-// ✅ 관리자 체크
-function isAdmin(role: any) {
-  return String(role ?? "").toUpperCase() === "ADMIN";
+export const runtime = "nodejs";
+
+function asOrderStatus(v: any): OrderStatus | null {
+  const s = String(v ?? "").toUpperCase();
+  if (s === "REQUESTED") return OrderStatus.REQUESTED;
+  if (s === "APPROVED") return OrderStatus.APPROVED;
+  if (s === "REJECTED") return OrderStatus.REJECTED;
+  if (s === "DONE") return OrderStatus.DONE;
+  return null;
 }
 
-async function requireAdmin(req: Request) {
-  const user = await getSessionUser(req as any);
-  if (!user || !isAdmin(user.role)) return null;
-  return user;
-}
-
-// ✅ GET: 관리자 주문 조회(필요하면 기존 그대로 쓰면 됨)
-export async function GET(req: Request) {
-  const admin = await requireAdmin(req);
-  if (!admin) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-
-  const { searchParams } = new URL(req.url);
-  const status = searchParams.get("status") || "REQUESTED";
-  const from = searchParams.get("from");
-  const to = searchParams.get("to");
-  const q = (searchParams.get("q") || "").trim();
-
-  const where: any = { status };
-
-  if (from && to) {
-    const start = new Date(from + "T00:00:00");
-    const end = new Date(to + "T23:59:59");
-    where.createdAt = { gte: start, lte: end };
-  }
-
-  if (q) {
-    where.OR = [
-      { receiverName: { contains: q } },
-      { receiverAddr: { contains: q } },
-      { phone: { contains: q } },
-      { mobile: { contains: q } },
-      { note: { contains: q } },
-      { message: { contains: q } },
-      { client: { name: { contains: q } } },
-      { item: { name: { contains: q } } },
-      { user: { name: { contains: q } } },
-      { user: { phone: { contains: q } } },
-    ];
-  }
+// ✅ GET: 관리자 주문 목록
+export async function GET() {
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ ok: false }, { status: 401 });
 
   const orders = await prisma.order.findMany({
-    where,
     orderBy: { createdAt: "desc" },
     include: {
-      item: true,
-      user: true,
-      client: true,
+      user: { select: { name: true, phone: true } },
+      item: { select: { name: true } },
+      client: { select: { id: true, name: true } },
     },
   });
 
-  return NextResponse.json({ orders });
+  return NextResponse.json({ ok: true, orders });
 }
 
-// ✅ PATCH: 승인/거절 상태 변경 (이게 없어서 405 난 거야)
-export async function PATCH(req: Request) {
-  const admin = await requireAdmin(req);
-  if (!admin) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+// ✅ PATCH: 상태 변경 (승인/거절/출고완료)
+export async function PATCH(req: NextRequest) {
+  const admin = await requireAdmin();
+  if (!admin) return NextResponse.json({ ok: false }, { status: 401 });
 
-  const body = await req.json().catch(() => null);
+  const body = await req.json().catch(() => ({}));
+  const id = String(body?.id ?? "");
+  const next = asOrderStatus(body?.status);
 
-  const id = String(body?.id ?? body?.orderId ?? "").trim();
-  const status = String(body?.status ?? "").trim().toUpperCase();
+  if (!id) return NextResponse.json({ ok: false, error: "missing id" }, { status: 400 });
+  if (!next)
+    return NextResponse.json({ ok: false, error: "invalid status" }, { status: 400 });
 
-  if (!id) {
-    return NextResponse.json({ message: "id required" }, { status: 400 });
-  }
-  if (!["APPROVED", "REJECTED", "DONE", "REQUESTED"].includes(status)) {
-    return NextResponse.json({ message: "invalid status" }, { status: 400 });
-  }
-
-  // ✅ 상태 업데이트
   const updated = await prisma.order.update({
     where: { id },
-    data: { status },
+    data: { status: next }, // ✅ enum으로 확정
   });
 
   return NextResponse.json({ ok: true, order: updated });

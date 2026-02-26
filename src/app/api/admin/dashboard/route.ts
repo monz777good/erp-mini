@@ -1,34 +1,26 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
+
+export const runtime = "nodejs";
 
 function isAdmin(role: any) {
   return String(role ?? "").toUpperCase() === "ADMIN";
 }
 
-async function requireAdmin(req: Request) {
-  const user = await getSessionUser(req as any);
-  if (!user || !isAdmin((user as any).role)) return null;
+async function requireAdmin() {
+  const user = await getSessionUser(); // ✅ 인자 없음
+  if (!user || !isAdmin(user.role)) return null;
   return user;
 }
 
-export async function GET(req: Request) {
-  const admin = await requireAdmin(req);
+export async function GET() {
+  const admin = await requireAdmin();
   if (!admin) {
-    return NextResponse.json({ ok: false, message: "UNAUTHORIZED" }, { status: 401 });
+    return NextResponse.json({ ok: false, message: "권한 없음" }, { status: 403 });
   }
-
-  // ✅ status 문자열은 무조건 대문자로 집계 (REQUESTED/APPROVED/REJECTED/DONE)
-  const [requested, approved, rejected, done, total] = await Promise.all([
-    prisma.order.count({ where: { status: "REQUESTED" } }),
-    prisma.order.count({ where: { status: "APPROVED" } }),
-    prisma.order.count({ where: { status: "REJECTED" } }),
-    prisma.order.count({ where: { status: "DONE" } }),
-    prisma.order.count({}),
-  ]);
 
   return NextResponse.json({
     ok: true,
-    counts: { total, requested, approved, rejected, done },
+    user: admin,
   });
 }

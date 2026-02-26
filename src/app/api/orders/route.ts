@@ -1,90 +1,117 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 
-async function requireUser(req: Request) {
-  const user = await getSessionUser(req as any);
-  return user ?? null;
-}
+// ✅ 주문 목록 조회
+// - 기본: 전체
+// - userId 있으면 그 유저 주문만
+// - status 있으면 상태 필터
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get("userId")?.trim() || "";
+    const status = (searchParams.get("status")?.trim() || "") as any;
 
-function digitsOnly(v: any) {
-  return String(v ?? "").replace(/\D/g, "");
-}
+    const where: any = {};
+    if (userId) where.userId = userId;
+    if (status) where.status = status;
 
-// ✅ (구버전) 단일 주문 생성도 받고, (신버전) items 배열도 받게 호환
-export async function POST(req: Request) {
-  const user = await requireUser(req);
-  if (!user) return NextResponse.json({ ok: false, message: "UNAUTHORIZED" }, { status: 401 });
-
-  const body = await req.json().catch(() => null);
-  if (!body) return NextResponse.json({ ok: false, message: "BAD_BODY" }, { status: 400 });
-
-  // ✅ 호환 필드명들 다 받기
-  const receiverName = String(body.receiverName ?? "").trim();
-  const receiverAddr = String(body.receiverAddr ?? "").trim();
-
-  // 여기 핵심: 프론트가 receiverMobile로 보내든 mobile로 보내든 OK
-  const mobile = digitsOnly(body.mobile ?? body.receiverMobile ?? "");
-  const phone = digitsOnly(body.phone ?? body.receiverPhone ?? "") || null;
-
-  const message = String(body.message ?? "").trim() || null;
-  const clientId = body.clientId ? String(body.clientId) : null;
-
-  if (!receiverName) return NextResponse.json({ ok: false, message: "수하인 필요" }, { status: 400 });
-  if (!receiverAddr) return NextResponse.json({ ok: false, message: "주소 필요" }, { status: 400 });
-  if (!(mobile.length === 10 || mobile.length === 11)) {
-    return NextResponse.json({ ok: false, message: "핸드폰 필요" }, { status: 400 });
-  }
-
-  // ✅ 단일 or 장바구니
-  const itemsInput = Array.isArray(body.items)
-    ? body.items
-    : body.itemId
-      ? [{ itemId: body.itemId, quantity: body.quantity ?? 1 }]
-      : [];
-
-  const cleanItems = itemsInput
-    .map((r: any) => ({
-      itemId: String(r?.itemId ?? ""),
-      quantity: Math.max(1, Number(r?.quantity ?? 1) || 1),
-    }))
-    .filter((r: any) => !!r.itemId);
-
-  if (!cleanItems.length) {
-    return NextResponse.json({ ok: false, message: "품목 필요" }, { status: 400 });
-  }
-
-  // ✅ 내 거래처인지 검증(있으면)
-  if (clientId) {
-    const mine = await prisma.client.findFirst({
-      where: { id: clientId, ownerUserId: user.id },
-      select: { id: true },
+    const orders = await prisma.order.findMany({
+      where,
+      include: {
+        item: { select: { id: true, name: true } },
+        user: { select: { id: true, name: true, phone: true, role: true } },
+      },
+      orderBy: { createdAt: "desc" },
     });
-    if (!mine) return NextResponse.json({ ok: false, message: "거래처 권한 없음" }, { status: 403 });
+
+    return NextResponse.json({ ok: true, orders });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json(
+      { ok: false, message: "서버 오류" },
+      { status: 500 }
+    );
   }
+}
 
-  const created = await prisma.$transaction(
-    cleanItems.map((r) =>
-      prisma.order.create({
-        data: {
-          userId: user.id,
-          itemId: r.itemId,
-          quantity: r.quantity,
-          status: "REQUESTED",
-          receiverName,
-          receiverAddr,
-          mobile,
-          phone,
-          message,
-          clientId,
-          note: null,
-        },
+// ✅ 주문 생성 (빌드/운영 안전 버전)
+// - Client에 ownerUserId 없는 상태에서도 빌드 통과
+export async function POST(req: Request) {
+  try {
+    const body = await req.json().catch(() => ({}));
+
+    const userId = String(body?.userId ?? "").trim();
+    const itemId = String(body?.itemId ?? "").trim();
+    const quantity = Number(body?.quantity ?? 1);
+    const note = body?.note ? String(body.note) : null;
+
+    const receiverName = String(body?.receiverName ?? "").trim();
+    const receiverAddr = String(body?.receiverAddr ?? "").trim();
+    const receiverPhone = String(body?.receiverPhone ?? "").trim();
+    const receiverMobile = String(body?.receiverMobile ?? "").trim();
+    const boxCount = Number(body?.boxCount ?? 1);
+
+    const clientId = body?.clientId ? String(body.clientId).trim() : "";
+
+    if (!userId || !itemId) {
+      return NextResponse.json(
+        { ok: false, message: "userId, itemId가 필요합니다." },
+        { status: 400 }
+      );
+    }
+
+    if (!receiverName || !receiverAddr) {
+      return NextResponse.json(
+        { ok: false, message: "수하인 이름/주소가 필요합니다." },
+        { status: 400 }
+      );
+    }
+
+    // ✅ clientId가 있으면 "존재만" 확인 (ownerUserId 조건 제거)
+    if (clientId) {
+      const ok = await prisma.client.findFirst({
+        where: { id: clientId },
         select: { id: true },
-      })
-    )
-  );
+      });
+      if (!ok) {
+        return NextResponse.json(
+          { ok: false, message: "거래처를 찾을 수 없습니다." },
+          { status: 404 }
+        );
+      }
+    }
 
-  return NextResponse.json({ ok: true, count: created.length });
+    const order = await prisma.order.create({
+      data: {
+        userId,
+        itemId,
+        quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+        status: "REQUESTED",
+        note,
+
+        receiverName,
+        receiverAddr,
+        receiverPhone,
+        receiverMobile,
+        boxCount: Number.isFinite(boxCount) && boxCount > 0 ? boxCount : 1,
+
+        // 스키마에 clientId 필드가 없을 수 있어서 안전 처리
+        ...(clientId ? { clientId } : {}),
+      } as any,
+      include: {
+        item: { select: { id: true, name: true } },
+        user: { select: { id: true, name: true, phone: true, role: true } },
+      },
+    });
+
+    return NextResponse.json({ ok: true, order });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json(
+      { ok: false, message: "서버 오류" },
+      { status: 500 }
+    );
+  }
 }

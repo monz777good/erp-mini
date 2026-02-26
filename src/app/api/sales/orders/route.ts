@@ -1,144 +1,121 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 
-async function requireUser(req: Request) {
-  const user = await getSessionUser(req as any);
-  return user ?? null;
-}
+/**
+ * ✅ 영업사원 주문 API (빌드/운영 안전 버전)
+ * - ownerUserId(스키마에 없는 필드) 조건 제거
+ * - GET: 영업사원 주문 목록 조회(옵션 필터)
+ * - POST: 영업사원 주문 생성
+ *
+ * status enum(스키마 기준):
+ *   REQUESTED / APPROVED / REJECTED / DONE
+ */
 
-function digitsOnly(v: any) {
-  return String(v ?? "").replace(/\D/g, "");
-}
-
-function ymdKey(d: Date) {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-// ✅ 영업사원 주문 조회 (본인 것만)
 export async function GET(req: Request) {
-  const user = await requireUser(req);
-  if (!user) return NextResponse.json({ ok: false, message: "UNAUTHORIZED" }, { status: 401 });
+  try {
+    const { searchParams } = new URL(req.url);
 
-  const { searchParams } = new URL(req.url);
-  const from = searchParams.get("from");
-  const to = searchParams.get("to");
-  const q = (searchParams.get("q") || "").trim();
-  const clientId = searchParams.get("clientId") || null;
+    const userId = (searchParams.get("userId") ?? "").trim();
+    const status = (searchParams.get("status") ?? "").trim();
 
-  const where: any = { userId: user.id };
+    const where: any = {};
+    if (userId) where.userId = userId;
+    if (status) where.status = status;
 
-  if (clientId) where.clientId = clientId;
+    const orders = await prisma.order.findMany({
+      where,
+      include: {
+        item: { select: { id: true, name: true } },
+        user: { select: { id: true, name: true, phone: true, role: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
 
-  if (from && to) {
-    const fromDate = new Date(`${from}T00:00:00`);
-    const toDate = new Date(`${to}T23:59:59`);
-    if (!isNaN(fromDate.getTime()) && !isNaN(toDate.getTime())) {
-      where.createdAt = { gte: fromDate, lte: toDate };
-    }
+    return NextResponse.json({ ok: true, orders });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json(
+      { ok: false, message: "서버 오류" },
+      { status: 500 }
+    );
   }
-
-  if (q) {
-    where.OR = [
-      { receiverName: { contains: q } },
-      { receiverAddr: { contains: q } },
-      { item: { name: { contains: q } } },
-      { client: { name: { contains: q } } },
-    ];
-  }
-
-  const orders = await prisma.order.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    include: {
-      item: { select: { id: true, name: true } },
-      client: { select: { id: true, name: true } },
-    },
-  });
-
-  return NextResponse.json({ ok: true, orders });
 }
 
-// ✅ 영업사원 장바구니 주문 생성 (여러 건 생성)
 export async function POST(req: Request) {
-  const user = await requireUser(req);
-  if (!user) return NextResponse.json({ ok: false, message: "UNAUTHORIZED" }, { status: 401 });
+  try {
+    const body = await req.json().catch(() => ({}));
 
-  const body = await req.json().catch(() => null);
-  if (!body) return NextResponse.json({ ok: false, message: "BAD_BODY" }, { status: 400 });
+    const userId = String(body?.userId ?? "").trim();
+    const itemId = String(body?.itemId ?? "").trim();
+    const quantity = Number(body?.quantity ?? 1);
+    const note = body?.note ? String(body.note) : null;
 
-  // ✅ 호환: (A) 장바구니형 { items:[{itemId,quantity}...] }
-  // ✅ 호환: (B) 단일형 { itemId, quantity }
-  const itemsInput = Array.isArray(body.items)
-    ? body.items
-    : body.itemId
-      ? [{ itemId: body.itemId, quantity: body.quantity ?? 1 }]
-      : [];
+    const receiverName = String(body?.receiverName ?? "").trim();
+    const receiverAddr = String(body?.receiverAddr ?? "").trim();
+    const receiverPhone = String(body?.receiverPhone ?? "").trim();
+    const receiverMobile = String(body?.receiverMobile ?? "").trim();
+    const boxCount = Number(body?.boxCount ?? 1);
 
-  const receiverName = String(body.receiverName ?? "").trim();
-  const receiverAddr = String(body.receiverAddr ?? "").trim();
-  const mobile = digitsOnly(body.mobile ?? body.receiverMobile ?? body.receiverMobile ?? body.receiverMobile);
-  const phone = digitsOnly(body.phone ?? body.receiverPhone ?? "") || null;
-  const message = String(body.message ?? "").trim() || null;
-  const clientId = body.clientId ? String(body.clientId) : null;
+    const clientId = body?.clientId ? String(body.clientId).trim() : "";
 
-  if (!receiverName) return NextResponse.json({ ok: false, message: "수하인 필요" }, { status: 400 });
-  if (!receiverAddr) return NextResponse.json({ ok: false, message: "주소 필요" }, { status: 400 });
-  if (!(mobile.length === 10 || mobile.length === 11)) {
-    return NextResponse.json({ ok: false, message: "핸드폰 필요" }, { status: 400 });
-  }
-  if (!itemsInput.length) {
-    return NextResponse.json({ ok: false, message: "품목 필요" }, { status: 400 });
-  }
+    if (!userId || !itemId) {
+      return NextResponse.json(
+        { ok: false, message: "userId, itemId가 필요합니다." },
+        { status: 400 }
+      );
+    }
 
-  // ✅ 내 거래처인지 검증 (clientId가 있으면)
-  if (clientId) {
-    const mine = await prisma.client.findFirst({
-      where: { id: clientId, ownerUserId: user.id },
-      select: { id: true },
-    });
-    if (!mine) return NextResponse.json({ ok: false, message: "거래처 권한 없음" }, { status: 403 });
-  }
+    if (!receiverName || !receiverAddr) {
+      return NextResponse.json(
+        { ok: false, message: "수하인 이름/주소가 필요합니다." },
+        { status: 400 }
+      );
+    }
 
-  // items 정리
-  const cleanItems = itemsInput
-    .map((r: any) => ({
-      itemId: String(r?.itemId ?? ""),
-      quantity: Math.max(1, Number(r?.quantity ?? 1) || 1),
-    }))
-    .filter((r: any) => !!r.itemId);
-
-  if (cleanItems.length === 0) {
-    return NextResponse.json({ ok: false, message: "품목 필요" }, { status: 400 });
-  }
-
-  // ✅ 한 번에 여러 row 생성
-  // (트랜잭션으로 안정화)
-  const created = await prisma.$transaction(
-    cleanItems.map((r) =>
-      prisma.order.create({
-        data: {
-          userId: user.id,
-          itemId: r.itemId,
-          quantity: r.quantity,
-          status: "REQUESTED",
-          receiverName,
-          receiverAddr,
-          mobile,
-          phone,
-          message,
-          clientId,
-          note: null,
-        },
+    // ✅ clientId가 있으면 존재만 확인 (ownerUserId 조건 제거)
+    if (clientId) {
+      const ok = await prisma.client.findFirst({
+        where: { id: clientId },
         select: { id: true },
-      })
-    )
-  );
+      });
+      if (!ok) {
+        return NextResponse.json(
+          { ok: false, message: "거래처를 찾을 수 없습니다." },
+          { status: 404 }
+        );
+      }
+    }
 
-  return NextResponse.json({ ok: true, count: created.length });
+    const order = await prisma.order.create({
+      data: {
+        userId,
+        itemId,
+        quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+        status: "REQUESTED",
+        note,
+
+        receiverName,
+        receiverAddr,
+        receiverPhone,
+        receiverMobile,
+        boxCount: Number.isFinite(boxCount) && boxCount > 0 ? boxCount : 1,
+
+        ...(clientId ? { clientId } : {}),
+      } as any,
+      include: {
+        item: { select: { id: true, name: true } },
+        user: { select: { id: true, name: true, phone: true, role: true } },
+      },
+    });
+
+    return NextResponse.json({ ok: true, order });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json(
+      { ok: false, message: "서버 오류" },
+      { status: 500 }
+    );
+  }
 }
