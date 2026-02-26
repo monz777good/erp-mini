@@ -2,11 +2,18 @@ import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const user = await getSessionUser();
   if (!user) {
-    return NextResponse.json({ ok: false, user: null }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, user: null },
+      { status: 401, headers: { "Cache-Control": "no-store" } }
+    );
   }
-  return NextResponse.json({ ok: true, user });
+  return NextResponse.json(
+    { ok: true, user },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }

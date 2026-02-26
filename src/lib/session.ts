@@ -72,29 +72,44 @@ function decodeSession(token: string): SessionUser | null {
 }
 
 /**
- * ✅ Next 최신(비동기 cookies) 대응
+ * ✅ 쿠키 옵션 (배포에서도 저장되게)
+ */
+export function getSessionCookieOptions() {
+  return {
+    httpOnly: true as const,
+    sameSite: "lax" as const,
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 30, // 30일
+  };
+}
+
+/**
+ * ✅ (추가) Route Handler에서 NextResponse.cookies.set으로 확실히 심기 위한 토큰 생성기
+ */
+export function createSessionToken(user: SessionUser) {
+  return encodeSession(user);
+}
+
+/**
+ * ✅ Next 최신 대응
  */
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const jar = await cookies();
+  const jar: any = await (cookies() as any); // next 버전차 대응
   const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
   return decodeSession(token);
 }
 
 export async function saveSessionUser(user: SessionUser) {
-  const jar = await cookies();
+  const jar: any = await (cookies() as any);
   const value = encodeSession(user);
 
-  jar.set(SESSION_COOKIE, value, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    secure: process.env.NODE_ENV === "production",
-  });
+  jar.set(SESSION_COOKIE, value, getSessionCookieOptions());
 }
 
 export async function clearSession() {
-  const jar = await cookies();
+  const jar: any = await (cookies() as any);
   jar.set(SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
@@ -105,13 +120,7 @@ export async function clearSession() {
 }
 
 /**
- * ✅ API Route에서 쓰는 가드 함수들 (기존 코드 호환용)
- * - requireUser(): 로그인 필요
- * - requireAdmin(): 관리자 필요
- *
- * 사용 예)
- * const user = await requireAdmin();
- * if (user instanceof NextResponse) return user;
+ * ✅ API Route에서 쓰는 가드 함수들
  */
 export async function requireUser(): Promise<SessionUser | NextResponse> {
   const user = await getSessionUser();

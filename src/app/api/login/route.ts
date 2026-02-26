@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { saveSessionUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 
@@ -32,11 +33,14 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ PIN 없이 일단 로그인 성공 처리 (빌드 통과용)
-    return NextResponse.json({
-      ok: true,
-      user,
+    // ✅ 핵심: 세션 쿠키 저장 (이게 있어야 /api/me OK + 관리자 권한 OK)
+    await saveSessionUser({
+      id: user.id,
+      name: user.name,
+      role: String(user.role),
     });
+
+    return NextResponse.json({ ok: true, user });
   } catch (err) {
     console.error(err);
     return NextResponse.json(

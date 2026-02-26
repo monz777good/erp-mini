@@ -17,7 +17,7 @@ type OrderRow = {
   message?: string | null;
 
   item: { id: string; name: string };
-  client?: { id: string; name: string } | null;
+  client?: { id: string; name: string; bizRegNo?: string | null } | null;
 
   user?: { name: string; phone: string } | null; // ✅ 영업사원
 };
@@ -48,7 +48,14 @@ export default function AdminOrdersPage() {
         `&q=${encodeURIComponent(q.trim())}`;
 
       const res = await fetch(url, { credentials: "include" });
-      const data = await res.json();
+
+      // ✅ 401/403면 권한 문제 메시지 노출(에러는 안 나게)
+      if (!res.ok) {
+        setOrders([]);
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
       setOrders(Array.isArray(data?.orders) ? data.orders : []);
     } finally {
       setLoading(false);
@@ -101,7 +108,6 @@ export default function AdminOrdersPage() {
         </button>
       </div>
 
-      {/* ✅ 유리효과 제거: 불투명 흰 배경 */}
       <div style={filterBox}>
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ fontWeight: 900 }}>기간</div>
@@ -112,7 +118,7 @@ export default function AdminOrdersPage() {
           <div style={{ fontWeight: 900, marginLeft: 6 }}>검색</div>
           <input
             style={{ ...input, width: 320, maxWidth: "100%" }}
-            placeholder="품목명/수하인/거래처/영업사원/전화 검색"
+            placeholder="품목명/수하인/거래처/요양기관번호/영업사원/전화 검색"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -143,13 +149,16 @@ export default function AdminOrdersPage() {
               <th style={th}>수량</th>
 
               <th style={th}>영업사원</th>
-              <th style={th}>영업사원 전화</th>
+              <th style={th}>전화번호</th>
 
               <th style={th}>수하인</th>
               <th style={th}>주소</th>
               <th style={th}>전화</th>
               <th style={th}>핸드폰</th>
+
               <th style={th}>거래처</th>
+              <th style={th}>요양기관번호</th>
+
               <th style={th}>비고</th>
               <th style={thCenter}>작업</th>
             </tr>
@@ -169,7 +178,10 @@ export default function AdminOrdersPage() {
                   <td style={td}>{o.receiverAddr}</td>
                   <td style={td}>{o.phone || ""}</td>
                   <td style={td}>{o.mobile || ""}</td>
+
                   <td style={td}>{o.client?.name || ""}</td>
+                  <td style={td}>{o.client?.bizRegNo || ""}</td>
+
                   <td style={td}>{o.note || ""}</td>
 
                   <td style={tdCenter}>
@@ -192,7 +204,7 @@ export default function AdminOrdersPage() {
 
             {!loading && orders.length === 0 && (
               <tr>
-                <td style={{ ...td, padding: 18 }} colSpan={11}>
+                <td style={{ ...td, padding: 18 }} colSpan={12}>
                   표시할 주문이 없습니다.
                 </td>
               </tr>
@@ -216,7 +228,7 @@ const wrap: React.CSSProperties = {
   maxWidth: 1100,
   margin: "28px auto",
   padding: "22px 22px 18px",
-  background: "rgba(255,255,255,0.97)", // ✅ 유리효과 제거
+  background: "rgba(255,255,255,0.97)",
   border: "1px solid var(--line)",
   borderRadius: 18,
   boxShadow: "0 16px 50px rgba(0,0,0,0.08)",
@@ -263,7 +275,7 @@ const filterBox: React.CSSProperties = {
   padding: 12,
   border: "1px solid var(--line)",
   borderRadius: 14,
-  background: "#fff", // ✅ 완전 불투명
+  background: "#fff",
 };
 
 const tableWrap: React.CSSProperties = {
@@ -271,7 +283,7 @@ const tableWrap: React.CSSProperties = {
   overflowX: "auto",
   borderRadius: 14,
   border: "1px solid var(--line)",
-  background: "#fff", // ✅ 테이블 영역도 불투명
+  background: "#fff",
 };
 
 const th: React.CSSProperties = {
