@@ -3,94 +3,75 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SALES
+  ADMIN
+}
+
+enum OrderStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  DONE
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  phone        String   @unique
-  role         String   @default("SALES")
-  loginPinHash String?
-  createdAt    DateTime @default(now())
+  id        String   @id @default(cuid())
+  name      String
+  phone     String   @unique
+  role      Role     @default(SALES)
+  createdAt DateTime @default(now())
 
-  orders  Order[]
-  clients Client[]
-  pins    DailyPin[]
+  orders    Order[]
 }
 
 model Item {
   id        String   @id @default(cuid())
   name      String   @unique
-  price     Int      @default(0)
-  packV     Int      @default(1)
-  stockV    Int      @default(0)
   createdAt DateTime @default(now())
 
   orders    Order[]
 }
 
 model Client {
-  id          String   @id @default(cuid())
-  name        String
-  ceoName     String?
-  bizNo       String?
-  addr        String?
-  tel         String?
-  bizCertPath String?
-  careNo      String?
-  email       String?
-  remark      String?
-  createdAt   DateTime @default(now())
+  id           String   @id @default(cuid())
+  name         String
+  bizRegNo     String?  @unique
+  receiverName String?
+  receiverAddr String?
+  receiverTel  String?
+  receiverMob  String?
+  memo         String?
+  createdAt    DateTime @default(now())
 
-  ownerUserId String
-  ownerUser   User     @relation(fields: [ownerUserId], references: [id])
-
-  orders      Order[]
-
-  @@index([ownerUserId])
-  @@unique([ownerUserId, name])
+  orders       Order[]
 }
 
 model Order {
-  id           String   @id @default(cuid())
-  quantity     Int
-  status       String   @default("REQUESTED")
-  note         String?
-  message      String?
-  createdAt    DateTime @default(now())
+  id          String      @id @default(cuid())
+  quantity    Int
+  status      OrderStatus @default(REQUESTED)
+  note        String?
+  createdAt   DateTime    @default(now())
 
-  userId       String
-  user         User     @relation(fields: [userId], references: [id])
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
 
-  itemId       String
-  item         Item     @relation(fields: [itemId], references: [id])
+  itemId      String
+  item        Item        @relation(fields: [itemId], references: [id])
+
+  clientId    String?
+  client      Client?     @relation(fields: [clientId], references: [id])
 
   receiverName String
   receiverAddr String
-  phone        String?
-  mobile       String?
-
-  clientId     String?
-  client       Client?  @relation(fields: [clientId], references: [id])
-
-  @@index([userId])
-  @@index([clientId])
-  @@index([status])
-}
-
-model DailyPin {
-  id        String   @id @default(cuid())
-  userId    String
-  dateKey   String
-  pinHash   String
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@unique([userId, dateKey])
+  receiverTel  String?
+  receiverMob  String?
+  boxCount     Int        @default(1)
+  shippingFee  Int        @default(3850)
+  message      String?
 }

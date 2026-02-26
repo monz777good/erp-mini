@@ -1,35 +1,29 @@
-// src/lib/session-edge.ts
-import type { SessionUser } from "@/lib/session";
-import { SESSION_COOKIE } from "@/lib/session";
+// Edge runtime 전용 (Node crypto 금지) → WebCrypto 사용
+export const SESSION_COOKIE = "erp_session";
 
-function getSecret(): string {
-  const s = process.env.SESSION_PASSWORD;
-  if (!s) throw new Error("SESSION_PASSWORD is missing in .env");
-  return s;
-}
+export type SessionUser = {
+  id: string;
+  name: string;
+  role: "SALES" | "ADMIN";
+};
 
-function base64UrlToUint8Array(b64url: string) {
-  const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/");
-  const pad = b64.length % 4 === 0 ? "" : "=".repeat(4 - (b64.length % 4));
-  const binary = atob(b64 + pad);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+function b64urlToBytes(str: string) {
+  const pad = "=".repeat((4 - (str.length % 4)) % 4);
+  const b64 = (str + pad).replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return bytes;
 }
 
-function base64UrlToString(b64url: string) {
-  const bytes = base64UrlToUint8Array(b64url);
-  return new TextDecoder().decode(bytes);
+function bytesToB64url(bytes: ArrayBuffer) {
+  const arr = new Uint8Array(bytes);
+  let bin = "";
+  for (const b of arr) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-function toHex(buf: ArrayBuffer) {
-  const arr = new Uint8Array(buf);
-  let s = "";
-  for (let i = 0; i < arr.length; i++) s += arr[i].toString(16).padStart(2, "0");
-  return s;
-}
-
-async function hmacSha256Hex(secret: string, message: string) {
+async function hmacSha256(secret: string, msg: string) {
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
@@ -38,32 +32,37 @@ async function hmacSha256Hex(secret: string, message: string) {
     false,
     ["sign"]
   );
-  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(message));
-  return toHex(sig);
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(msg));
+  return bytesToB64url(sig);
 }
 
-export async function parseSessionTokenEdge(
-  token: string | undefined | null
-): Promise<SessionUser | null> {
+function getCookie(cookieHeader: string, name: string) {
+  const m = cookieHeader.match(new RegExp(`${name}=([^;]+)`));
+  return m?.[1] ?? null;
+}
+
+export async function getSessionUserEdge(req: Request): Promise<SessionUser | null> {
+  const secret = (process.env.SESSION_PASSWORD || "").trim();
+  if (!secret) return null;
+
+  const cookie = req.headers.get("cookie") || "";
+  const token = getCookie(cookie, SESSION_COOKIE);
   if (!token) return null;
 
-  const [b64, sig] = token.split(".");
-  if (!b64 || !sig) return null;
+  const [payloadB64, sig] = token.split(".");
+  if (!payloadB64 || !sig) return null;
+
+  const expected = await hmacSha256(secret, payloadB64);
+  if (sig !== expected) return null;
 
   try {
-    const expected = await hmacSha256Hex(getSecret(), b64);
-    if (expected !== sig) return null;
-
-    const json = base64UrlToString(b64);
-    const data = JSON.parse(json);
-
-    if (!data?.id || !data?.name || !data?.role) return null;
-    if (data.role !== "SALES" && data.role !== "ADMIN") return null;
-
-    return { id: data.id, name: data.name, role: data.role };
+    const json = new TextDecoder().decode(b64urlToBytes(payloadB64));
+    const parsed = JSON.parse(json);
+    const role = String(parsed.role).toUpperCase();
+    if (!parsed?.id || !parsed?.name) return null;
+    if (role !== "SALES" && role !== "ADMIN") return null;
+    return { id: String(parsed.id), name: String(parsed.name), role } as SessionUser;
   } catch {
     return null;
   }
 }
-
-export { SESSION_COOKIE };
