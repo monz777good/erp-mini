@@ -1,16 +1,14 @@
+// ✅ 경로: src/app/layout.tsx
 import "./globals.css";
-import type { Metadata, Viewport } from "next";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "ERP",
   description: "ERP Mini",
 };
 
-// ✅ 모바일 글씨/확대/레이아웃 난리 방지 핵심
-export const viewport: Viewport = {
+export const viewport = {
   width: "device-width",
   initialScale: 1,
-  viewportFit: "cover",
 };
 
 export default function RootLayout({

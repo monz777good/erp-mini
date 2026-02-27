@@ -1,10 +1,10 @@
+/* ✅ 경로: src/app/globals.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ✅ 기본 폰트/크기/렌더링 안정화 */
 :root {
-  color-scheme: light;
+  --bg: #0b1220;
 }
 
 html,
@@ -14,19 +14,13 @@ body {
 
 body {
   margin: 0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-    "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Apple SD Gothic Neo",
+    "Noto Sans KR", "Malgun Gothic", Segoe UI, Roboto, Helvetica, Arial,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  color: #111;
+  background: #f5f6f8;
 }
 
-/* ✅ 이미지/컨테이너 overflow 이상 방지 */
 * {
   box-sizing: border-box;
-}
-
-img {
-  max-width: 100%;
-  height: auto;
 }
