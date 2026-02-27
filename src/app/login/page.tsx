@@ -34,10 +34,8 @@ export default function LoginPage() {
         return;
       }
 
-      // 역할별 이동
-      if (role === "ADMIN") router.push("/admin/dashboard");
-      else router.push("/orders");
-    } catch (err) {
+      router.push(role === "ADMIN" ? "/admin/dashboard" : "/orders");
+    } catch {
       alert("로그인 오류");
     } finally {
       setLoading(false);
@@ -46,19 +44,15 @@ export default function LoginPage() {
 
   return (
     <>
-      {/* 배경 블러 오버레이 */}
       <div className="erp-bg-overlay" />
 
-      {/* ✅ 스크롤 완전 제거 + 중앙 정렬 */}
+      {/* ✅ 여기 때문에 삐져나오는거 방지됨 */}
       <div className="erp-page-center erp-no-scroll">
         <form onSubmit={onSubmit} className="erp-card">
           <h1 className="erp-title">ERP 로그인</h1>
-          <p className="erp-subtitle">
-            이름 / 전화번호 / PIN 입력 후 로그인
-          </p>
+          <p className="erp-subtitle">이름 / 전화번호 / PIN 입력 후 로그인</p>
 
           <div className="erp-form">
-            {/* 이름 */}
             <div>
               <div className="erp-label">이름</div>
               <input
@@ -66,11 +60,11 @@ export default function LoginPage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="홍길동"
+                autoComplete="name"
                 required
               />
             </div>
 
-            {/* 전화번호 */}
             <div>
               <div className="erp-label">전화번호</div>
               <input
@@ -79,11 +73,11 @@ export default function LoginPage() {
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="01012341234"
                 inputMode="tel"
+                autoComplete="tel"
                 required
               />
             </div>
 
-            {/* PIN */}
             <div>
               <div className="erp-label">PIN</div>
               <input
@@ -93,11 +87,11 @@ export default function LoginPage() {
                 onChange={(e) => setPin(e.target.value)}
                 placeholder="1111"
                 inputMode="numeric"
+                autoComplete="one-time-code"
                 required
               />
             </div>
 
-            {/* 옵션 */}
             <div className="erp-options">
               <div className="erp-radio-group">
                 <label>

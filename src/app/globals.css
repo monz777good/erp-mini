@@ -1,150 +1,184 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* src/app/globals.css */
 
-/* ===== 기본 리셋 ===== */
+/* ✅ 기본 리셋 + box-sizing */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body {
   margin: 0;
   padding: 0;
-  height: 100%;
+  width: 100%;
+  /* ✅ 모바일 주소창/하단바 대응 */
+  min-height: 100svh;
 }
 
-/* ===== 전역 배경 (여기만 바꾸면 전체 변경됨) ===== */
-:root {
-  --erp-bg: url("https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=2400&q=80");
-}
-
-/* ✅ 배경 적용 */
+/* ✅ 기본 폰트/렌더링 */
 body {
-  background-image: var(--erp-bg);
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #0b0f14;
 }
 
-/* ✅ 배경 위 오버레이 + 블러 */
+/* ✅ 로그인/전체 배경 (이미지 + 블러 + 딤) */
 .erp-bg-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(7px);
   z-index: -1;
+  background-image: url("https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=2400&q=80");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: scale(1.03);
+  filter: blur(10px);
 }
 
-/* ===== 공통 컨테이너 ===== */
+.erp-bg-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* 가독성용 딤 */
+  background: rgba(0, 0, 0, 0.35);
+}
+
+/* ✅ 로그인 화면: 스크롤 완전 차단 + 중앙정렬 */
+.erp-no-scroll {
+  height: 100svh;
+  overflow: hidden;
+}
+
 .erp-page-center {
-  min-height: 100vh;
+  width: 100%;
+  height: 100svh;
   display: grid;
   place-items: center;
-  padding: 24px 14px;
+  padding: 16px; /* ✅ 안전패딩(삐져나옴 방지) */
 }
 
-/* ===== 카드 ===== */
+/* ✅ 카드: 화면보다 커지면 자동 축소/내부 스크롤(극소형 기기 대비) */
 .erp-card {
-  width: 100%;
-  max-width: 540px;
-  background: rgba(255, 255, 255, 0.92);
+  width: min(680px, 92vw);
+  max-height: calc(100svh - 32px);
+  overflow: auto;
+
   border-radius: 18px;
-  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  padding: 28px 22px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+
+  padding: 22px;
 }
 
-/* 모바일에서 너무 커지지 않게 */
-@media (max-width: 420px) {
-  .erp-card {
-    padding: 22px 16px;
-    border-radius: 16px;
-  }
+/* 카드 안 스크롤바 예쁘게(필요시) */
+.erp-card::-webkit-scrollbar {
+  width: 10px;
+}
+.erp-card::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 999px;
+}
+.erp-card::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-/* ===== 제목/설명 ===== */
 .erp-title {
+  text-align: center;
+  margin: 4px 0 0;
   font-size: 34px;
   font-weight: 900;
-  text-align: center;
-  margin: 0 0 6px;
-  color: #111;
+  letter-spacing: -0.02em;
 }
 
 .erp-subtitle {
   text-align: center;
-  margin: 0 0 18px;
-  font-weight: 800;
-  color: rgba(20, 20, 20, 0.65);
-  font-size: 13px;
+  margin: 8px 0 18px;
+  font-size: 14px;
+  opacity: 0.75;
 }
 
-/* ===== 폼 ===== */
+/* 폼 */
 .erp-form {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .erp-label {
-  font-weight: 900;
-  color: #111;
-  font-size: 14px;
-  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 0 6px;
 }
 
 .erp-input {
   width: 100%;
-  height: 46px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.14);
+  height: 52px;
   padding: 0 14px;
-  font-size: 15px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
   outline: none;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 16px;
 }
 
 .erp-input:focus {
-  border-color: rgba(46, 125, 50, 0.75);
-  box-shadow: 0 0 0 4px rgba(46, 125, 50, 0.12);
+  border-color: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.08);
 }
 
-/* ===== 옵션 줄(라디오/자동로그인) ===== */
 .erp-options {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin-top: 6px;
 }
 
 .erp-radio-group {
   display: flex;
   align-items: center;
-  gap: 14px;
-  font-weight: 900;
-  color: #111;
+  gap: 12px;
+  font-weight: 800;
 }
 
 .erp-check {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 900;
-  color: #111;
+  font-weight: 800;
 }
 
-/* ===== 버튼 ===== */
+/* 버튼 */
 .erp-btn {
-  height: 52px;
-  border-radius: 14px;
-  border: none;
-  background: #8fb39a;
-  color: white;
-  font-weight: 900;
+  width: 100%;
+  height: 56px;
+  border: 0;
+  border-radius: 16px;
   font-size: 16px;
+  font-weight: 900;
   cursor: pointer;
-  margin-top: 8px;
+  background: #8fb39b;
+  color: white;
 }
 
 .erp-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.7;
   cursor: not-allowed;
+}
+
+/* ✅ 모바일에서 더 “꽉 차는” 현상 방지 */
+@media (max-width: 420px) {
+  .erp-card {
+    padding: 18px;
+  }
+  .erp-title {
+    font-size: 28px;
+  }
+  .erp-input {
+    height: 50px;
+  }
 }
