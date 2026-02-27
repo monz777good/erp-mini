@@ -1,198 +1,187 @@
-// ✅ 경로: src/app/login/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function LoginPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
-  const [role, setRole] = useState<"SALES" | "ADMIN">("SALES");
-  const [remember, setRemember] = useState(true);
+  const [role, setRole] = useState<"SALES" | "ADMIN">("ADMIN");
+  const [autoLogin, setAutoLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState("");
 
-  const canSubmit = useMemo(() => {
-    return name.trim().length > 0 && phone.trim().length >= 8 && pin.trim().length >= 4;
-  }, [name, phone, pin]);
+  // ✅ 자동로그인 값 불러오기
+  useEffect(() => {
+    const saved = localStorage.getItem("AUTO_LOGIN_INFO");
+    if (saved) {
+      const v = JSON.parse(saved);
+      setName(v.name ?? "");
+      setPhone(v.phone ?? "");
+      setPin(v.pin ?? "");
+      setRole(v.role ?? "ADMIN");
+      setAutoLogin(true);
+    }
+  }, []);
 
-  async function onLogin() {
-    setMsg("");
-    if (!canSubmit) {
-      setMsg("이름/전화번호/PIN을 확인해주세요.");
+  async function handleLogin() {
+    if (!name || !phone || !pin) {
+      alert("정보를 입력하세요");
       return;
     }
 
     setLoading(true);
-    try {
-      // ✅ 절대 풀 URL 쓰지 말고 상대경로로!
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include", // ✅ 쿠키 저장 핵심
-        body: JSON.stringify({
-          name: name.trim(),
-          phone: phone.trim(),
-          pin: pin.trim(),
-          role,
-          remember,
-        }),
-      });
 
-      const data = await res.json().catch(() => ({}));
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ name, phone, pin, role }),
+    });
 
-      if (!res.ok || !data?.ok) {
-        setMsg(data?.message || "로그인 실패");
-        return;
-      }
+    const data = await res.json();
+    setLoading(false);
 
-      // ✅ role에 따라 이동
-      const r = String(data?.user?.role || role).toUpperCase();
-      if (r === "ADMIN") {
-        window.location.href = "/admin/dashboard";
-      } else {
-        window.location.href = "/orders";
-      }
-    } catch (e: any) {
-      setMsg("네트워크 오류");
-    } finally {
-      setLoading(false);
+    if (!res.ok) {
+      alert(data.message || "로그인 실패");
+      return;
     }
+
+    // ✅ 자동로그인 저장
+    if (autoLogin) {
+      localStorage.setItem(
+        "AUTO_LOGIN_INFO",
+        JSON.stringify({ name, phone, pin, role })
+      );
+    } else {
+      localStorage.removeItem("AUTO_LOGIN_INFO");
+    }
+
+    // 이동
+    if (role === "ADMIN") location.href = "/admin/dashboard";
+    else location.href = "/orders";
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "grid",
-        placeItems: "center",
-        padding: 24,
-        backgroundImage:
-          "linear-gradient(rgba(10,15,25,.35), rgba(10,15,25,.35)), url('https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1920&q=80')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
-      <div
-        style={{
-          width: "min(520px, 92vw)",
-          background: "rgba(255,255,255,.92)",
-          borderRadius: 18,
-          padding: 26,
-          boxShadow: "0 18px 60px rgba(0,0,0,.25)",
-          border: "1px solid rgba(0,0,0,.08)",
-          backdropFilter: "blur(6px)",
-        }}
-      >
-        <div style={{ textAlign: "center", marginBottom: 16 }}>
-          <div style={{ fontSize: 28, fontWeight: 900 }}>ERP 로그인</div>
-          <div style={{ color: "#666", marginTop: 6 }}>
-            이름 / 전화번호 / PIN 입력 후 로그인
-          </div>
+    <div style={bg}>
+      <div style={card}>
+        <h2 style={{ marginBottom: 8 }}>ERP 로그인</h2>
+        <div style={{ marginBottom: 20, color: "#666" }}>
+          이름 / 전화번호 / PIN 입력 후 로그인
         </div>
 
-        <div style={{ display: "grid", gap: 12 }}>
-          <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontWeight: 700 }}>이름</span>
+        <label style={label}>이름</label>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="홍길동"
+          style={input}
+        />
+
+        <label style={label}>전화번호</label>
+        <input
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="01012341234"
+          style={input}
+        />
+
+        <label style={label}>PIN</label>
+        <input
+          type="password"
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          placeholder="1111"
+          style={input}
+        />
+
+        <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
+          <label>
             <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="예) 이현택"
-              style={inputStyle}
-            />
+              type="radio"
+              checked={role === "SALES"}
+              onChange={() => setRole("SALES")}
+            />{" "}
+            영업사원
           </label>
 
-          <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontWeight: 700 }}>전화번호</span>
+          <label>
             <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="예) 01023833691"
-              inputMode="tel"
-              style={inputStyle}
-            />
+              type="radio"
+              checked={role === "ADMIN"}
+              onChange={() => setRole("ADMIN")}
+            />{" "}
+            관리자
           </label>
 
-          <label style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontWeight: 700 }}>PIN</span>
+          <label style={{ marginLeft: "auto" }}>
             <input
-              value={pin}
-              onChange={(e) => setPin(e.target.value)}
-              placeholder="PIN 4자리 이상"
-              inputMode="numeric"
-              style={inputStyle}
-            />
+              type="checkbox"
+              checked={autoLogin}
+              onChange={(e) => setAutoLogin(e.target.checked)}
+            />{" "}
+            자동로그인
           </label>
-
-          <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="radio"
-                checked={role === "SALES"}
-                onChange={() => setRole("SALES")}
-              />
-              <span style={{ fontWeight: 800 }}>영업사원</span>
-            </label>
-
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="radio"
-                checked={role === "ADMIN"}
-                onChange={() => setRole("ADMIN")}
-              />
-              <span style={{ fontWeight: 800 }}>관리자</span>
-            </label>
-
-            <span style={{ flex: 1 }} />
-
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
-              />
-              <span style={{ fontWeight: 800 }}>자동로그인</span>
-            </label>
-          </div>
-
-          {msg ? (
-            <div style={{ color: "#d11", fontWeight: 800 }}>{msg}</div>
-          ) : (
-            <div style={{ height: 20 }} />
-          )}
-
-          <button
-            onClick={onLogin}
-            disabled={!canSubmit || loading}
-            style={{
-              width: "100%",
-              height: 52,
-              borderRadius: 12,
-              border: "none",
-              cursor: !canSubmit || loading ? "not-allowed" : "pointer",
-              background: !canSubmit || loading ? "#9bb79a" : "#1f7a3a",
-              color: "white",
-              fontWeight: 900,
-              fontSize: 18,
-            }}
-          >
-            {loading ? "로그인 중..." : "로그인"}
-          </button>
-
-          {/* ✅ 확인 문구는 이제 필요없으면 지워도 됨 */}
-          {/* <div style={{ marginTop: 8, fontWeight: 900 }}>AUTOLOGIN_BUILD_OK</div> */}
         </div>
+
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          style={btn}
+        >
+          {loading ? "로그인 중..." : "로그인"}
+        </button>
       </div>
     </div>
   );
 }
 
-const inputStyle: React.CSSProperties = {
-  height: 46,
+/* ================= 스타일 ================= */
+
+const bg: React.CSSProperties = {
+  minHeight: "100vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  backgroundImage:
+    "url(https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=2070)",
+  backgroundSize: "cover",
+  backgroundPosition: "center",
+};
+
+const card: React.CSSProperties = {
+  width: 420,
+  padding: 32,
+  borderRadius: 16,
+  background: "rgba(255,255,255,0.92)",
+  backdropFilter: "blur(10px)",
+  boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+};
+
+const label: React.CSSProperties = {
+  fontSize: 14,
+  fontWeight: 600,
+  marginTop: 12,
+  display: "block",
+};
+
+const input: React.CSSProperties = {
+  width: "100%",
+  padding: "12px 14px",
+  borderRadius: 10,
+  border: "1px solid #ddd",
+  marginTop: 6,
+  fontSize: 14,
+};
+
+const btn: React.CSSProperties = {
+  width: "100%",
+  marginTop: 20,
+  padding: 14,
   borderRadius: 12,
-  border: "1px solid rgba(0,0,0,.18)",
-  padding: "0 14px",
-  outline: "none",
+  border: "none",
+  background: "#2e7d32",
+  color: "white",
   fontSize: 16,
-  background: "white",
+  fontWeight: 700,
+  cursor: "pointer",
 };
