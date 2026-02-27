@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type Counts = {
+type Stats = {
   total: number;
   requested: number;
   approved: number;
@@ -10,91 +10,117 @@ type Counts = {
   done: number;
 };
 
+const cardStyle: React.CSSProperties = {
+  background: "rgba(255,255,255,0.92)",
+  borderRadius: 18,
+  padding: 18,
+  minHeight: 92,
+  boxShadow: "0 18px 55px rgba(0,0,0,0.22)",
+  border: "1px solid rgba(255,255,255,0.65)",
+};
+
 export default function AdminDashboardPage() {
-  const [counts, setCounts] = useState<Counts>({
+  const [stats, setStats] = useState<Stats>({
     total: 0,
     requested: 0,
     approved: 0,
     rejected: 0,
     done: 0,
   });
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
 
-  async function load() {
-    setLoading(true);
-    setErr(null);
+  async function refresh() {
     try {
-      const res = await fetch("/api/admin/dashboard", { credentials: "include", cache: "no-store" });
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setErr(data?.message ?? `대시보드 불러오기 실패 (${res.status})`);
-        return;
+      const res = await fetch("/api/admin/stats", { credentials: "include" });
+      const data = await res.json();
+      if (res.ok) {
+        setStats({
+          total: Number(data?.total ?? 0),
+          requested: Number(data?.requested ?? 0),
+          approved: Number(data?.approved ?? 0),
+          rejected: Number(data?.rejected ?? 0),
+          done: Number(data?.done ?? 0),
+        });
       }
-      setCounts(data.counts ?? counts);
-    } catch {
-      setErr("네트워크 오류");
-    } finally {
-      setLoading(false);
-    }
+    } catch {}
   }
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    refresh();
   }, []);
 
   return (
-    <div style={{ maxWidth: 1100, margin: "22px auto", padding: "0 16px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 1000, margin: 0 }}>관리자 대시보드</h1>
-        <div style={{ flex: 1 }} />
-        <button onClick={load} style={btnPrimary} disabled={loading}>
-          {loading ? "불러오는 중..." : "새로고침"}
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div>
+          {/* ✅ 검은글자 흰테두리 */}
+          <div className="erp-outline" style={{ fontSize: 34, marginBottom: 6 }}>
+            관리자 대시보드
+          </div>
+          <div className="erp-outline-sub" style={{ fontSize: 14 }}>
+            관리자 전용 화면입니다. (주문/품목/거래처/사업자등록증/재고관리)
+          </div>
+        </div>
+
+        <button
+          onClick={refresh}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 14,
+            border: "1px solid rgba(255,255,255,0.2)",
+            background: "rgba(0,0,0,0.35)",
+            color: "white",
+            fontWeight: 900,
+            cursor: "pointer",
+          }}
+        >
+          새로고침
         </button>
       </div>
 
-      {err && (
-        <div style={{ marginBottom: 12, color: "crimson", fontWeight: 900 }}>
-          {err}
-        </div>
-      )}
+      <div style={{ height: 14 }} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10 }}>
-        <Card title="전체" value={counts.total} />
-        <Card title="대기" value={counts.requested} />
-        <Card title="승인" value={counts.approved} />
-        <Card title="거절" value={counts.rejected} />
-        <Card title="출고완료" value={counts.done} />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+          gap: 14,
+        }}
+      >
+        <div style={cardStyle}>
+          <div className="erp-outline" style={{ fontSize: 16, marginBottom: 4 }}>
+            전체
+          </div>
+          <div style={{ fontSize: 34, fontWeight: 900 }}>{stats.total}</div>
+        </div>
+
+        <div style={cardStyle}>
+          <div className="erp-outline" style={{ fontSize: 16, marginBottom: 4 }}>
+            대기
+          </div>
+          <div style={{ fontSize: 34, fontWeight: 900 }}>{stats.requested}</div>
+        </div>
+
+        <div style={cardStyle}>
+          <div className="erp-outline" style={{ fontSize: 16, marginBottom: 4 }}>
+            승인
+          </div>
+          <div style={{ fontSize: 34, fontWeight: 900 }}>{stats.approved}</div>
+        </div>
+
+        <div style={cardStyle}>
+          <div className="erp-outline" style={{ fontSize: 16, marginBottom: 4 }}>
+            거절
+          </div>
+          <div style={{ fontSize: 34, fontWeight: 900 }}>{stats.rejected}</div>
+        </div>
+
+        <div style={cardStyle}>
+          <div className="erp-outline" style={{ fontSize: 16, marginBottom: 4 }}>
+            출고완료
+          </div>
+          <div style={{ fontSize: 34, fontWeight: 900 }}>{stats.done}</div>
+        </div>
       </div>
     </div>
   );
 }
-
-function Card({ title, value }: { title: string; value: number }) {
-  return (
-    <div style={card}>
-      <div style={{ fontWeight: 950, opacity: 0.75 }}>{title}</div>
-      <div style={{ fontSize: 28, fontWeight: 1000, marginTop: 6 }}>{Number(value ?? 0)}</div>
-    </div>
-  );
-}
-
-const card: React.CSSProperties = {
-  border: "1px solid #eee",
-  borderRadius: 16,
-  padding: 14,
-  background: "white",
-  boxShadow: "0 8px 26px rgba(0,0,0,0.04)",
-};
-
-const btnPrimary: React.CSSProperties = {
-  border: "1px solid #111",
-  background: "#111",
-  color: "white",
-  borderRadius: 12,
-  padding: "10px 14px",
-  fontWeight: 950,
-  cursor: "pointer",
-};

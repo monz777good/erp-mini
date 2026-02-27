@@ -2,97 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 기본 리셋 */
-html, body {
-  height: 100%;
-}
-body {
-  margin: 0;
-  padding: 0;
-}
-
-/* 전역 배경 (모든 페이지 공통) */
-:root{
-  --bg-url: url("https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=2400&q=80");
-  --bg-dim: 0.35;      /* ✅ 어둡게 덮는 정도 (0.25~0.40 추천) */
-  --bg-blur: 6px;      /* ✅ 배경만 블러 */
-}
-
-/* 배경 이미지 레이어 */
-body::before{
-  content:"";
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  background-image: var(--bg-url);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  transform: scale(1.05);
-  filter: blur(var(--bg-blur));
+/* =========================
+   글씨 흰색 테두리
+========================= */
+.erp-outline {
+  color: #111;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  text-shadow:
+    -1px -1px 0 rgba(255,255,255,0.95),
+     1px -1px 0 rgba(255,255,255,0.95),
+    -1px  1px 0 rgba(255,255,255,0.95),
+     1px  1px 0 rgba(255,255,255,0.95),
+     0px  6px 18px rgba(0,0,0,0.25);
 }
 
-/* 어두운 오버레이 레이어 (가독성용) */
-body::after{
-  content:"";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: rgba(0,0,0,var(--bg-dim));
-}
-
-/* 공통 컨테이너(카드) 느낌 */
-.erp-card {
-  background: rgba(255,255,255,0.92);
-  border: 1px solid rgba(255,255,255,0.55);
-  border-radius: 18px;
-  box-shadow: 0 18px 50px rgba(0,0,0,0.22);
-  backdrop-filter: blur(8px);
-}
-
-.erp-input {
-  width: 100%;
-  border-radius: 12px;
-  border: 1px solid rgba(0,0,0,0.12);
-  padding: 12px 14px;
-  outline: none;
+/* =========================
+   네비 공통
+========================= */
+.erp-topnav-light {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
 }
 
-.erp-input:focus{
-  border-color: rgba(22,163,74,0.55);
-  box-shadow: 0 0 0 4px rgba(22,163,74,0.15);
-}
-
-.erp-btn {
-  width: 100%;
-  border-radius: 12px;
-  padding: 12px 14px;
-  font-weight: 800;
-  background: rgb(22 163 74);
-  color: white;
-  border: none;
-}
-
-.erp-btn:disabled{
-  opacity: 0.45;
-}
-
-/* 상단 네비게이션(관리자/영업 공통) */
-.erp-topnav {
+.erp-topnav-dark {
   position: sticky;
   top: 0;
   z-index: 50;
   background: rgba(0,0,0,0.35);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255,255,255,0.15);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
-.erp-topnav a, .erp-topnav button, .erp-topnav span {
-  color: rgba(255,255,255,0.92);
+.erp-topnav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-/* 모바일 깨짐 방지 */
-* {
-  box-sizing: border-box;
+.erp-brand-title-light {
+  font-size: 18px;
+  font-weight: 900;
+  color: #111;
+}
+
+.erp-brand-title-dark {
+  font-size: 18px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 3px 12px rgba(0,0,0,0.6);
+}
+
+.erp-brand-sub {
+  font-size: 12px;
+  font-weight: 800;
+  opacity: 0.6;
+}
+
+.erp-nav {
+  display: flex;
+  gap: 10px;
+}
+
+.erp-pill {
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-weight: 900;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.erp-pill-light {
+  background: rgba(0,0,0,0.05);
+  color: rgba(0,0,0,0.75);
+}
+
+.erp-pill-light-active {
+  background: rgba(0,0,0,0.12);
+  color: #111;
+}
+
+.erp-pill-dark {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+}
+
+.erp-pill-dark-active {
+  background: rgba(255,255,255,0.35);
+}
+
+.erp-logout {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 900;
+  cursor: pointer;
+  border: none;
 }
