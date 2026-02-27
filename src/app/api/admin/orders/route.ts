@@ -15,6 +15,7 @@ function asOrderStatus(v: any): OrderStatus | null {
 }
 
 // ✅ GET: 관리자 주문 목록
+// 지원: ?status=REQUESTED|APPROVED|REJECTED|DONE
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
@@ -23,7 +24,6 @@ export async function GET(req: NextRequest) {
   const statusParam = searchParams.get("status")?.trim() || "";
   const status = asOrderStatus(statusParam);
 
-  // (from/to/q는 너가 기존에 쓰던 버전이 따로 있으면 나중에 합치자)
   const where: any = {};
   if (status) where.status = status;
 
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     include: {
       user: { select: { name: true, phone: true } },
       item: { select: { id: true, name: true } },
-      client: { select: { id: true, name: true, bizRegNo: true } }, // ✅ 요양기관번호용
+      client: { select: { id: true, name: true, bizRegNo: true } }, // ✅ 요양기관번호
     },
   });
 

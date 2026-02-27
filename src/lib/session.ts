@@ -1,151 +1,107 @@
+// ✅ 경로: src/lib/session.ts
 import crypto from "crypto";
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import type { NextResponse } from "next/server";
 
 export const SESSION_COOKIE = "erp_session";
 
 export type SessionUser = {
   id: string;
   name: string;
-  role: "SALES" | "ADMIN" | string;
+  role: string; // "ADMIN" | "SALES"
 };
 
 function getSecret() {
   const s = process.env.SESSION_PASSWORD;
-  if (!s) throw new Error("SESSION_PASSWORD is not set in .env");
+  if (!s) {
+    // Vercel 환경변수 안 들어오면 100% 여기서 터져야 원인 파악이 됨
+    throw new Error("SESSION_PASSWORD is missing (Vercel env not set).");
+  }
   return s;
 }
 
-function toBase64Url(buf: Buffer) {
-  return buf
+function base64url(input: Buffer | string) {
+  const b = Buffer.isBuffer(input) ? input : Buffer.from(input);
+  return b
     .toString("base64")
+    .replace(/=/g, "")
     .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
-}
-
-function fromBase64Url(str: string) {
-  const b64 = str.replace(/-/g, "+").replace(/_/g, "/");
-  const pad = b64.length % 4 ? "=".repeat(4 - (b64.length % 4)) : "";
-  return Buffer.from(b64 + pad, "base64");
+    .replace(/\//g, "_");
 }
 
 function sign(payloadB64: string) {
   const secret = getSecret();
-  return toBase64Url(
-    crypto.createHmac("sha256", secret).update(payloadB64).digest()
-  );
+  const sig = crypto.createHmac("sha256", secret).update(payloadB64).digest();
+  return base64url(sig);
 }
 
-function encodeSession(user: SessionUser) {
-  const payload = JSON.stringify({
-    id: user.id,
-    name: user.name,
-    role: user.role,
-    iat: Date.now(),
-  });
-
-  const payloadB64 = toBase64Url(Buffer.from(payload, "utf8"));
-  const sig = sign(payloadB64);
-  return `${payloadB64}.${sig}`;
+function makeToken(user: SessionUser) {
+  const payload = base64url(JSON.stringify(user));
+  const sig = sign(payload);
+  return `${payload}.${sig}`;
 }
 
-function decodeSession(token: string): SessionUser | null {
+function verifyToken(token: string): SessionUser | null {
+  const [payload, sig] = token.split(".");
+  if (!payload || !sig) return null;
+
+  const expected = sign(payload);
+  // timingSafeEqual 사용(길이 다르면 에러나서 방어)
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return null;
+  if (!crypto.timingSafeEqual(a, b)) return null;
+
   try {
-    const [payloadB64, sig] = token.split(".");
-    if (!payloadB64 || !sig) return null;
-
-    const expected = sign(payloadB64);
-    if (expected !== sig) return null;
-
-    const payload = JSON.parse(fromBase64Url(payloadB64).toString("utf8"));
-    if (!payload?.id) return null;
-
-    return {
-      id: String(payload.id),
-      name: String(payload.name ?? ""),
-      role: String(payload.role ?? "SALES"),
-    };
+    const json = Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+    const data = JSON.parse(json);
+    if (!data?.id || !data?.name || !data?.role) return null;
+    return { id: String(data.id), name: String(data.name), role: String(data.role) };
   } catch {
     return null;
   }
 }
 
-/**
- * ✅ 쿠키 옵션 (배포에서도 저장되게)
- */
-export function getSessionCookieOptions() {
-  return {
-    httpOnly: true as const,
-    sameSite: "lax" as const,
-    path: "/",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 30, // 30일
-  };
+function readCookieFromReq(req: Request, name: string) {
+  const raw = req.headers.get("cookie") || "";
+  const parts = raw.split(";").map((v) => v.trim());
+  for (const p of parts) {
+    const idx = p.indexOf("=");
+    if (idx < 0) continue;
+    const k = p.slice(0, idx).trim();
+    const v = p.slice(idx + 1).trim();
+    if (k === name) return decodeURIComponent(v);
+  }
+  return null;
 }
 
 /**
- * ✅ (추가) Route Handler에서 NextResponse.cookies.set으로 확실히 심기 위한 토큰 생성기
+ * ✅ Route Handler에서 "반드시" 이렇게 써야 쿠키가 브라우저에 심긴다.
+ * res.cookies.set(...) 으로 Response에 붙여서 내보내는 방식.
  */
-export function createSessionToken(user: SessionUser) {
-  return encodeSession(user);
-}
+export function setSessionUser(res: NextResponse, user: SessionUser) {
+  const token = makeToken(user);
 
-/**
- * ✅ Next 최신 대응
- */
-export async function getSessionUser(): Promise<SessionUser | null> {
-  const jar: any = await (cookies() as any); // next 버전차 대응
-  const token = jar.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
-  return decodeSession(token);
-}
-
-export async function saveSessionUser(user: SessionUser) {
-  const jar: any = await (cookies() as any);
-  const value = encodeSession(user);
-
-  jar.set(SESSION_COOKIE, value, getSessionCookieOptions());
-}
-
-export async function clearSession() {
-  const jar: any = await (cookies() as any);
-  jar.set(SESSION_COOKIE, "", {
+  res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production", // vercel은 production이므로 secure=true
     path: "/",
-    maxAge: 0,
-    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 30, // 30일
   });
 }
 
-/**
- * ✅ API Route에서 쓰는 가드 함수들
- */
-export async function requireUser(): Promise<SessionUser | NextResponse> {
-  const user = await getSessionUser();
-  if (!user?.id) {
-    return NextResponse.json(
-      { ok: false, message: "UNAUTHORIZED" },
-      { status: 401 }
-    );
-  }
-  return user;
+export function clearSession(res: NextResponse) {
+  res.cookies.set(SESSION_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 0,
+  });
 }
 
-export async function requireAdmin(): Promise<SessionUser | NextResponse> {
-  const user = await getSessionUser();
-  if (!user?.id) {
-    return NextResponse.json(
-      { ok: false, message: "UNAUTHORIZED" },
-      { status: 401 }
-    );
-  }
-  if (String(user.role).toUpperCase() !== "ADMIN") {
-    return NextResponse.json(
-      { ok: false, message: "FORBIDDEN" },
-      { status: 403 }
-    );
-  }
-  return user;
+export function getSessionUser(req: Request): SessionUser | null {
+  const token = readCookieFromReq(req, SESSION_COOKIE);
+  if (!token) return null;
+  return verifyToken(token);
 }

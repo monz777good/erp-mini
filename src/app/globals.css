@@ -1,159 +1,32 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* ===== 브랜드 ===== */
-:root{
+/* ✅ 기본 폰트/크기/렌더링 안정화 */
+:root {
   color-scheme: light;
-  --brand: #2E7D32;
-  --brand-hover: #256628;
-  --text: #1B1F1B;
-  --line: rgba(20,60,25,0.22);
-
-  /* ✅ 카드/프레임 기본 배경(완전 불투명급) */
-  --card-bg: rgba(255,255,255,0.97);
 }
 
-/* =========================================================
-   전체 높이
-   ========================================================= */
-html, body{
+html,
+body {
   height: 100%;
 }
 
-html{
-  background-color: #f0f8f2;
-}
-
-body{
+body {
   margin: 0;
-  color: var(--text);
-  background: transparent;
-  position: relative;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+    "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* =========================================================
-   전체 배경 (산) - 고정 레이어
-   ========================================================= */
-body::before{
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-
-  background-image:
-    linear-gradient(rgba(240,248,242,0.25), rgba(240,248,242,0.25)),
-    url("/images/mountain-bg.jpg");
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+/* ✅ 이미지/컨테이너 overflow 이상 방지 */
+* {
+  box-sizing: border-box;
 }
 
-/* 실제 컨텐츠는 배경 위 */
-body > *{
-  position: relative;
-  z-index: 1;
-}
-
-/* =========================================================
-   입력창 가독성 강화
-   ========================================================= */
-input, select, textarea{
-  border: 2px solid var(--line) !important;
-  outline: none;
-  background: #fff;
-}
-
-input:focus, select:focus, textarea:focus{
-  border-color: rgba(46,125,50,0.70) !important;
-  box-shadow: 0 0 0 4px rgba(46,125,50,0.12);
-}
-
-/* =========================================================
-   로그인 버튼 강제 녹색
-   ========================================================= */
-button.erp-login-btn{
-  background: var(--brand) !important;
-  color: #fff !important;
-  border: 1px solid var(--brand) !important;
-  font-weight: 900;
-}
-button.erp-login-btn:hover{
-  background: var(--brand-hover) !important;
-  border-color: var(--brand-hover) !important;
-}
-
-/* =========================================================
-   테이블 기본
-   ========================================================= */
-table{ border-collapse: collapse; }
-th{
-  background: rgba(240,248,242,0.9);
-  font-weight: 800;
-}
-td, th{ padding: 10px; }
-
-/* =========================================================
-   스크롤
-   ========================================================= */
-html{ scroll-behavior: smooth; }
-
-/* =========================================================
-   ✅ 핵심: "카드/프레임/패널"만 완전 불투명 흰색으로 강제
-   - 버튼/링크/입력은 절대 건드리지 않음(글씨 날아가는거 방지)
-   ========================================================= */
-
-/* 1) Tailwind 유리효과(backdrop-blur) 제거 */
-*:not(button):not(a):not(input):not(select):not(textarea)[class*="backdrop-blur"]{
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  background: var(--card-bg) !important;
-  color: var(--text) !important;
-}
-
-/* 2) Tailwind 반투명 흰 배경(bg-white/xx) → 불투명 흰색 */
-*:not(button):not(a):not(input):not(select):not(textarea)[class*="bg-white/"],
-*:not(button):not(a):not(input):not(select):not(textarea)[class*="bg-white\\/"]{
-  background: var(--card-bg) !important;
-  color: var(--text) !important;
-}
-
-/* ❗중요: bg-black/xx는 건드리면 버튼 글씨(흰색) 죽으니까 절대 건드리지 않음 */
-
-/* 3) 인라인 style로 rgba(255,255,255,0.xx) 쓰는 박스들 → 불투명 */
-*:not(button):not(a):not(input):not(select):not(textarea)[style*="rgba(255,255,255,0."],
-*:not(button):not(a):not(input):not(select):not(textarea)[style*="rgba(255, 255, 255, 0."]{
-  background: var(--card-bg) !important;
-  color: var(--text) !important;
-}
-
-/* 4) 인라인 style로 background: transparent 인 프레임(큰 테두리 박스) → 불투명 */
-div[style*="border-radius"][style*="border: 1px solid"][style*="background: transparent"],
-div[style*="border-radius"][style*="border:1px solid"][style*="background: transparent"],
-div[style*="border-radius"][style*="border: 1px solid"][style*="background:transparent"],
-div[style*="border-radius"][style*="border:1px solid"][style*="background:transparent"]{
-  background: var(--card-bg) !important;
-  color: var(--text) !important;
-}
-
-/* 5) 프레임/카드 느낌(rounded + border/box-shadow) 공통 강화 */
-*:not(button):not(a):not(input):not(select):not(textarea)[style*="border-radius"][style*="box-shadow"],
-*:not(button):not(a):not(input):not(select):not(textarea)[style*="border-radius"][style*="border: 1px solid"],
-*:not(button):not(a):not(input):not(select):not(textarea)[style*="border-radius"][style*="border:1px solid"]{
-  background: var(--card-bg) !important;
-  color: var(--text) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* 6) 혹시 남아있는 blur/backdrop 인라인 제거 */
-*[style*="backdrop-filter"],
-*[style*="-webkit-backdrop-filter"],
-*[style*="blur("]{
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* 7) 카드 느낌 고급화(너무 과하면 값만 바꾸면 됨) */
-*:not(button):not(a):not(input):not(select):not(textarea)[style*="border-radius"]{
-  box-shadow: 0 14px 32px rgba(0,0,0,0.08);
+img {
+  max-width: 100%;
+  height: auto;
 }

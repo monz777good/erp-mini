@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "ERP Mini",
 };
 
-// ✅ 폰에서 화면 크게/삐져나오는 현상 방지
+// ✅ 모바일 글씨/확대/레이아웃 난리 방지 핵심
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -15,9 +15,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="ko">
       <body>{children}</body>
