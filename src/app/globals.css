@@ -1,9 +1,160 @@
-* {
-  box-sizing: border-box;
+/* ===== Reset / Base ===== */
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "Noto Sans KR", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", Arial, sans-serif;
+  color: #111;
+}
+
+/* ✅ 모바일 깨짐 방지 핵심
+   - viewport는 Next가 자동으로 잡아주지만
+   - 글씨 세로 깨짐/삐져나옴은 보통 width/padding/overflow 문제
+*/
+.app-bg {
+  min-height: 100vh;
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed; /* PC 예쁨 */
+}
+
+/* 모바일에서 fixed는 렉/버그 생길 수 있어 off */
+@media (max-width: 768px) {
+  .app-bg { background-attachment: scroll; }
+}
+
+/* 앱 전체 공통 배경 위 컨테이너 */
+.app-shell {
+  min-height: 100vh;
+  width: 100%;
+  padding: 24px 16px;
+}
+
+/* ===== 공통 카드 ===== */
+.card {
+  width: min(520px, 92vw);
+  margin: 0 auto;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  padding: 28px;
+}
+
+/* 모바일에서 카드 여백 최적화 */
+@media (max-width: 420px) {
+  .card { padding: 18px; border-radius: 14px; }
+}
+
+.h-title {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  text-align: center;
+}
+
+.h-sub {
+  margin: 0 0 18px 0;
+  text-align: center;
+  color: #555;
+  font-size: 14px;
+}
+
+/* ===== 폼 ===== */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid #d9d9d9;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 16px; /* ✅ iOS 자동 확대 방지(16px 이상) */
+  outline: none;
+  background: #fff;
+}
+
+.input:focus {
+  border-color: #2e7d32;
+  box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.18);
+}
+
+/* ===== 옵션 줄 ===== */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap; /* ✅ 모바일 줄바꿈 */
+  margin-top: 2px;
+}
+
+.row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.row .spacer {
+  flex: 1;
+}
+
+/* ===== 버튼 ===== */
+.btn {
+  width: 100%;
+  margin-top: 6px;
+  border: none;
+  border-radius: 12px;
+  padding: 14px 14px;
+  font-size: 16px;
+  font-weight: 900;
+  cursor: pointer;
+  background: #2e7d32;
+  color: #fff;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===== 로그인 페이지 전용 가운데 정렬 ===== */
+.center {
+  min-height: calc(100vh - 48px);
+  display: grid;
+  place-items: center;
+}
+
+/* ===== 상단바/페이지용 공통 래퍼 (로그인 외 페이지도 예쁘게) ===== */
+.page {
+  width: min(1100px, 96vw);
+  margin: 0 auto;
+}
+
+.page-card {
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(10px);
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  padding: 18px;
+}
+
+/* ✅ 테이블/긴 내용 삐져나오는 거 방지 */
+.page-card, .card {
+  overflow-x: auto;
 }
