@@ -1,45 +1,24 @@
+// ✅ 경로: src/app/api/auth/login/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { SESSION_COOKIE } from "@/lib/session";
-import crypto from "crypto";
+import { saveSessionUser } from "@/lib/session";
 
 export const runtime = "nodejs";
-
-function getSecret() {
-  const s = process.env.SESSION_PASSWORD;
-  if (!s) throw new Error("SESSION_PASSWORD is missing");
-  return s;
-}
-
-function base64url(buf: Buffer) {
-  return buf
-    .toString("base64")
-    .replace(/=/g, "")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_");
-}
-
-function makeToken(payloadObj: any) {
-  const payload = Buffer.from(JSON.stringify(payloadObj));
-  const payloadB64 = base64url(payload);
-  const sig = crypto.createHmac("sha256", getSecret()).update(payloadB64).digest();
-  const sigB64 = base64url(sig);
-  return `${payloadB64}.${sigB64}`;
-}
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
 
     const phone = String(body?.phone ?? "").trim();
-    const remember = !!body?.remember; // ✅ 자동로그인
+    const remember = !!body?.remember; // ✅ 자동로그인 체크박스에서 넘어오게
+
     if (!phone) {
       return NextResponse.json({ ok: false, message: "전화번호가 필요합니다." }, { status: 400 });
     }
 
     const user = await prisma.user.findUnique({
       where: { phone },
-      select: { id: true, name: true, role: true },
+      select: { id: true, name: true, phone: true, role: true },
     });
 
     if (!user) {
@@ -48,24 +27,16 @@ export async function POST(req: Request) {
 
     const res = NextResponse.json({ ok: true, user });
 
-    const token = makeToken({
-      id: user.id,
-      name: user.name,
-      role: String(user.role),
-    });
-
-    // ✅ remember면 30일 / 아니면 세션쿠키(브라우저 닫으면 만료)
-    res.cookies.set(SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      ...(remember ? { maxAge: 60 * 60 * 24 * 30 } : {}), // ✅ 핵심
-    });
+    // ✅ 쿠키 심기(핵심)
+    saveSessionUser(
+      res,
+      { id: user.id, name: user.name, role: String(user.role) },
+      { remember }
+    );
 
     return res;
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error(err);
     return NextResponse.json({ ok: false, message: "서버 오류" }, { status: 500 });
   }
 }

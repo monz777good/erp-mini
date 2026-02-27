@@ -8,46 +8,32 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const phone = String(body?.phone ?? "").trim();
+    const remember = !!body?.remember;
 
     if (!phone) {
-      return NextResponse.json(
-        { ok: false, message: "전화번호가 필요합니다." },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, message: "전화번호가 필요합니다." }, { status: 400 });
     }
 
     const user = await prisma.user.findUnique({
       where: { phone },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        role: true,
-      },
+      select: { id: true, name: true, role: true, phone: true },
     });
 
     if (!user) {
-      return NextResponse.json(
-        { ok: false, message: "등록되지 않은 사용자입니다." },
-        { status: 401 }
-      );
+      return NextResponse.json({ ok: false, message: "등록되지 않은 사용자입니다." }, { status: 401 });
     }
 
-    // ✅ 응답 객체를 먼저 만들고
-    const res = NextResponse.json({
-      ok: true,
-      user,
-    });
+    const res = NextResponse.json({ ok: true, user });
 
-    // ✅ 여기에 쿠키를 "확실하게" 박는다 (핵심)
-    await saveSessionUser(
+    saveSessionUser(
+      res,
       { id: user.id, name: user.name, role: String(user.role) },
-      res
+      { remember }
     );
 
     return res;
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
+    console.error(e);
     return NextResponse.json({ ok: false, message: "서버 오류" }, { status: 500 });
   }
 }
