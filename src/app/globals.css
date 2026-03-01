@@ -1,269 +1,81 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root{
-  --bg0:#05070c;
-  --bg1:#0b1220;
-  --bg2:#111827;
-
-  --text:#0f172a;
-  --muted:#475569;
-  --line:rgba(15,23,42,.10);
-
-  --shadow: 0 22px 60px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.22);
-  --shadow2: 0 14px 34px rgba(0,0,0,.28), 0 6px 14px rgba(0,0,0,.18);
-  --r:18px;
+/* 전체 화면 중앙 */
+.erp-page-center {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
 }
 
-*{ box-sizing:border-box; }
-html, body{ height:100%; }
-
-body{
-  margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  color: var(--text);
-  background:
-    radial-gradient(1200px 600px at 20% 15%, rgba(99,102,241,.22), transparent 60%),
-    radial-gradient(900px 500px at 80% 20%, rgba(16,185,129,.18), transparent 65%),
-    radial-gradient(900px 700px at 50% 90%, rgba(59,130,246,.16), transparent 60%),
-    linear-gradient(135deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 100%);
-  background-attachment: fixed;
+/* 스크롤 제거 */
+.erp-no-scroll {
+  overflow: hidden;
 }
 
-.erp-page{ min-height:100vh; }
-
-.erp-shell{
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 26px 18px 60px;
-}
-
-.erp-center{
-  min-height: calc(100vh - 80px);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-.erp-card{
-  width: 100%;
-  background: rgba(255,255,255,.96);
-  border: 1px solid rgba(255,255,255,.45);
-  border-radius: var(--r);
-  box-shadow: var(--shadow);
-  padding: 26px;
-}
-
-.erp-title{
-  margin:0 0 10px;
-  font-size: 30px;
-  line-height:1.15;
-  font-weight: 900;
-  letter-spacing: -0.6px;
-  color: var(--text);
-}
-.erp-subtitle{
-  margin:0 0 18px;
-  font-size:14px;
-  font-weight:800;
-  color: var(--muted);
-}
-
-/* ===== TOPBAR ===== */
-.erp-topbar{
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  padding: 12px 0;
-  background: rgba(0,0,0,.35);
-  border-bottom: 1px solid rgba(255,255,255,.10);
+/* 로그인 카드 */
+.erp-login-card {
+  width: 420px;
+  max-width: 92vw;
+  padding: 40px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.95);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-.erp-topbar-inner{
-  max-width:1280px;
-  margin:0 auto;
-  padding: 0 18px;
-  display:flex;
-  gap:12px;
-  align-items:center;
-  justify-content: space-between;
-}
-.erp-brand{
-  color:#fff;
-  text-decoration:none;
-  font-weight: 950;
-  letter-spacing:-0.4px;
-  white-space: nowrap;
-}
-.erp-nav{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  align-items:center;
-}
-.erp-nav a{
-  height:36px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding: 0 12px;
-  border-radius: 10px;
-  text-decoration:none;
-  font-weight:900;
-  font-size:13px;
-  color: rgba(255,255,255,.92);
-  background: rgba(255,255,255,.10);
-  border: 1px solid rgba(255,255,255,.12);
-}
-.erp-nav a[aria-current="page"]{
-  background: rgba(255,255,255,.92);
-  color:#111;
-  border-color: rgba(255,255,255,.92);
-}
-.erp-logout{
-  height:36px;
-  padding:0 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,.16);
-  background: rgba(0,0,0,.30);
-  color: rgba(255,255,255,.95);
-  font-weight: 950;
-  cursor:pointer;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  text-decoration:none;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
 }
 
-/* ===== FORMS ===== */
-.erp-field{ margin-bottom: 14px; }
-.erp-label{
-  display:block;
-  margin-bottom:8px;
-  font-weight: 900;
-  color: var(--text);
+/* 제목 */
+.erp-login-title {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  text-align: center;
 }
-.erp-input{
-  width:100%;
-  height:44px;
-  padding: 0 14px;
+
+/* 설명 */
+.erp-login-sub {
+  text-align: center;
+  margin-bottom: 25px;
+  color: #444;
+}
+
+/* 라벨 */
+.erp-label {
+  font-weight: 700;
+  margin-top: 15px;
+  display: block;
+}
+
+/* 입력창 */
+.erp-input {
+  width: 100%;
+  padding: 14px;
+  margin-top: 6px;
   border-radius: 12px;
-  border: 1px solid rgba(15,23,42,.14);
-  background: rgba(255,255,255,.98);
-  color:#111;
-  outline:none;
-  font-size: 15px;
+  border: 1px solid #ddd;
+  font-size: 16px;
 }
-.erp-input:focus{
-  border-color: rgba(15,23,42,.32);
-  box-shadow: 0 0 0 4px rgba(15,23,42,.08);
+
+/* 역할 선택 */
+.erp-role-row {
+  margin-top: 18px;
+  display: flex;
+  gap: 20px;
 }
-.erp-row{
-  display:flex;
-  gap:12px;
-  align-items:center;
-  flex-wrap:wrap;
-}
-.erp-btn{
-  width:100%;
-  height:48px;
-  border:0;
+
+/* 버튼 */
+.erp-login-btn {
+  width: 100%;
+  margin-top: 24px;
+  padding: 16px;
   border-radius: 14px;
-  background:#111827;
-  color:#fff;
-  font-weight: 950;
-  font-size:16px;
-  cursor:pointer;
-  box-shadow: var(--shadow2);
-}
-.erp-btn:disabled{ opacity:.55; cursor:not-allowed; }
-
-/* ✅ 라디오/체크박스 폭 강제(모바일에서 이상해지는 거 방지) */
-input[type="radio"], input[type="checkbox"]{
-  width:auto !important;
-  height:auto !important;
-  max-width:none !important;
+  border: none;
+  font-size: 17px;
+  font-weight: 700;
+  color: white;
+  background: #0f172a;
+  cursor: pointer;
 }
 
-/* ✅ 어떤 페이지가 input/select를 inline style로 폭 고정해도 모바일에서 안 깨지게 */
-.erp-card input,
-.erp-card select,
-.erp-card textarea{
-  max-width: 100% !important;
-}
-
-/* ===== TABLE (모바일: 줄바꿈 금지 + 가로 스크롤) ===== */
-.erp-table-wrap{
-  width:100%;
-  overflow-x:auto;
-  overflow-y:hidden;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  background: rgba(255,255,255,.98);
-  -webkit-overflow-scrolling: touch;
-}
-table{
-  width:100%;
-  border-collapse: collapse;
-  min-width: 980px; /* ✅ 가로 스크롤로 해결 */
-}
-thead th{
-  position: sticky;
-  top:0;
-  background: #f3f4f6;
-  color:#111;
-  font-weight: 950;
-  padding: 12px;
-  border-bottom: 1px solid rgba(15,23,42,.12);
-  white-space: nowrap;
-}
-tbody td{
-  padding: 12px;
-  border-bottom: 1px solid rgba(15,23,42,.08);
-  color:#111;
-  white-space: nowrap; /* ✅ 글자 세로 찢어짐 방지 */
-}
-tbody tr:hover td{ background: rgba(15,23,42,.03); }
-
-@media (max-width: 900px){
-  .erp-shell{ padding: 18px 12px 50px; }
-  .erp-card{ padding: 18px; border-radius: 16px; }
-  .erp-title{ font-size: 24px; }
-
-  .erp-topbar-inner{ flex-direction: column; align-items: stretch; }
-  .erp-nav{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; }
-  .erp-nav a, .erp-logout{ width:100%; }
-
-  /* ✅ 폼/버튼은 모바일에서 무조건 세로 정렬 */
-  .erp-row{ flex-direction: column; align-items: stretch; }
-
-  /*
-    🔥 핵심: 페이지 안에 인라인으로 "2컬럼 grid"가 박혀있어도
-    모바일에서는 강제로 1컬럼으로 바꿔버림.
-    (네 스샷 같은 '라벨 왼쪽 + 인풋 오른쪽 잘림'이 이걸로 끝남)
-  */
-  .erp-card [style*="grid-template-columns"]{
-    grid-template-columns: 1fr !important;
-  }
-  .erp-card [style*="display:grid"],
-  .erp-card [style*="display: grid"]{
-    grid-template-columns: 1fr !important;
-  }
-
-  /* ✅ 인라인 flex 2열로 만들어둔 것도 모바일에서 세로로 */
-  .erp-card [style*="display:flex"],
-  .erp-card [style*="display: flex"]{
-    flex-direction: column !important;
-    align-items: stretch !important;
-  }
-
-  /* ✅ 인풋/셀렉트가 오른쪽으로 튀어나가는 거 방지 */
-  .erp-card input,
-  .erp-card select,
-  .erp-card textarea{
-    width:100% !important;
-  }
+.erp-login-btn:hover {
+  background: #020617;
 }
