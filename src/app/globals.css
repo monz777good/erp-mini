@@ -132,6 +132,10 @@ body{
   color: rgba(255,255,255,.95);
   font-weight: 950;
   cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-decoration:none;
 }
 
 /* ===== FORMS ===== */
@@ -177,10 +181,11 @@ body{
 }
 .erp-btn:disabled{ opacity:.55; cursor:not-allowed; }
 
-/* ===== TABLE (PC 기본) ===== */
+/* ===== TABLE (핵심: 모바일에서도 줄바꿈 금지 + 가로 스크롤) ===== */
 .erp-table-wrap{
   width:100%;
-  overflow:auto;
+  overflow-x:auto;
+  overflow-y:hidden;
   border-radius: 14px;
   border: 1px solid var(--line);
   background: rgba(255,255,255,.98);
@@ -189,7 +194,7 @@ body{
 table{
   width:100%;
   border-collapse: collapse;
-  min-width: 900px;
+  min-width: 980px; /* ✅ 가로 스크롤로 해결 */
 }
 thead th{
   position: sticky;
@@ -205,14 +210,10 @@ tbody td{
   padding: 12px;
   border-bottom: 1px solid rgba(15,23,42,.08);
   color:#111;
-  white-space: nowrap;
+  white-space: nowrap; /* ✅ 여기 중요: 글자 세로 찢어짐 방지 */
 }
 tbody tr:hover td{ background: rgba(15,23,42,.03); }
 
-/* ✅ 모바일에서 거래처/재고 화면 깨지는 것 방지:
-   - 표는 무조건 스크롤
-   - 긴 텍스트는 줄바꿈 허용(주소/메모)
-*/
 @media (max-width: 900px){
   .erp-shell{ padding: 18px 12px 50px; }
   .erp-card{ padding: 18px; border-radius: 16px; }
@@ -222,11 +223,6 @@ tbody tr:hover td{ background: rgba(15,23,42,.03); }
   .erp-nav{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; }
   .erp-nav a, .erp-logout{ width:100%; }
 
-  /* ✅ 모바일 표: 최소폭 줄이고, 셀 줄바꿈 허용 */
-  table{ min-width: 720px; }            /* 너무 크면 깨져서 조금 줄임 */
-  tbody td{ white-space: normal; }      /* 주소/거래처명/메모 줄바꿈 */
-  thead th{ white-space: nowrap; }      /* 헤더는 유지 */
-
-  /* ✅ input들이 화면 밖으로 밀리지 않게 */
-  input, select, textarea { max-width: 100%; }
+  /* ✅ 폼은 모바일에서 무조건 세로로 */
+  .erp-row{ flex-direction: column; align-items: stretch; }
 }
