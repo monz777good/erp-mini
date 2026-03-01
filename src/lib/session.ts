@@ -11,127 +11,145 @@ export type SessionUser = {
   role: "SALES" | "ADMIN";
 };
 
-// ============================
-// 내부 유틸
-// ============================
+// ---------------------
+// util
+// ---------------------
 function secret() {
   const s = process.env.SESSION_PASSWORD;
   if (!s) throw new Error("SESSION_PASSWORD missing");
   return s;
 }
 
+function b64url(buf: Buffer) {
+  return buf
+    .toString("base64")
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+}
+
+function unb64url(s: string) {
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = b64.length % 4 ? "=".repeat(4 - (b64.length % 4)) : "";
+  return Buffer.from(b64 + pad, "base64");
+}
+
 function sign(data: string) {
-  return crypto.createHmac("sha256", secret()).update(data).digest("hex");
+  return b64url(crypto.createHmac("sha256", secret()).update(data).digest());
 }
 
 function encode(user: SessionUser) {
-  const payload = JSON.stringify({
-    id: user.id,
-    name: user.name,
-    role: user.role,
-    iat: Date.now(),
-  });
+  const payload = b64url(Buffer.from(JSON.stringify(user), "utf8"));
   const sig = sign(payload);
-  return Buffer.from(payload, "utf8").toString("base64") + "." + sig;
+  return `${payload}.${sig}`;
 }
 
-function decode(token?: string | null): SessionUser | null {
-  if (!token) return null;
-
-  const [payloadB64, sig] = token.split(".");
-  if (!payloadB64 || !sig) return null;
-
-  const payload = Buffer.from(payloadB64, "base64").toString("utf8");
-  if (sign(payload) !== sig) return null;
-
+function decode(token: string): SessionUser | null {
   try {
-    const parsed = JSON.parse(payload);
-    const role = String(parsed.role).toUpperCase();
+    const [payload, sig] = String(token || "").split(".");
+    if (!payload || !sig) return null;
+    if (sign(payload) !== sig) return null;
+
+    const json = unb64url(payload).toString("utf8");
+    const u = JSON.parse(json);
+
+    if (!u?.id || !u?.name || !u?.role) return null;
+
+    const role = String(u.role).toUpperCase();
     if (role !== "SALES" && role !== "ADMIN") return null;
 
-    return {
-      id: String(parsed.id),
-      name: String(parsed.name),
-      role,
-    };
+    return { id: String(u.id), name: String(u.name), role };
   } catch {
     return null;
   }
 }
 
-// ============================
-// 세션 읽기 (Next 16 대응)
-// ============================
-export async function getSessionUser(_req?: Request): Promise<SessionUser | null> {
+function parseCookieHeader(h: string | null) {
+  const out: Record<string, string> = {};
+  (h ?? "")
+    .split(";")
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .forEach((p) => {
+      const idx = p.indexOf("=");
+      if (idx < 0) return;
+      const k = p.slice(0, idx).trim();
+      const v = decodeURIComponent(p.slice(idx + 1));
+      out[k] = v;
+    });
+  return out;
+}
+
+// ---------------------
+// core: get user (req optional)
+// ---------------------
+export async function getSessionUser(req?: Request): Promise<SessionUser | null> {
   try {
-    const store = await cookies();   // ⭐ 핵심 수정 (await)
+    // 1) req 있으면 거기서 쿠키 읽기
+    if (req) {
+      const map = parseCookieHeader(req.headers.get("cookie"));
+      const token = map[SESSION_COOKIE];
+      return token ? decode(token) : null;
+    }
+
+    // 2) 없으면 next/headers cookies() 사용 (Next 16: Promise)
+    const store = await cookies();
     const token = store.get(SESSION_COOKIE)?.value ?? null;
-    return decode(token);
+    return token ? decode(token) : null;
   } catch {
     return null;
   }
 }
 
-export async function getSessionUserFromRequest(req: Request) {
+// ---------------------
+// 권한 (req optional: 0/1 인자 모두 허용)
+// ---------------------
+export async function requireUser(req?: Request): Promise<SessionUser | null> {
   return getSessionUser(req);
 }
 
-// ============================
-// 세션 저장
-// ============================
+export async function requireAdmin(req?: Request): Promise<SessionUser | null> {
+  const u = await getSessionUser(req);
+  if (!u) return null;
+  return u.role === "ADMIN" ? u : null;
+}
+
+// ---------------------
+// 세션 저장/삭제
+// ---------------------
 export function setSessionUser(res: NextResponse, user: SessionUser, remember?: boolean) {
   const token = encode(user);
-
   res.cookies.set({
     name: SESSION_COOKIE,
     value: token,
     httpOnly: true,
-    secure: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: remember ? 60 * 60 * 24 * 30 : 60 * 60 * 12,
   });
-
   return res;
 }
 
-// 호환용 export
-export const saveSessionUser = setSessionUser;
-
-// ============================
-// 세션 삭제 (0 / 1 인자 둘다 허용)
-// ============================
-export function clearSession(): void;
-export function clearSession(res: NextResponse): NextResponse;
 export function clearSession(res?: NextResponse) {
+  // 0인자 호출도 허용(빌드/호환용)
   if (!res) return;
 
   res.cookies.set({
     name: SESSION_COOKIE,
     value: "",
     httpOnly: true,
-    secure: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 0,
   });
-
   return res;
 }
 
-// ============================
-// 권한
-// ============================
-export async function requireUser(req?: Request) {
-  return getSessionUser(req);
-}
-
-export async function requireAdmin(req?: Request) {
-  const u = await getSessionUser(req);
-  if (!u) return null;
-  return u.role === "ADMIN" ? u : null;
-}
-
-export async function requireAdminUser(req?: Request) {
-  return requireAdmin(req);
-}
+// ---------------------
+// 과거 코드 호환 별칭들
+// ---------------------
+export const saveSessionUser = setSessionUser;
+export const requireAdminUser = requireAdmin;
+export const getSessionUserFromRequest = getSessionUser;
