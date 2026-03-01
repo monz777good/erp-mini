@@ -1,14 +1,11 @@
-// src/app/admin/layout.tsx
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 
 async function currentPath() {
-  // ✅ Next.js 16: headers()는 Promise라서 await 필요
+  // ✅ Next.js 16: headers()는 Promise라 await 필요
   const h = await headers();
-
-  // x-url이 없을 수도 있으니 방어적으로 처리
   const url = h.get("x-url") || "";
 
   try {
@@ -32,18 +29,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="erp-topbar">
         <div className="erp-topbar-inner">
           <Link className="erp-brand" href="/admin/dashboard">
-            한의N원외탕전
+            한의N원외탕전 ERP
           </Link>
 
           <nav className="erp-nav">
             <Link href="/admin/dashboard" aria-current={pathname === "/admin/dashboard" ? "page" : undefined}>
-              대시보드
-            </Link>
-            <Link href="/admin/orders" aria-current={pathname.startsWith("/admin/orders") ? "page" : undefined}>
-              관리자 주문
+              주문
             </Link>
             <Link href="/admin/items" aria-current={pathname.startsWith("/admin/items") ? "page" : undefined}>
-              품목관리
+              품목
             </Link>
             <Link href="/admin/clients" aria-current={pathname.startsWith("/admin/clients") ? "page" : undefined}>
               거래처/사업자등록증

@@ -2,262 +2,315 @@
 @tailwind components;
 @tailwind utilities;
 
-/* =========================
-   ERP Global UI Theme
-   ========================= */
-
+/* ====== 기본 폰트/리셋 ====== */
 :root {
-  --erp-bg-url: url("https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=2400&q=80");
-  --erp-overlay: rgba(0, 0, 0, 0.45);
-  --erp-card: rgba(255, 255, 255, 0.96);
-  --erp-card-solid: #ffffff;
-  --erp-text: #111827;
-  --erp-muted: rgba(255,255,255,0.92);
-  --erp-muted2: rgba(255,255,255,0.78);
-  --erp-shadow: 0 18px 50px rgba(0,0,0,0.35);
-  --erp-radius: 18px;
-  --erp-maxw: 1180px;
+  --bg-overlay: rgba(0, 0, 0, 0.45);
+  --card-bg: rgba(255, 255, 255, 0.92);
+  --card-bg-solid: #ffffff;
+  --text-strong: #111827; /* 거의 검정 */
+  --text: #374151;        /* 진한 회색 */
+  --muted: #6b7280;       /* 설명 회색 */
+  --border: rgba(17, 24, 39, 0.10);
+  --shadow: 0 22px 60px rgba(0, 0, 0, 0.28), 0 6px 18px rgba(0, 0, 0, 0.18);
+  --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.22), 0 4px 12px rgba(0, 0, 0, 0.14);
+  --radius: 18px;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
-html, body {
+html,
+body {
   height: 100%;
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", Arial, "Segoe UI Emoji";
-  color: var(--erp-text);
 }
 
-/* 배경 사진 + 블러 + 어두운 오버레이 (전체 페이지 공통) */
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+
+  /* ✅ 배경은 사진이 있으면 사진, 없으면 그라데이션으로라도 깔끔하게 */
+  background-image: url("/bg.jpg"), linear-gradient(135deg, #0b1220 0%, #0f172a 50%, #111827 100%);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  color: var(--text);
+}
+
+/* ✅ 배경 어둡게 + 블러 → 글씨 가독성 핵심 */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background-image: var(--erp-bg-url);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  transform: scale(1.02);
-  z-index: -2;
-}
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: var(--erp-overlay);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: -1;
 }
 
-/* 페이지 기본 래퍼 */
+/* ====== 레이아웃 공통 ====== */
 .erp-page {
-  min-height: 100svh;
-  padding: 18px 14px 40px;
+  min-height: 100vh;
 }
 
-/* 최대 폭 컨테이너 */
 .erp-container {
-  max-width: var(--erp-maxw);
+  width: 100%;
+  max-width: 1280px;
   margin: 0 auto;
+  padding: 28px 20px 60px;
 }
 
-/* 로그인처럼 중앙정렬 */
-.erp-center {
-  min-height: 100svh;
-  display: grid;
-  place-items: center;
-  padding: 18px 14px;
-}
-
-/* 스크롤 완전 억제(로그인용) */
-.erp-no-scroll {
-  height: 100svh;
-  overflow: hidden;
-}
-
-/* 카드(불투명 흰색) */
-.erp-card {
-  width: min(520px, 92vw);
-  background: var(--erp-card);
-  border-radius: var(--erp-radius);
-  box-shadow: var(--erp-shadow);
-  padding: 22px;
-}
-
-/* 큰 타이틀(검정 글씨 + 흰 테두리) */
-.erp-title-outline {
-  color: #0b0b0b;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  -webkit-text-stroke: 2px rgba(255,255,255,0.95);
-  text-shadow:
-    0 2px 10px rgba(0,0,0,0.35),
-    0 1px 0 rgba(255,255,255,0.20);
-}
-
-/* 서브/설명 텍스트(흰색 + 그림자 → 사진 위에서 절대 안 죽음) */
-.erp-subtle {
-  color: var(--erp-muted);
-  text-shadow: 0 2px 10px rgba(0,0,0,0.55);
-}
-.erp-subtle2 {
-  color: var(--erp-muted2);
-  text-shadow: 0 2px 10px rgba(0,0,0,0.55);
-}
-
-/* 입력 */
-.erp-label {
-  font-weight: 800;
-  margin: 10px 0 6px;
-}
-.erp-input {
-  width: 100%;
-  height: 46px;
-  border-radius: 12px;
-  border: 1px solid rgba(17, 24, 39, 0.18);
-  padding: 0 14px;
-  font-size: 16px;
-  outline: none;
-  background: #fff;
-}
-.erp-input:focus {
-  border-color: rgba(17, 24, 39, 0.35);
-  box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.10);
-}
-
-.erp-row {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-
-/* 버튼 */
-.erp-btn {
-  width: 100%;
-  height: 52px;
-  border: 0;
-  border-radius: 14px;
-  font-weight: 900;
-  font-size: 16px;
-  cursor: pointer;
-  background: #8cab96;
-  color: #ffffff;
-  box-shadow: 0 10px 20px rgba(0,0,0,0.20);
-}
-.erp-btn:active { transform: translateY(1px); }
-.erp-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* 상단 네비 (PC/모바일 공통, 모바일에서 스크롤/슬라이드 없이 줄바꿈) */
+/* ====== 상단바 ====== */
 .erp-topbar {
   position: sticky;
   top: 0;
   z-index: 30;
-  margin: -18px -14px 18px;
-  padding: 12px 14px;
-  background: rgba(30, 41, 59, 0.55);
+  padding: 14px 0;
+  background: rgba(10, 10, 10, 0.25);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255,255,255,0.12);
 }
+
 .erp-topbar-inner {
-  max-width: var(--erp-maxw);
+  max-width: 1280px;
   margin: 0 auto;
+  padding: 0 20px;
   display: flex;
-  gap: 10px;
+  gap: 14px;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
 }
 
 .erp-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.16);
-  border: 1px solid rgba(255,255,255,0.22);
-  color: #fff;
   font-weight: 900;
+  font-size: 18px;
+  letter-spacing: -0.3px;
+  color: white;
   text-decoration: none;
   white-space: nowrap;
 }
 
 .erp-nav {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;     /* ✅ 모바일에서 스크롤 말고 줄바꿈 */
+  gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
+
 .erp-nav a {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
-  border-radius: 999px;
+  justify-content: center;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
   text-decoration: none;
-  color: rgba(255,255,255,0.92);
-  border: 1px solid rgba(255,255,255,0.18);
-  background: rgba(0,0,0,0.10);
-  font-weight: 800;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  font-weight: 700;
+  font-size: 13px;
 }
-.erp-nav a:hover {
-  background: rgba(255,255,255,0.14);
-}
+
 .erp-nav a[aria-current="page"] {
-  background: rgba(255,255,255,0.22);
-  border-color: rgba(255,255,255,0.35);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+  border-color: rgba(255, 255, 255, 0.90);
 }
 
 .erp-logout {
-  display: inline-flex;
-  align-items: center;
-  padding: 10px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.20);
-  background: rgba(0,0,0,0.18);
-  color: #fff;
-  font-weight: 900;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.28);
+  color: rgba(255, 255, 255, 0.95);
+  font-weight: 800;
   cursor: pointer;
 }
 
-/* 본문 카드/테이블(재고/거래처/품목) 공통 */
-.erp-panel {
-  background: var(--erp-card);
-  border-radius: var(--erp-radius);
-  box-shadow: var(--erp-shadow);
-  padding: 18px;
-  margin-top: 14px;
+/* ====== 카드(흰색 박스) ====== */
+.erp-card {
+  background: var(--card-bg);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 26px;
 }
-.erp-tablewrap {
+
+.erp-card.solid {
+  background: var(--card-bg-solid);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+}
+
+.erp-title {
+  margin: 0 0 8px;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 900;
+  letter-spacing: -0.6px;
+  color: var(--text-strong);
+}
+
+.erp-subtitle {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* ====== 입력/버튼 ====== */
+.erp-field {
+  margin-bottom: 14px;
+}
+
+.erp-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 900;
+  color: var(--text-strong);
+}
+
+.erp-input {
   width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.14);
+  background: rgba(255, 255, 255, 0.96);
+  outline: none;
+  font-size: 15px;
+  color: #111;
+}
+
+.erp-input:focus {
+  border-color: rgba(17, 24, 39, 0.30);
+  box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.08);
+}
+
+.erp-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.erp-btn {
+  width: 100%;
+  height: 48px;
+  border-radius: 14px;
+  border: 0;
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 16px;
+  background: #111827;
+  color: white;
+}
+
+.erp-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ====== 탭 ====== */
+.erp-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 12px 0 18px;
+}
+
+.erp-tab {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: rgba(255, 255, 255, 0.7);
+  font-weight: 900;
+  color: #111;
+  cursor: pointer;
+}
+
+.erp-tab.active {
+  background: #111827;
+  color: #fff;
+  border-color: #111827;
+}
+
+/* ====== 테이블(가독성 핵심) ====== */
+.erp-table-wrap {
   overflow-x: auto;
   border-radius: 14px;
-  border: 1px solid rgba(17,24,39,0.12);
-  background: #fff; /* ✅ 투명 금지 */
+  border: 1px solid rgba(17, 24, 39, 0.10);
+  background: rgba(255, 255, 255, 0.86);
 }
+
 .erp-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 720px; /* 모바일에서 가로스크롤은 테이블만 */
+  min-width: 920px; /* 가독성 위해 최소 폭 */
 }
-.erp-table th, .erp-table td {
-  padding: 12px 12px;
-  border-bottom: 1px solid rgba(17,24,39,0.08);
+
+.erp-table th {
+  position: sticky;
+  top: 0;
+  background: #f3f4f6;
+  color: #111;
   text-align: left;
+  padding: 12px;
+  font-weight: 900;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.10);
   white-space: nowrap;
 }
-.erp-table th {
-  background: rgba(17,24,39,0.04);
-  font-weight: 900;
+
+.erp-table td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.08);
+  color: #111;
+  white-space: nowrap;
+}
+
+.erp-table tr:hover td {
+  background: rgba(17, 24, 39, 0.03);
+}
+
+/* ====== 모바일(슬라이드 말고 그냥 누르게) ====== */
+@media (max-width: 900px) {
+  .erp-container {
+    padding: 18px 12px 50px;
+  }
+
+  .erp-topbar-inner {
+    gap: 10px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .erp-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .erp-nav a,
+  .erp-logout {
+    width: 100%;
+  }
+
+  .erp-card {
+    padding: 18px;
+    border-radius: 16px;
+  }
+
+  .erp-title {
+    font-size: 24px;
+  }
+
+  .erp-table {
+    min-width: 900px; /* 모바일은 스크롤로 읽기 */
+  }
 }
