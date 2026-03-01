@@ -1,35 +1,52 @@
+// src/app/login/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type RoleChoice = "SALES" | "ADMIN";
-
-function digitsOnly(v: string) {
-  return String(v ?? "").replace(/\D/g, "");
-}
+type Role = "SALES" | "ADMIN";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [pin, setPin] = useState("");
-  const [role, setRole] = useState<RoleChoice>("SALES");
+  const [name, setName] = useState("홍길동");
+  const [phone, setPhone] = useState("01012341234");
+  const [pin, setPin] = useState("1111");
+  const [role, setRole] = useState<Role>("SALES");
   const [autoLogin, setAutoLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState<string | null>(null);
 
-  const canSubmit = useMemo(() => {
-    return name.trim().length >= 2 && digitsOnly(phone).length >= 8 && pin.trim().length >= 4;
-  }, [name, phone, pin]);
+  // (옵션) 자동로그인 체크면 저장값 복원
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("erp_login_pref");
+      if (!raw) return;
+      const v = JSON.parse(raw);
+      if (typeof v?.name === "string") setName(v.name);
+      if (typeof v?.phone === "string") setPhone(v.phone);
+      if (typeof v?.role === "string") setRole(v.role === "ADMIN" ? "ADMIN" : "SALES");
+      if (typeof v?.autoLogin === "boolean") setAutoLogin(v.autoLogin);
+    } catch {}
+  }, []);
+
+  // 자동로그인 켜져있으면 입력값 저장
+  useEffect(() => {
+    try {
+      if (!autoLogin) return;
+      localStorage.setItem(
+        "erp_login_pref",
+        JSON.stringify({ name, phone, role, autoLogin })
+      );
+    } catch {}
+  }, [name, phone, role, autoLogin]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit || loading) return;
+    if (loading) return;
 
     setLoading(true);
-    setMsg("");
+    setErr(null);
 
     try {
       const res = await fetch("/api/auth/login", {
@@ -37,109 +54,163 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          name: name.trim(),
-          phone: digitsOnly(phone),
-          pin: pin.trim(),
+          name: String(name ?? "").trim(),
+          phone: String(phone ?? "").replace(/\D/g, ""),
+          pin: String(pin ?? "").trim(),
           role,
           autoLogin,
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
-
       if (!res.ok) {
-        setMsg(data?.error || "로그인 실패 (정보를 확인해주세요)");
-        return;
+        const t = await res.text().catch(() => "");
+        throw new Error(t || `로그인 실패 (${res.status})`);
       }
 
-      if (String(role).toUpperCase() === "ADMIN") router.push("/admin/dashboard");
-      else router.push("/orders");
-    } catch {
-      setMsg("네트워크 오류가 발생했습니다.");
+      // role별 이동
+      router.replace(role === "ADMIN" ? "/admin/dashboard" : "/orders");
+    } catch (e: any) {
+      setErr(e?.message || "로그인 실패");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="erp-shell">
-      <div className="erp-center">
-        <div className="erp-card" style={{ width: "min(720px, 100%)" }}>
+    <div className="erp-page">
+      {/* ✅ 로그인은 “큰 겉 카드(전체 카드)” 없이 중앙 카드 1개만 */}
+      <div className="erp-center" style={{ padding: "24px 12px" }}>
+        <div className="erp-card" style={{ maxWidth: 760 }}>
           <h1 className="erp-title">한의N원외탕전 ERP 로그인</h1>
           <p className="erp-subtitle">이름 / 전화번호 / PIN 입력 후 로그인</p>
 
           <form onSubmit={onSubmit}>
             <div className="erp-field">
-              <label className="erp-label">이름</label>
+              <label className="erp-label" htmlFor="name">이름</label>
               <input
+                id="name"
                 className="erp-input"
-                placeholder="홍길동"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                placeholder="홍길동"
                 autoComplete="name"
               />
             </div>
 
             <div className="erp-field">
-              <label className="erp-label">전화번호</label>
+              <label className="erp-label" htmlFor="phone">전화번호</label>
               <input
+                id="phone"
                 className="erp-input"
-                placeholder="01012341234"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                placeholder="01012341234"
                 inputMode="numeric"
                 autoComplete="tel"
               />
             </div>
 
             <div className="erp-field">
-              <label className="erp-label">PIN</label>
+              <label className="erp-label" htmlFor="pin">PIN</label>
               <input
+                id="pin"
                 className="erp-input"
-                placeholder="예: 1111"
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
+                placeholder="예: 1111"
                 inputMode="numeric"
+                autoComplete="one-time-code"
               />
             </div>
 
-            <div className="erp-row" style={{ justifyContent: "space-between", marginTop: 6, marginBottom: 16 }}>
-              <div className="erp-row" style={{ gap: 16 }}>
-                <label className="erp-row" style={{ gap: 8, fontWeight: 900 }}>
-                  <input type="radio" checked={role === "SALES"} onChange={() => setRole("SALES")} />
+            {/* ✅ 라디오/체크박스: 모바일에서 안 깨지는 “정석 flex + label 전체 클릭” */}
+            <div
+              style={{
+                marginTop: 10,
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 10,
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  gap: 14,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 900 }}>
+                  <input
+                    type="radio"
+                    name="role"
+                    checked={role === "SALES"}
+                    onChange={() => setRole("SALES")}
+                  />
                   영업사원
                 </label>
-                <label className="erp-row" style={{ gap: 8, fontWeight: 900 }}>
-                  <input type="radio" checked={role === "ADMIN"} onChange={() => setRole("ADMIN")} />
+
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontWeight: 900 }}>
+                  <input
+                    type="radio"
+                    name="role"
+                    checked={role === "ADMIN"}
+                    onChange={() => setRole("ADMIN")}
+                  />
                   관리자
                 </label>
               </div>
 
-              <label className="erp-row" style={{ gap: 8, fontWeight: 900 }}>
-                <input type="checkbox" checked={autoLogin} onChange={() => setAutoLogin((v) => !v)} />
-                자동로그인
-              </label>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 10, fontWeight: 950 }}>
+                  <input
+                    type="checkbox"
+                    checked={autoLogin}
+                    onChange={(e) => setAutoLogin(e.target.checked)}
+                  />
+                  자동로그인
+                </label>
+              </div>
             </div>
 
-            {msg ? (
+            {err ? (
               <div
                 style={{
-                  marginBottom: 12,
-                  fontWeight: 900,
-                  color: "#b91c1c",
-                  background: "rgba(185,28,28,0.08)",
+                  marginTop: 12,
                   padding: "10px 12px",
                   borderRadius: 12,
+                  background: "rgba(239,68,68,.10)",
+                  border: "1px solid rgba(239,68,68,.25)",
+                  color: "#991b1b",
+                  fontWeight: 900,
                 }}
               >
-                {msg}
+                {err}
               </div>
             ) : null}
 
-            <button className="erp-btn" type="submit" disabled={!canSubmit || loading}>
+            <button
+              className="erp-btn"
+              style={{ marginTop: 16 }}
+              disabled={loading}
+              type="submit"
+            >
               {loading ? "로그인 중..." : "로그인"}
             </button>
           </form>
+
+          {/* ✅ 모바일에서 2컬럼 깨질 때 대비: 아래 미디어 쿼리 영향 안 받도록 */}
+          <style jsx>{`
+            @media (max-width: 600px) {
+              form > div[style*="grid-template-columns: 1fr 1fr"] {
+                grid-template-columns: 1fr !important;
+              }
+              form > div[style*="grid-template-columns: 1fr 1fr"] > div:last-child {
+                justify-content: flex-start !important;
+              }
+            }
+          `}</style>
         </div>
       </div>
     </div>
