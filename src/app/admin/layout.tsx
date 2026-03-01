@@ -1,59 +1,20 @@
-import Link from "next/link";
-import { headers } from "next/headers";
+// src/app/admin/layout.tsx
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 
-async function currentPath() {
-  const h = await headers();
-  const url = h.get("x-url") || "";
-  try {
-    return url ? new URL(url).pathname : "";
-  } catch {
-    return "";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const user = await getSessionUser(); // ✅ 인자 절대 넣지마
+
+  if (!user || String(user.role).toUpperCase() !== "ADMIN") {
+    redirect("/login");
   }
-}
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const user = await getSessionUser(null as any);
-  if (!user || String(user.role).toUpperCase() !== "ADMIN") redirect("/login");
-
-  const pathname = await currentPath();
-
-  return (
-    <div className="erp-page">
-      <header className="erp-topbar">
-        <div className="erp-topbar-inner">
-          <Link className="erp-brand" href="/admin/dashboard">
-            한의N원외탕전 ERP
-          </Link>
-
-          <nav className="erp-nav">
-            <Link href="/admin/dashboard" aria-current={pathname === "/admin/dashboard" ? "page" : undefined}>
-              주문(대시보드)
-            </Link>
-
-            <Link href="/admin/items" aria-current={pathname.startsWith("/admin/items") ? "page" : undefined}>
-              품목
-            </Link>
-
-            <Link href="/admin/clients" aria-current={pathname.startsWith("/admin/clients") ? "page" : undefined}>
-              거래처/사업자등록증
-            </Link>
-
-            <Link href="/admin/stock" aria-current={pathname.startsWith("/admin/stock") ? "page" : undefined}>
-              재고관리
-            </Link>
-          </nav>
-
-          <Link className="erp-logout" href="/logout">
-            로그아웃
-          </Link>
-        </div>
-      </header>
-
-      <div className="erp-shell">
-        <div className="erp-card">{children}</div>
-      </div>
-    </div>
-  );
+  return <>{children}</>;
 }

@@ -1,98 +1,104 @@
-import crypto from "crypto";
 import { cookies } from "next/headers";
+import crypto from "crypto";
 
 export const SESSION_COOKIE = "erp_session";
 
-export type SessionUser = {
-  id: string;
-  name: string;
-  role: "SALES" | "ADMIN";
-};
+export type SessionRole = "SALES" | "ADMIN";
+export type SessionUser = { id: string; name: string; role: SessionRole };
 
-function getSecret() {
-  const s = process.env.SESSION_PASSWORD;
-  if (!s) throw new Error("SESSION_PASSWORD is missing");
-  return s;
+function getKey() {
+  const raw = process.env.SESSION_PASSWORD || "";
+  if (!raw || raw.length < 10) throw new Error("SESSION_PASSWORD missing/too short");
+  return crypto.createHash("sha256").update(raw).digest(); // 32 bytes
 }
 
-function b64url(buf: Buffer) {
-  return buf
-    .toString("base64")
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replaceAll("=", "");
+function b64urlEncode(buf: Buffer) {
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
-
-function fromB64url(s: string) {
-  // base64 padding 복구
-  const pad = "=".repeat((4 - (s.length % 4)) % 4);
-  const b64 = s.replaceAll("-", "+").replaceAll("_", "/") + pad;
+function b64urlDecode(s: string) {
+  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + pad;
   return Buffer.from(b64, "base64");
 }
 
-function sign(data: string) {
-  const mac = crypto.createHmac("sha256", getSecret()).update(data).digest();
-  return b64url(mac);
+function encrypt(obj: any) {
+  const key = getKey();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const plain = Buffer.from(JSON.stringify(obj), "utf8");
+  const enc = Buffer.concat([cipher.update(plain), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return b64urlEncode(Buffer.concat([iv, tag, enc]));
 }
 
-function encode(payload: any) {
-  const json = JSON.stringify(payload);
-  const data = b64url(Buffer.from(json));
-  const sig = sign(data);
-  return `${data}.${sig}`;
+function decrypt(token: string) {
+  const key = getKey();
+  const raw = b64urlDecode(token);
+  const iv = raw.subarray(0, 12);
+  const tag = raw.subarray(12, 28);
+  const enc = raw.subarray(28);
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+  const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
+  return JSON.parse(dec.toString("utf8"));
 }
 
-function decode(token: string): any | null {
-  const [data, sig] = String(token || "").split(".");
-  if (!data || !sig) return null;
-  if (sign(data) !== sig) return null;
+export async function setSessionUser(user: SessionUser, opts: { remember?: boolean } = {}) {
+  const token = encrypt({ v: 1, user, ts: Date.now() });
+  const maxAge = opts.remember ? 60 * 60 * 24 * 30 : 60 * 60 * 8; // 30일 / 8시간
 
-  try {
-    const json = fromB64url(data).toString("utf8");
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
-
-export function setSessionUser(user: SessionUser) {
-  const token = encode({ ...user, iat: Date.now() });
-
-  cookies().set(SESSION_COOKIE, token, {
+  const jar = await cookies(); // ✅ Promise 대응
+  jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production", // ✅ Vercel HTTPS에서 필수
     path: "/",
-    maxAge: 60 * 60 * 24 * 30, // 30일
+    maxAge,
   });
 }
 
-export function clearSession() {
-  cookies().set(SESSION_COOKIE, "", {
+export async function clearSession() {
+  const jar = await cookies(); // ✅ Promise 대응
+  jar.set(SESSION_COOKIE, "", {
     httpOnly: true,
-    sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
     path: "/",
     maxAge: 0,
   });
 }
 
-export function getSessionUser(): SessionUser | null {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const jar = await cookies(); // ✅ Promise 대응
+  const token = jar.get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
-  const payload = decode(token);
-  if (!payload?.id) return null;
-
-  return {
-    id: String(payload.id),
-    name: String(payload.name ?? ""),
-    role: payload.role === "ADMIN" ? "ADMIN" : "SALES",
-  };
+  try {
+    const data = decrypt(token);
+    const u = data?.user;
+    if (!u?.id || !u?.name || !u?.role) return null;
+    const role = String(u.role).toUpperCase();
+    if (role !== "SALES" && role !== "ADMIN") return null;
+    return { id: String(u.id), name: String(u.name), role };
+  } catch {
+    return null;
+  }
 }
 
-export function requireAdminUser() {
-  const u = getSessionUser();
+export async function requireAdminUser(): Promise<SessionUser | null> {
+  const u = await getSessionUser();
   if (!u || u.role !== "ADMIN") return null;
   return u;
+}
+
+/* ✅ 예전 코드 호환용 export (없어서 빌드 터지는 거 방지) */
+export const saveSessionUser = setSessionUser;
+export async function getSessionUserFromRequest(_req?: any) {
+  return getSessionUser();
+}
+export async function requireAdmin(_req?: any) {
+  return requireAdminUser();
+}
+export async function requireUser(_req?: any) {
+  return getSessionUser();
 }

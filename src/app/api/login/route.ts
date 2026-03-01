@@ -1,39 +1,39 @@
+// src/app/api/login/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { saveSessionUser } from "@/lib/session";
+import { setSessionUser } from "@/lib/session";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function digitsOnly(v: string) {
+  return String(v ?? "").replace(/\D/g, "");
+}
 
 export async function POST(req: Request) {
-  try {
-    const body = await req.json().catch(() => ({}));
-    const phone = String(body?.phone ?? "").trim();
-    const remember = !!body?.remember;
+  const body = await req.json().catch(() => ({}));
 
-    if (!phone) {
-      return NextResponse.json({ ok: false, message: "전화번호가 필요합니다." }, { status: 400 });
-    }
+  const name = String(body?.name ?? "").trim();
+  const phone = digitsOnly(body?.phone ?? "");
+  const role = String(body?.role ?? "SALES").toUpperCase();
+  const remember = !!body?.remember || !!body?.autoLogin; // 둘 중 뭐가 오든 처리
 
-    const user = await prisma.user.findUnique({
-      where: { phone },
-      select: { id: true, name: true, role: true, phone: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ ok: false, message: "등록되지 않은 사용자입니다." }, { status: 401 });
-    }
-
-    const res = NextResponse.json({ ok: true, user });
-
-    saveSessionUser(
-      res,
-      { id: user.id, name: user.name, role: String(user.role) },
-      { remember }
-    );
-
-    return res;
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ ok: false, message: "서버 오류" }, { status: 500 });
+  if (!name || phone.length < 8) {
+    return NextResponse.json({ message: "이름/전화번호 확인" }, { status: 400 });
   }
+
+  // ✅ 유저 upsert
+  const user = await prisma.user.upsert({
+    where: { phone },
+    update: { name, role: role === "ADMIN" ? "ADMIN" : "SALES" },
+    create: { name, phone, role: role === "ADMIN" ? "ADMIN" : "SALES" },
+  });
+
+  // ✅ 세션 저장 (인자 2개만!)
+  await setSessionUser(
+    { id: user.id, name: user.name, role: String(user.role).toUpperCase() === "ADMIN" ? "ADMIN" : "SALES" },
+    { remember }
+  );
+
+  return NextResponse.json({ ok: true });
 }
