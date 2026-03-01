@@ -5,49 +5,78 @@ import { useRouter } from "next/navigation";
 
 type Role = "SALES" | "ADMIN";
 
+function digits(v: string) {
+  return String(v ?? "").replace(/\D/g, "");
+}
+
 export default function LoginPage() {
   const router = useRouter();
 
   const [role, setRole] = useState<Role>("SALES");
-
-  // ✅ 기본은 자동로그인 OFF (빈칸 + placeholder만 보이게)
   const [autoLogin, setAutoLogin] = useState(false);
 
+  // ✅ 화면에는 절대 자동 채우지 않음
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
+
   const [loading, setLoading] = useState(false);
 
-  // ✅ 저장된 값이 있어도 "autoLogin=true"로 저장된 경우에만 자동 채움
+  // ✅ 저장된 자동로그인이 있으면 "화면 채우지 말고" 조용히 로그인 시도
   useEffect(() => {
     try {
       const saved = localStorage.getItem("erp_login_saved");
       if (!saved) return;
-
       const obj = JSON.parse(saved);
-      if (obj?.autoLogin !== true) return;
+      if (!obj?.autoLogin) return;
 
-      if (obj?.name) setName(obj.name);
-      if (obj?.phone) setPhone(obj.phone);
-      if (obj?.pin) setPin(obj.pin);
-      if (obj?.role === "ADMIN" || obj?.role === "SALES") setRole(obj.role);
+      const savedRole: Role =
+        obj?.role === "ADMIN" || obj?.role === "SALES" ? obj.role : "SALES";
 
+      const savedName = String(obj?.name ?? "").trim();
+      const savedPhone = digits(obj?.phone ?? "");
+      const savedPin = digits(obj?.pin ?? "");
+
+      if (!savedName || !savedPhone || !savedPin) return;
+
+      // ✅ 화면 입력은 비워두고, 자동로그인만 진행
+      setRole(savedRole);
       setAutoLogin(true);
-    } catch {}
-  }, []);
+
+      (async () => {
+        setLoading(true);
+        try {
+          const endpoint = savedRole === "ADMIN" ? "/api/login" : "/api/sales-login";
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              name: savedName,
+              phone: savedPhone,
+              pin: savedPin,
+            }),
+          });
+
+          if (res.ok) {
+            router.replace(savedRole === "ADMIN" ? "/admin/dashboard" : "/orders");
+          } else {
+            // 자동로그인 실패 시 저장값 제거(다음부터 안 튀어나오게)
+            localStorage.removeItem("erp_login_saved");
+            setAutoLogin(false);
+          }
+        } finally {
+          setLoading(false);
+        }
+      })();
+    } catch {
+      // 무시
+    }
+  }, [router]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
-
-    const cleanName = name.trim();
-    const cleanPhone = String(phone).replace(/\D/g, "");
-    const cleanPin = String(pin).replace(/\D/g, "");
-
-    if (!cleanName || !cleanPhone || !cleanPin) {
-      alert("이름/전화번호/PIN을 모두 입력해주세요.");
-      return;
-    }
 
     setLoading(true);
     try {
@@ -58,9 +87,9 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          name: cleanName,
-          phone: cleanPhone,
-          pin: cleanPin,
+          name: name.trim(),
+          phone: digits(phone),
+          pin: digits(pin),
         }),
       });
 
@@ -69,14 +98,13 @@ export default function LoginPage() {
         return;
       }
 
-      // ✅ 체크한 사람만 저장/복원
       if (autoLogin) {
         localStorage.setItem(
           "erp_login_saved",
           JSON.stringify({
-            name: cleanName,
-            phone: cleanPhone,
-            pin: cleanPin,
+            name: name.trim(),
+            phone: digits(phone),
+            pin: digits(pin),
             role,
             autoLogin: true,
           })
@@ -93,10 +121,8 @@ export default function LoginPage() {
 
   return (
     <div style={styles.page}>
-      {/* 배경 오버레이 */}
       <div style={styles.overlay} />
 
-      {/* 가운데 카드 */}
       <div style={styles.wrap}>
         <div style={styles.card}>
           <div style={styles.header}>
@@ -123,7 +149,7 @@ export default function LoginPage() {
                 style={styles.input}
                 placeholder="숫자만 입력"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) => setPhone(digits(e.target.value))}
                 inputMode="numeric"
                 autoComplete="off"
                 required
@@ -136,7 +162,7 @@ export default function LoginPage() {
                 style={styles.input}
                 placeholder="예: 1111"
                 value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) => setPin(digits(e.target.value))}
                 inputMode="numeric"
                 autoComplete="off"
                 required
@@ -188,6 +214,18 @@ export default function LoginPage() {
               {loading ? "로그인 중..." : "로그인"}
             </button>
 
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem("erp_login_saved");
+                setAutoLogin(false);
+                alert("저장된 자동로그인을 삭제했어.");
+              }}
+              style={styles.clearBtn}
+            >
+              저장된 자동로그인 삭제
+            </button>
+
             <div style={styles.footer}>© 한의N원외탕전</div>
           </form>
         </div>
@@ -230,9 +268,7 @@ const styles: Record<string, React.CSSProperties> = {
     WebkitBackdropFilter: "blur(10px)",
     overflow: "hidden",
   },
-  header: {
-    padding: "26px 26px 12px",
-  },
+  header: { padding: "26px 26px 12px" },
   title: {
     fontSize: 30,
     fontWeight: 900,
@@ -245,20 +281,9 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 700,
     color: "rgba(0,0,0,0.55)",
   },
-  form: {
-    padding: "10px 26px 22px",
-    display: "grid",
-    gap: 14,
-  },
-  field: {
-    display: "grid",
-    gap: 6,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: 900,
-    color: "rgba(0,0,0,0.78)",
-  },
+  form: { padding: "10px 26px 22px", display: "grid", gap: 14 },
+  field: { display: "grid", gap: 6 },
+  label: { fontSize: 13, fontWeight: 900, color: "rgba(0,0,0,0.78)" },
   input: {
     height: 44,
     borderRadius: 14,
@@ -276,11 +301,7 @@ const styles: Record<string, React.CSSProperties> = {
     flexWrap: "wrap",
     marginTop: 2,
   },
-  roleWrap: {
-    display: "flex",
-    alignItems: "center",
-    gap: 18,
-  },
+  roleWrap: { display: "flex", alignItems: "center", gap: 18 },
   radioLabel: {
     display: "flex",
     alignItems: "center",
@@ -288,9 +309,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900,
     color: "rgba(0,0,0,0.78)",
   },
-  radioText: {
-    fontSize: 14,
-  },
+  radioText: { fontSize: 14 },
   checkLabel: {
     display: "flex",
     alignItems: "center",
@@ -298,9 +317,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900,
     color: "rgba(0,0,0,0.78)",
   },
-  checkText: {
-    fontSize: 14,
-  },
+  checkText: { fontSize: 14 },
   button: {
     height: 48,
     borderRadius: 16,
@@ -311,6 +328,14 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 900,
     letterSpacing: 0.2,
     marginTop: 6,
+  },
+  clearBtn: {
+    height: 42,
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.15)",
+    background: "rgba(255,255,255,0.75)",
+    fontWeight: 900,
+    cursor: "pointer",
   },
   footer: {
     textAlign: "center",
