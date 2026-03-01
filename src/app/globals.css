@@ -2,80 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
-/* -------------------- 기본 -------------------- */
+:root {
+  --card: rgba(255, 255, 255, 0.88);
+  --card-strong: rgba(255, 255, 255, 0.94);
+  --stroke: rgba(0, 0, 0, 0.10);
+  --shadow: 0 20px 55px rgba(0, 0, 0, 0.28);
+  --muted: rgba(0, 0, 0, 0.62);
+}
 
 html,
 body {
   height: 100%;
   margin: 0;
-  overflow-x: hidden; /* 가로 스크롤 방지 */
+  overflow-x: hidden;
+  color: #111;
+  background: #0b0b0b;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
+a { color: inherit; text-decoration: none; }
+a:visited { color: inherit; }
 
-/* -------------------- 배경 -------------------- */
-
+/* ✅ 전체 배경 */
 .app-bg {
   min-height: 100vh;
-  min-height: 100dvh; /* 모바일 주소창 대응 */
-
+  min-height: 100dvh;
   background-image: url("/bg.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-
-  /* ❌ fixed 제거 (모바일 스크롤 원인) */
-  background-attachment: scroll;
-
+  background-attachment: scroll; /* fixed 금지(모바일 튐/스크롤 원인) */
   position: relative;
-  overflow: hidden; /* 내부 튀어나와 스크롤 생기는거 방지 */
+  overflow: hidden;
 }
 
 .app-bg::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.18);
+  background:
+    radial-gradient(1200px 600px at 15% 20%, rgba(0,0,0,.25), transparent 55%),
+    radial-gradient(900px 500px at 85% 30%, rgba(0,0,0,.22), transparent 60%),
+    rgba(0,0,0,.18);
 }
 
 .app-inner {
   position: relative;
   z-index: 1;
-
-  padding: clamp(14px, 2.5vw, 22px);
+  padding: clamp(14px, 2.2vw, 22px);
 }
-
-/* -------------------- 레이아웃 -------------------- */
 
 .page-wrap {
   max-width: 1100px;
   margin: 0 auto;
 }
 
-/* -------------------- 카드 -------------------- */
-
-.erp-card {
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 22px;
-  padding: 22px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-}
-
-/* -------------------- 상단바 -------------------- */
-
+/* ✅ 상단바 */
 .topbar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
+  gap: 12px;
+  padding: 12px 14px;
   border-radius: 18px;
-  margin-bottom: 18px;
-
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.26);
   backdrop-filter: blur(10px);
 }
 
@@ -83,6 +73,7 @@ a {
   font-weight: 950;
   font-size: 18px;
   white-space: nowrap;
+  letter-spacing: -0.2px;
 }
 
 .tabs {
@@ -96,86 +87,132 @@ a {
   border-radius: 999px;
   font-weight: 900;
   border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.42);
   cursor: pointer;
+  transition: transform .12s ease, background .12s ease;
 }
-
-.tab.on {
-  background: rgba(255, 255, 255, 0.8);
-}
+.tab:hover { transform: translateY(-1px); background: rgba(255,255,255,0.55); }
+.tab.on { background: rgba(255,255,255,0.78); border-color: rgba(0,0,0,0.16); }
 
 .right-actions {
   margin-left: auto;
   display: flex;
   gap: 10px;
+  align-items: center;
 }
 
-/* -------------------- 버튼 -------------------- */
+/* ✅ 카드 */
+.card {
+  background: var(--card-strong);
+  border: 1px solid var(--stroke);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  padding: 22px;
+}
 
+.card-soft {
+  background: var(--card);
+  border: 1px solid rgba(255,255,255,0.35);
+  border-radius: 22px;
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow);
+  padding: 20px;
+}
+
+/* ✅ 버튼 */
 .btn {
-  padding: 9px 14px;
+  padding: 10px 14px;
   border-radius: 14px;
   font-weight: 900;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: rgba(255, 255, 255, 0.62);
   cursor: pointer;
 }
+.btn:hover { background: rgba(255, 255, 255, 0.88); }
 
-.btn:hover {
-  background: rgba(255, 255, 255, 0.85);
+.btn-primary {
+  border: none;
+  background: rgba(0, 0, 0, 0.86);
+  color: white;
 }
+.btn-primary:hover { background: rgba(0, 0, 0, 0.92); }
 
-/* -------------------- 폼 -------------------- */
-
+/* ✅ 폼 */
 .form-grid {
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: 150px 1fr;
   gap: 10px;
   align-items: center;
   margin-bottom: 12px;
 }
 
-.input,
-.select,
-.textarea {
+.label {
+  font-weight: 950;
+  color: rgba(0,0,0,.78);
+}
+
+.input, .select, .textarea {
   width: 100%;
-  padding: 11px 14px;
+  padding: 12px 14px;
   border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0,0,0,.14);
+  background: rgba(255,255,255,.92);
+  outline: none;
 }
 
-.textarea {
-  min-height: 100px;
-  resize: vertical;
+.textarea { min-height: 110px; resize: vertical; }
+
+.hr {
+  height: 1px;
+  background: rgba(0,0,0,.08);
+  margin: 18px 0;
 }
 
-/* -------------------- 모바일 -------------------- */
+/* ✅ 메시지 */
+.msg {
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-weight: 900;
+  border: 1px solid rgba(0,0,0,.10);
+  background: rgba(255,255,255,.92);
+  margin: 12px 0 16px;
+}
+.msg.err { border-color: rgba(220, 38, 38, .35); color: #b91c1c; }
+.msg.ok { border-color: rgba(16, 185, 129, .35); color: #0f766e; }
 
+/* ✅ 로그인: 짧고 가운데 집중 */
+.center-wrap {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+}
+
+.login-card {
+  width: min(780px, 92vw);
+  background: rgba(255,255,255,0.92);
+  border: 1px solid rgba(0,0,0,0.10);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  padding: 26px;
+}
+
+.login-title {
+  font-size: 34px;
+  font-weight: 950;
+  letter-spacing: -0.4px;
+  margin-bottom: 6px;
+}
+.login-sub {
+  color: var(--muted);
+  font-weight: 800;
+  margin-bottom: 16px;
+}
+
+/* ✅ 모바일 */
 @media (max-width: 640px) {
-  .page-wrap {
-    max-width: 100%;
-  }
-
-  .erp-card {
-    padding: 16px;
-    border-radius: 18px;
-  }
-
-  .topbar {
-    flex-wrap: wrap;
-  }
-
-  .form-grid {
-    grid-template-columns: 1fr; /* ✅ 모바일 1열 정렬 */
-  }
-
-  .tabs {
-    width: 100%;
-  }
-
-  .right-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
+  .topbar { flex-wrap: wrap; }
+  .right-actions { width: 100%; justify-content: flex-end; }
+  .form-grid { grid-template-columns: 1fr; }
+  .login-title { font-size: 28px; }
 }

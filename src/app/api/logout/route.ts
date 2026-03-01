@@ -1,45 +1,18 @@
 import { NextResponse } from "next/server";
 
-function makeLogoutResponse(req: Request) {
-  const res = NextResponse.json({ ok: true });
+export const runtime = "nodejs";
 
-  // ✅ 현재 요청에 실려온 쿠키를 전부 지워버린다 (쿠키이름 몰라도 100% 로그아웃)
-  const cookieHeader = req.headers.get("cookie") || "";
-  const cookieNames = cookieHeader
-    .split(";")
-    .map((v) => v.trim())
-    .filter(Boolean)
-    .map((v) => v.split("=")[0]?.trim())
-    .filter(Boolean);
+export async function GET() {
+  // 세션 쿠키 이름이 뭐든 상관없이, 보통 erp_session / session 등
+  // 네 프로젝트에서 쓰는 쿠키명에 맞춰 아래 1줄만 바꾸면 됨.
+  const res = NextResponse.redirect(new URL("/login", "http://localhost"));
 
-  // 중복 제거
-  const unique = Array.from(new Set(cookieNames));
+  // ✅ 배포 환경에서도 작동하게 origin 자동 처리
+  // (Next가 알아서 host를 채움)
+  res.headers.set("Location", "/login");
 
-  for (const name of unique) {
-    // path "/" 로 삭제 (대부분 이걸로 삭제됨)
-    res.cookies.set({
-      name,
-      value: "",
-      path: "/",
-      maxAge: 0,
-    });
-
-    // ✅ 혹시 path가 다를 때 대비 (Next에서 가끔 /api 경로로 잡히는 경우)
-    res.cookies.set({
-      name,
-      value: "",
-      path: "/api",
-      maxAge: 0,
-    });
-  }
+  // ✅ 쿠키 삭제(쿠키 이름이 다르면 여기를 너 쿠키명으로 바꾸자)
+  res.cookies.set("erp_session", "", { path: "/", maxAge: 0 });
 
   return res;
-}
-
-export async function POST(req: Request) {
-  return makeLogoutResponse(req);
-}
-
-export async function GET(req: Request) {
-  return makeLogoutResponse(req);
 }
