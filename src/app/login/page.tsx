@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type RoleChoice = "SALES" | "ADMIN";
@@ -17,11 +17,16 @@ export default function LoginPage() {
   const [pin, setPin] = useState("");
   const [role, setRole] = useState<RoleChoice>("SALES");
   const [autoLogin, setAutoLogin] = useState(true);
+
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
 
   const canSubmit = useMemo(() => {
-    return name.trim().length >= 2 && digitsOnly(phone).length >= 8 && pin.trim().length >= 4;
+    return (
+      name.trim().length >= 1 &&
+      digitsOnly(phone).length >= 8 &&
+      pin.trim().length >= 4
+    );
   }, [name, phone, pin]);
 
   async function onSubmit(e: React.FormEvent) {
@@ -45,248 +50,130 @@ export default function LoginPage() {
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
-
       if (!res.ok) {
-        setMsg(data?.error || "로그인 실패 (정보를 확인해주세요)");
+        const data = await res.json().catch(() => null);
+        setMsg(data?.message || "로그인 실패");
+        setLoading(false);
         return;
       }
 
-      if (String(role).toUpperCase() === "ADMIN") router.push("/admin/dashboard");
-      else router.push("/orders");
-    } catch {
-      setMsg("네트워크 오류가 발생했습니다.");
+      // ✅ 로그인 성공 후 이동
+      router.push(role === "ADMIN" ? "/admin" : "/orders");
+      router.refresh();
+    } catch (err: any) {
+      setMsg(err?.message || "네트워크 오류");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="erp-shell">
-      <div className="erp-center">
-        <div className="erp-card" style={{ width: "min(720px, 100%)" }}>
-          <h1 className="erp-title">한의N원외탕전 ERP 로그인</h1>
-          <p className="erp-subtitle">이름 / 전화번호 / PIN 입력 후 로그인</p>
+    <div className="min-h-screen w-full flex items-center justify-center px-4 py-10">
+      <div className="w-full max-w-[560px] bg-white/95 rounded-3xl shadow-xl px-6 py-8">
+        <h1 className="text-3xl font-extrabold tracking-tight">
+          한의N원외탕전 ERP 로그인
+        </h1>
+        <p className="mt-2 text-sm text-slate-600">
+          이름 / 전화번호 / PIN 입력 후 로그인
+        </p>
 
-          <form onSubmit={onSubmit}>
-            <div className="erp-field">
-              <label className="erp-label">이름</label>
+        <form onSubmit={onSubmit} className="mt-8 space-y-5">
+          <div>
+            <label className="block text-lg font-extrabold mb-2">이름</label>
+            <input
+              className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-lg outline-none focus:ring-2 focus:ring-slate-300"
+              placeholder="홍길동"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+            />
+          </div>
+
+          <div>
+            <label className="block text-lg font-extrabold mb-2">
+              전화번호
+            </label>
+            <input
+              className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-lg outline-none focus:ring-2 focus:ring-slate-300"
+              placeholder="01012341234"
+              inputMode="numeric"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              autoComplete="tel"
+            />
+          </div>
+
+          <div>
+            <label className="block text-lg font-extrabold mb-2">PIN</label>
+            <input
+              className="w-full rounded-2xl border border-slate-200 px-4 py-4 text-lg outline-none focus:ring-2 focus:ring-slate-300"
+              placeholder="예: 1111"
+              inputMode="numeric"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              autoComplete="one-time-code"
+            />
+          </div>
+
+          {/* ✅ 모바일에서 깨지던 부분: 라디오/텍스트/체크박스 정렬 고정 */}
+          <div className="pt-2 space-y-3">
+            <div className="flex items-center gap-3">
               <input
-                className="erp-input"
-                placeholder="홍길동"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
+                type="radio"
+                name="role"
+                checked={role === "SALES"}
+                onChange={() => setRole("SALES")}
+                className="h-5 w-5"
               />
+              <span className="text-xl font-extrabold whitespace-nowrap">
+                영업사원
+              </span>
             </div>
 
-            <div className="erp-field">
-              <label className="erp-label">전화번호</label>
+            <div className="flex items-center gap-3">
               <input
-                className="erp-input"
-                placeholder="01012341234"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                inputMode="numeric"
-                autoComplete="tel"
+                type="radio"
+                name="role"
+                checked={role === "ADMIN"}
+                onChange={() => setRole("ADMIN")}
+                className="h-5 w-5"
               />
+              <span className="text-xl font-extrabold whitespace-nowrap">
+                관리자
+              </span>
             </div>
 
-            <div className="erp-field">
-              <label className="erp-label">PIN</label>
+            <div className="flex items-center gap-3 pt-2">
               <input
-                className="erp-input"
-                placeholder="예: 1111"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                inputMode="numeric"
+                type="checkbox"
+                checked={autoLogin}
+                onChange={(e) => setAutoLogin(e.target.checked)}
+                className="h-5 w-5"
               />
-            </div>
-
-            <div className="erp-row" style={{ justifyContent: "space-between", marginTop: 6, marginBottom: 16 }}>
-              <div className="erp-row" style={{ gap: 16 }}>
-                <label className="erp-row" style={{ gap: 8, fontWeight: 900 }}>
-                  <input type="radio" checked={role === "SALES"} onChange={() => setRole("SALES")} />
-                  영업사원
-                </label>
-                <label className="erp-row" style={{ gap: 8, fontWeight: 900 }}>
-                  <input type="radio" checked={role === "ADMIN"} onChange={() => setRole("ADMIN")} />
-                  관리자
-                </label>
-              </div>
-
-              <label className="erp-row" style={{ gap: 8, fontWeight: 900 }}>
-                <input type="checkbox" checked={autoLogin} onChange={() => setAutoLogin((v) => !v)} />
+              <span className="text-xl font-extrabold whitespace-nowrap">
                 자동로그인
-              </label>
+              </span>
             </div>
+          </div>
 
-            {msg ? (
-              <div
-                style={{
-                  marginBottom: 12,
-                  fontWeight: 900,
-                  color: "#b91c1c",
-                  background: "rgba(185,28,28,0.08)",
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                }}
-              >
-                {msg}
-              </div>
-            ) : null}
-
-            <button className="erp-btn" type="submit" disabled={!canSubmit || loading}>
-              {loading ? "로그인 중..." : "로그인"}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-}"use client";
-
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-
-type RoleChoice = "SALES" | "ADMIN";
-
-function digitsOnly(v: string) {
-  return String(v ?? "").replace(/\D/g, "");
-}
-
-export default function LoginPage() {
-  const router = useRouter();
-
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [pin, setPin] = useState("");
-  const [role, setRole] = useState<RoleChoice>("SALES");
-  const [autoLogin, setAutoLogin] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  const canSubmit = useMemo(() => {
-    return name.trim().length >= 2 && digitsOnly(phone).length >= 8 && pin.trim().length >= 4;
-  }, [name, phone, pin]);
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!canSubmit || loading) return;
-
-    setLoading(true);
-    setMsg("");
-
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          name: name.trim(),
-          phone: digitsOnly(phone),
-          pin: pin.trim(),
-          role,
-          autoLogin,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setMsg(data?.error || "로그인 실패 (정보를 확인해주세요)");
-        return;
-      }
-
-      if (String(role).toUpperCase() === "ADMIN") router.push("/admin/dashboard");
-      else router.push("/orders");
-    } catch {
-      setMsg("네트워크 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="erp-shell">
-      <div className="erp-center">
-        <div className="erp-card" style={{ width: "min(720px, 100%)" }}>
-          <h1 className="erp-title">한의N원외탕전 ERP 로그인</h1>
-          <p className="erp-subtitle">이름 / 전화번호 / PIN 입력 후 로그인</p>
-
-          <form onSubmit={onSubmit}>
-            <div className="erp-field">
-              <label className="erp-label">이름</label>
-              <input
-                className="erp-input"
-                placeholder="홍길동"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
-              />
+          {msg ? (
+            <div className="rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
+              {msg}
             </div>
+          ) : null}
 
-            <div className="erp-field">
-              <label className="erp-label">전화번호</label>
-              <input
-                className="erp-input"
-                placeholder="01012341234"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                inputMode="numeric"
-                autoComplete="tel"
-              />
-            </div>
-
-            <div className="erp-field">
-              <label className="erp-label">PIN</label>
-              <input
-                className="erp-input"
-                placeholder="예: 1111"
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                inputMode="numeric"
-              />
-            </div>
-
-            <div className="erp-row" style={{ justifyContent: "space-between", marginTop: 6, marginBottom: 16 }}>
-              <div className="erp-row" style={{ gap: 16 }}>
-                <label className="erp-row" style={{ gap: 8, fontWeight: 900 }}>
-                  <input type="radio" checked={role === "SALES"} onChange={() => setRole("SALES")} />
-                  영업사원
-                </label>
-                <label className="erp-row" style={{ gap: 8, fontWeight: 900 }}>
-                  <input type="radio" checked={role === "ADMIN"} onChange={() => setRole("ADMIN")} />
-                  관리자
-                </label>
-              </div>
-
-              <label className="erp-row" style={{ gap: 8, fontWeight: 900 }}>
-                <input type="checkbox" checked={autoLogin} onChange={() => setAutoLogin((v) => !v)} />
-                자동로그인
-              </label>
-            </div>
-
-            {msg ? (
-              <div
-                style={{
-                  marginBottom: 12,
-                  fontWeight: 900,
-                  color: "#b91c1c",
-                  background: "rgba(185,28,28,0.08)",
-                  padding: "10px 12px",
-                  borderRadius: 12,
-                }}
-              >
-                {msg}
-              </div>
-            ) : null}
-
-            <button className="erp-btn" type="submit" disabled={!canSubmit || loading}>
-              {loading ? "로그인 중..." : "로그인"}
-            </button>
-          </form>
-        </div>
+          <button
+            type="submit"
+            disabled={!canSubmit || loading}
+            className={[
+              "w-full rounded-2xl py-5 text-xl font-extrabold",
+              "bg-slate-900 text-white shadow-lg",
+              "disabled:bg-slate-300 disabled:shadow-none",
+            ].join(" ")}
+          >
+            {loading ? "로그인 중..." : "로그인"}
+          </button>
+        </form>
       </div>
     </div>
   );
