@@ -2,200 +2,262 @@
 @tailwind components;
 @tailwind utilities;
 
-/* =========================================
-   기본 리셋
-   ========================================= */
-html,
-body {
+/* =========================
+   ERP Global UI Theme
+   ========================= */
+
+:root {
+  --erp-bg-url: url("https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=2400&q=80");
+  --erp-overlay: rgba(0, 0, 0, 0.45);
+  --erp-card: rgba(255, 255, 255, 0.96);
+  --erp-card-solid: #ffffff;
+  --erp-text: #111827;
+  --erp-muted: rgba(255,255,255,0.92);
+  --erp-muted2: rgba(255,255,255,0.78);
+  --erp-shadow: 0 18px 50px rgba(0,0,0,0.35);
+  --erp-radius: 18px;
+  --erp-maxw: 1180px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
   height: 100%;
   margin: 0;
   padding: 0;
+  overflow-x: hidden;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", Arial, "Segoe UI Emoji";
+  color: var(--erp-text);
 }
 
-* {
-  box-sizing: border-box;
-}
-
-body {
-  font-family: "Noto Sans KR", "Malgun Gothic", system-ui, -apple-system, Segoe UI, Roboto,
-    "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Noto Sans", sans-serif;
-}
-
-/* =========================================
-   공통 배경(전체 페이지)
-   - body에 배경을 깔아두면 로그인/관리자/영업 모두 적용됨
-   - 배경이 너무 튀면 아래 overlay가 가독성 잡아줌
-   ========================================= */
-body {
-  background-image: url("/bg.jpg");
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
-}
-
-/* 배경 위에 어두운 오버레이(가독성용) */
+/* 배경 사진 + 블러 + 어두운 오버레이 (전체 페이지 공통) */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  z-index: -1;
+  background-image: var(--erp-bg-url);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: scale(1.02);
+  z-index: -2;
 }
-
-/* 배경 블러(원하면 값 조절: 6px~14px) */
 body::after {
   content: "";
   position: fixed;
   inset: 0;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: var(--erp-overlay);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   z-index: -1;
 }
 
-/* =========================================
-   레이아웃 유틸(로그인/센터 정렬)
-   ========================================= */
+/* 페이지 기본 래퍼 */
+.erp-page {
+  min-height: 100svh;
+  padding: 18px 14px 40px;
+}
+
+/* 최대 폭 컨테이너 */
+.erp-container {
+  max-width: var(--erp-maxw);
+  margin: 0 auto;
+}
+
+/* 로그인처럼 중앙정렬 */
+.erp-center {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 18px 14px;
+}
+
+/* 스크롤 완전 억제(로그인용) */
 .erp-no-scroll {
+  height: 100svh;
   overflow: hidden;
 }
 
-.erp-page-center {
-  min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-/* 로그인 카드/관리자 카드 공통 느낌 */
+/* 카드(불투명 흰색) */
 .erp-card {
-  width: min(680px, 100%);
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 18px;
-  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.35);
-  overflow: hidden;
-}
-
-.erp-card-inner {
+  width: min(520px, 92vw);
+  background: var(--erp-card);
+  border-radius: var(--erp-radius);
+  box-shadow: var(--erp-shadow);
   padding: 22px;
 }
 
-@media (max-width: 420px) {
-  .erp-card-inner {
-    padding: 16px;
-  }
-}
-
-/* input/button 기본 통일 (페이지마다 튀는거 방지) */
-.erp-input {
-  width: 100%;
-  height: 44px;
-  padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  outline: none;
-  background: rgba(255, 255, 255, 0.95);
-}
-
-.erp-input:focus {
-  border-color: rgba(0, 0, 0, 0.25);
-  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.08);
-}
-
-.erp-btn {
-  height: 48px;
-  border-radius: 12px;
-  border: 0;
-  cursor: pointer;
+/* 큰 타이틀(검정 글씨 + 흰 테두리) */
+.erp-title-outline {
+  color: #0b0b0b;
   font-weight: 900;
   letter-spacing: -0.02em;
+  line-height: 1.15;
+  -webkit-text-stroke: 2px rgba(255,255,255,0.95);
+  text-shadow:
+    0 2px 10px rgba(0,0,0,0.35),
+    0 1px 0 rgba(255,255,255,0.20);
 }
 
-.erp-btn-primary {
+/* 서브/설명 텍스트(흰색 + 그림자 → 사진 위에서 절대 안 죽음) */
+.erp-subtle {
+  color: var(--erp-muted);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.55);
+}
+.erp-subtle2 {
+  color: var(--erp-muted2);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.55);
+}
+
+/* 입력 */
+.erp-label {
+  font-weight: 800;
+  margin: 10px 0 6px;
+}
+.erp-input {
   width: 100%;
-  background: #89a892;
+  height: 46px;
+  border-radius: 12px;
+  border: 1px solid rgba(17, 24, 39, 0.18);
+  padding: 0 14px;
+  font-size: 16px;
+  outline: none;
+  background: #fff;
+}
+.erp-input:focus {
+  border-color: rgba(17, 24, 39, 0.35);
+  box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.10);
+}
+
+.erp-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+/* 버튼 */
+.erp-btn {
+  width: 100%;
+  height: 52px;
+  border: 0;
+  border-radius: 14px;
+  font-weight: 900;
+  font-size: 16px;
+  cursor: pointer;
+  background: #8cab96;
+  color: #ffffff;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.20);
+}
+.erp-btn:active { transform: translateY(1px); }
+.erp-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* 상단 네비 (PC/모바일 공통, 모바일에서 스크롤/슬라이드 없이 줄바꿈) */
+.erp-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin: -18px -14px 18px;
+  padding: 12px 14px;
+  background: rgba(30, 41, 59, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+.erp-topbar-inner {
+  max-width: var(--erp-maxw);
+  margin: 0 auto;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.erp-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: #fff;
+  font-weight: 900;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.erp-nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;     /* ✅ 모바일에서 스크롤 말고 줄바꿈 */
+  align-items: center;
+}
+.erp-nav a {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: rgba(255,255,255,0.92);
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(0,0,0,0.10);
+  font-weight: 800;
+}
+.erp-nav a:hover {
+  background: rgba(255,255,255,0.14);
+}
+.erp-nav a[aria-current="page"] {
+  background: rgba(255,255,255,0.22);
+  border-color: rgba(255,255,255,0.35);
   color: #fff;
 }
 
-.erp-btn-primary:hover {
-  filter: brightness(0.97);
-}
-
-/* =========================================
-   관리자 영역 wrapper (너 프로젝트에 이미 erp-main 쓰고 있으니 여기 기준으로 통일)
-   ========================================= */
-.erp-main {
-  min-height: 100dvh;
-  padding: 18px;
-}
-
-/* 관리자 화면 카드(대시보드/재고/거래처 등) – 투명해지는 문제 방지 */
-.erp-panel {
-  background: rgba(255, 255, 255, 0.92);
-  border-radius: 16px;
-  box-shadow: 0 14px 45px rgba(0, 0, 0, 0.25);
-  padding: 18px;
-}
-
-/* =========================================
-   🔥 핵심: 글씨체/가독성 완전 통일(관리자 영역)
-   - 네가 올린 “회색 글씨 안보임 / 페이지마다 글씨 다름” 해결
-   ========================================= */
-.erp-main h1,
-.erp-main h2,
-.erp-main h3 {
-  font-family: "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif !important;
-  font-weight: 900 !important;
-  letter-spacing: -0.02em;
-  color: #111 !important;
-
-  text-shadow:
-    -1px -1px 0 rgba(255, 255, 255, 0.95),
-    1px -1px 0 rgba(255, 255, 255, 0.95),
-    -1px 1px 0 rgba(255, 255, 255, 0.95),
-    1px 1px 0 rgba(255, 255, 255, 0.95),
-    0 2px 14px rgba(0, 0, 0, 0.25);
-}
-
-.erp-main p,
-.erp-main small,
-.erp-main span,
-.erp-main label {
-  font-family: "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif !important;
-  font-weight: 700 !important;
-  color: #111 !important;
-  opacity: 1 !important;
-
-  text-shadow:
-    -1px -1px 0 rgba(255, 255, 255, 0.9),
-    1px -1px 0 rgba(255, 255, 255, 0.9),
-    -1px 1px 0 rgba(255, 255, 255, 0.9),
-    1px 1px 0 rgba(255, 255, 255, 0.9),
-    0 2px 10px rgba(0, 0, 0, 0.2);
-}
-
-/* 회색 유틸이 섞여도 강제로 진하게 */
-.erp-main .text-gray-400,
-.erp-main .text-gray-500,
-.erp-main .text-gray-600,
-.erp-main .text-slate-400,
-.erp-main .text-slate-500,
-.erp-main .text-slate-600 {
-  color: #111 !important;
-  opacity: 1 !important;
-}
-
-/* =========================================
-   상단 메뉴/로고 글자도 “흰 테두리” 느낌으로 가독성 고정 (원하면)
-   - "한의N원외탕전" 같은 헤더 텍스트용
-   ========================================= */
-.erp-outline-white {
-  color: #111;
+.erp-logout {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.20);
+  background: rgba(0,0,0,0.18);
+  color: #fff;
   font-weight: 900;
-  text-shadow:
-    -1px -1px 0 rgba(255, 255, 255, 0.95),
-    1px -1px 0 rgba(255, 255, 255, 0.95),
-    -1px 1px 0 rgba(255, 255, 255, 0.95),
-    1px 1px 0 rgba(255, 255, 255, 0.95),
-    0 2px 14px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+}
+
+/* 본문 카드/테이블(재고/거래처/품목) 공통 */
+.erp-panel {
+  background: var(--erp-card);
+  border-radius: var(--erp-radius);
+  box-shadow: var(--erp-shadow);
+  padding: 18px;
+  margin-top: 14px;
+}
+.erp-tablewrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(17,24,39,0.12);
+  background: #fff; /* ✅ 투명 금지 */
+}
+.erp-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 720px; /* 모바일에서 가로스크롤은 테이블만 */
+}
+.erp-table th, .erp-table td {
+  padding: 12px 12px;
+  border-bottom: 1px solid rgba(17,24,39,0.08);
+  text-align: left;
+  white-space: nowrap;
+}
+.erp-table th {
+  background: rgba(17,24,39,0.04);
+  font-weight: 900;
 }
