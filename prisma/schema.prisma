@@ -24,10 +24,11 @@ model User {
   name      String
   phone     String   @unique
   role      Role     @default(SALES)
+  pin       String?  // ✅ 추가: PIN 해시 저장
   createdAt DateTime @default(now())
 
   orders    Order[]
-  clients   Client[] // ✅ 추가: 내가 만든 거래처들
+  clients   Client[] @relation("SalesClients")
 }
 
 model Item {
@@ -49,9 +50,9 @@ model Client {
   memo         String?
   createdAt    DateTime @default(now())
 
-  // ✅ 추가: 거래처 소유 영업사원 (기존 데이터 대비해서 nullable)
+  // ✅ “내 거래처만 보기”용 (영업사원 소유)
   salesId      String?
-  sales        User?    @relation(fields: [salesId], references: [id])
+  sales        User?    @relation("SalesClients", fields: [salesId], references: [id])
 
   orders       Order[]
 

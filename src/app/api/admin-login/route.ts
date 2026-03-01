@@ -32,10 +32,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ 영업사원 로그인 화면: SALES/ADMIN 둘 다 허용
-    if (user.role !== "SALES" && user.role !== "ADMIN") {
+    // ✅ 관리자 로그인 화면: ADMIN만 허용
+    if (user.role !== "ADMIN") {
       return NextResponse.json(
-        { ok: false, code: "FORBIDDEN", message: "권한이 없습니다." },
+        { ok: false, code: "FORBIDDEN", message: "관리자만 로그인 가능합니다." },
         { status: 403 }
       );
     }

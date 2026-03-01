@@ -1,347 +1,115 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-
-type Role = "SALES" | "ADMIN";
-
-function digits(v: string) {
-  return String(v ?? "").replace(/\D/g, "");
-}
+import { useState } from "react";
 
 export default function LoginPage() {
-  const router = useRouter();
-
-  const [role, setRole] = useState<Role>("SALES");
-  const [autoLogin, setAutoLogin] = useState(false);
-
-  // ✅ 화면에는 절대 자동 채우지 않음
-  const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
-
+  const [mode, setMode] = useState<"SALES" | "ADMIN">("SALES");
   const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
 
-  // ✅ 저장된 자동로그인이 있으면 "화면 채우지 말고" 조용히 로그인 시도
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("erp_login_saved");
-      if (!saved) return;
-      const obj = JSON.parse(saved);
-      if (!obj?.autoLogin) return;
-
-      const savedRole: Role =
-        obj?.role === "ADMIN" || obj?.role === "SALES" ? obj.role : "SALES";
-
-      const savedName = String(obj?.name ?? "").trim();
-      const savedPhone = digits(obj?.phone ?? "");
-      const savedPin = digits(obj?.pin ?? "");
-
-      if (!savedName || !savedPhone || !savedPin) return;
-
-      // ✅ 화면 입력은 비워두고, 자동로그인만 진행
-      setRole(savedRole);
-      setAutoLogin(true);
-
-      (async () => {
-        setLoading(true);
-        try {
-          const endpoint = savedRole === "ADMIN" ? "/api/login" : "/api/sales-login";
-          const res = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              name: savedName,
-              phone: savedPhone,
-              pin: savedPin,
-            }),
-          });
-
-          if (res.ok) {
-            router.replace(savedRole === "ADMIN" ? "/admin/dashboard" : "/orders");
-          } else {
-            // 자동로그인 실패 시 저장값 제거(다음부터 안 튀어나오게)
-            localStorage.removeItem("erp_login_saved");
-            setAutoLogin(false);
-          }
-        } finally {
-          setLoading(false);
-        }
-      })();
-    } catch {
-      // 무시
-    }
-  }, [router]);
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (loading) return;
-
+  async function submit() {
     setLoading(true);
-    try {
-      const endpoint = role === "ADMIN" ? "/api/login" : "/api/sales-login";
+    setMsg("");
 
+    try {
+      const endpoint = mode === "ADMIN" ? "/api/admin-login" : "/api/sales-login";
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          name: name.trim(),
-          phone: digits(phone),
-          pin: digits(pin),
-        }),
+        body: JSON.stringify({ phone, pin }),
       });
 
-      if (!res.ok) {
-        alert("로그인 실패 (이름/전화/PIN 확인)");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.ok) {
+        setMsg(data?.message ?? "로그인 실패");
+        setLoading(false);
         return;
       }
 
-      if (autoLogin) {
-        localStorage.setItem(
-          "erp_login_saved",
-          JSON.stringify({
-            name: name.trim(),
-            phone: digits(phone),
-            pin: digits(pin),
-            role,
-            autoLogin: true,
-          })
-        );
-      } else {
-        localStorage.removeItem("erp_login_saved");
-      }
+      // ✅ 로그인 성공 후 내 role 확인
+      const meRes = await fetch("/api/me", { credentials: "include" });
+      const me = await meRes.json().catch(() => null);
 
-      router.replace(role === "ADMIN" ? "/admin/dashboard" : "/orders");
+      if (me?.user?.role === "ADMIN") {
+        // ADMIN은 /admin 우선 (원하면 /orders로 바로 보내도 됨)
+        window.location.href = "/admin/orders";
+      } else {
+        window.location.href = "/orders";
+      }
+    } catch (e: any) {
+      setMsg(String(e?.message ?? e));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.overlay} />
-
-      <div style={styles.wrap}>
-        <div style={styles.card}>
-          <div style={styles.header}>
-            <div style={styles.title}>한의N원외탕전 ERP 로그인</div>
-            <div style={styles.sub}>이름 / 전화번호 / PIN 입력 후 로그인</div>
-          </div>
-
-          <form onSubmit={onSubmit} style={styles.form}>
-            <div style={styles.field}>
-              <label style={styles.label}>이름</label>
-              <input
-                style={styles.input}
-                placeholder="예: 홍길동"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="off"
-                required
-              />
-            </div>
-
-            <div style={styles.field}>
-              <label style={styles.label}>전화번호</label>
-              <input
-                style={styles.input}
-                placeholder="숫자만 입력"
-                value={phone}
-                onChange={(e) => setPhone(digits(e.target.value))}
-                inputMode="numeric"
-                autoComplete="off"
-                required
-              />
-            </div>
-
-            <div style={styles.field}>
-              <label style={styles.label}>PIN</label>
-              <input
-                style={styles.input}
-                placeholder="예: 1111"
-                value={pin}
-                onChange={(e) => setPin(digits(e.target.value))}
-                inputMode="numeric"
-                autoComplete="off"
-                required
-              />
-            </div>
-
-            <div style={styles.rowBetween}>
-              <div style={styles.roleWrap}>
-                <label style={styles.radioLabel}>
-                  <input
-                    type="radio"
-                    name="role"
-                    checked={role === "SALES"}
-                    onChange={() => setRole("SALES")}
-                  />
-                  <span style={styles.radioText}>영업사원</span>
-                </label>
-
-                <label style={styles.radioLabel}>
-                  <input
-                    type="radio"
-                    name="role"
-                    checked={role === "ADMIN"}
-                    onChange={() => setRole("ADMIN")}
-                  />
-                  <span style={styles.radioText}>관리자</span>
-                </label>
-              </div>
-
-              <label style={styles.checkLabel}>
-                <input
-                  type="checkbox"
-                  checked={autoLogin}
-                  onChange={(e) => setAutoLogin(e.target.checked)}
-                />
-                <span style={styles.checkText}>자동로그인</span>
-              </label>
-            </div>
-
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/5 backdrop-blur-xl shadow-xl p-6">
+        <div className="flex items-center justify-between mb-5">
+          <h1 className="text-xl font-semibold text-white">한의N원외탕전 로그인</h1>
+          <div className="flex gap-2">
             <button
-              type="submit"
-              style={{
-                ...styles.button,
-                opacity: loading ? 0.7 : 1,
-                cursor: loading ? "not-allowed" : "pointer",
-              }}
+              className={`px-3 py-1.5 rounded-lg text-sm ${
+                mode === "SALES" ? "bg-white/15 text-white" : "bg-white/5 text-white/70"
+              }`}
+              onClick={() => setMode("SALES")}
               disabled={loading}
             >
-              {loading ? "로그인 중..." : "로그인"}
+              영업사원
             </button>
-
             <button
-              type="button"
-              onClick={() => {
-                localStorage.removeItem("erp_login_saved");
-                setAutoLogin(false);
-                alert("저장된 자동로그인을 삭제했어.");
-              }}
-              style={styles.clearBtn}
+              className={`px-3 py-1.5 rounded-lg text-sm ${
+                mode === "ADMIN" ? "bg-white/15 text-white" : "bg-white/5 text-white/70"
+              }`}
+              onClick={() => setMode("ADMIN")}
+              disabled={loading}
             >
-              저장된 자동로그인 삭제
+              관리자
             </button>
+          </div>
+        </div>
 
-            <div style={styles.footer}>© 한의N원외탕전</div>
-          </form>
+        <label className="block text-sm text-white/80 mb-1">전화번호</label>
+        <input
+          className="w-full mb-3 rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/25"
+          placeholder="숫자만 (예: 01023833691)"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          disabled={loading}
+        />
+
+        <label className="block text-sm text-white/80 mb-1">PIN</label>
+        <input
+          className="w-full mb-4 rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-white outline-none focus:border-white/25"
+          placeholder="PIN 입력"
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          disabled={loading}
+          type="password"
+        />
+
+        {msg ? (
+          <div className="mb-3 text-sm text-red-300 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+            {msg}
+          </div>
+        ) : null}
+
+        <button
+          className="w-full rounded-xl bg-white text-black font-semibold py-3 disabled:opacity-60"
+          onClick={submit}
+          disabled={loading}
+        >
+          {loading ? "로그인 중..." : "로그인"}
+        </button>
+
+        <div className="mt-4 text-xs text-white/50">
+          * ADMIN은 영업 화면(/orders, /clients)도 접속 가능 / SALES는 영업 화면만 가능
         </div>
       </div>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: "100vh",
-    width: "100%",
-    backgroundImage: "url('/bg.jpg')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    position: "relative",
-  },
-  overlay: {
-    position: "absolute",
-    inset: 0,
-    background:
-      "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.45) 100%)",
-  },
-  wrap: {
-    position: "relative",
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 560,
-    background: "rgba(255,255,255,0.88)",
-    border: "1px solid rgba(255,255,255,0.45)",
-    borderRadius: 24,
-    boxShadow: "0 24px 70px rgba(0,0,0,0.35)",
-    backdropFilter: "blur(10px)",
-    WebkitBackdropFilter: "blur(10px)",
-    overflow: "hidden",
-  },
-  header: { padding: "26px 26px 12px" },
-  title: {
-    fontSize: 30,
-    fontWeight: 900,
-    letterSpacing: -0.5,
-    color: "#111",
-  },
-  sub: {
-    marginTop: 6,
-    fontSize: 14,
-    fontWeight: 700,
-    color: "rgba(0,0,0,0.55)",
-  },
-  form: { padding: "10px 26px 22px", display: "grid", gap: 14 },
-  field: { display: "grid", gap: 6 },
-  label: { fontSize: 13, fontWeight: 900, color: "rgba(0,0,0,0.78)" },
-  input: {
-    height: 44,
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.12)",
-    padding: "0 12px",
-    outline: "none",
-    fontSize: 16,
-    background: "rgba(255,255,255,0.95)",
-  },
-  rowBetween: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    flexWrap: "wrap",
-    marginTop: 2,
-  },
-  roleWrap: { display: "flex", alignItems: "center", gap: 18 },
-  radioLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    fontWeight: 900,
-    color: "rgba(0,0,0,0.78)",
-  },
-  radioText: { fontSize: 14 },
-  checkLabel: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    fontWeight: 900,
-    color: "rgba(0,0,0,0.78)",
-  },
-  checkText: { fontSize: 14 },
-  button: {
-    height: 48,
-    borderRadius: 16,
-    border: "none",
-    background: "#111",
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: 900,
-    letterSpacing: 0.2,
-    marginTop: 6,
-  },
-  clearBtn: {
-    height: 42,
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.15)",
-    background: "rgba(255,255,255,0.75)",
-    fontWeight: 900,
-    cursor: "pointer",
-  },
-  footer: {
-    textAlign: "center",
-    fontSize: 13,
-    fontWeight: 800,
-    color: "rgba(0,0,0,0.55)",
-    paddingTop: 6,
-  },
-};
