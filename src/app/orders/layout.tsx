@@ -11,11 +11,10 @@ export default function OrdersLayout({ children }: { children: React.ReactNode }
 
           <div style={{ flex: 1 }} />
 
-          <form action="/api/auth/logout" method="post">
-            <button className="erp-logout" type="submit">
-              로그아웃
-            </button>
-          </form>
+          {/* ✅ 로그아웃은 GET /logout */}
+          <Link className="erp-logout" href="/logout">
+            로그아웃
+          </Link>
         </div>
       </header>
 
