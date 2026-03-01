@@ -1,7 +1,10 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* 기본 리셋/가독성 */
-html, body {
+/* 기본 */
+html,
+body {
   height: 100%;
 }
 
@@ -10,7 +13,180 @@ body {
   color: #111;
 }
 
-/* 입력 UI 기본 안정화 */
-input, select, textarea, button {
-  font: inherit;
+/* 공통 배경(모든 화면 배경 유지) */
+.erp-bg {
+  min-height: 100vh;
+  background-image: linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url("/bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+/* 페이지 중앙 카드 컨테이너 */
+.erp-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 16px;
+}
+
+.erp-card {
+  width: 100%;
+  max-width: 980px;
+  background: rgba(255,255,255,0.88);
+  border: 1px solid rgba(255,255,255,0.55);
+  border-radius: 22px;
+  box-shadow: 0 18px 55px rgba(0,0,0,0.22);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+/* 카드 상단 헤더(탭 들어가는 영역) */
+.erp-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 18px 10px 18px;
+}
+
+.erp-title {
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: -0.3px;
+}
+
+/* 탭 */
+.erp-tabs {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.erp-tab {
+  border: 1px solid rgba(0,0,0,0.08);
+  background: rgba(255,255,255,0.65);
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  color: #111;
+}
+
+.erp-tab-active {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.erp-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.erp-btn {
+  border: 1px solid rgba(0,0,0,0.1);
+  background: rgba(255,255,255,0.7);
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* 카드 본문 */
+.erp-card-body {
+  padding: 18px;
+}
+
+/* 에러 배너(빨간 글씨 난사 방지, 보기 좋게) */
+.erp-error {
+  border: 1px solid rgba(255, 0, 0, 0.25);
+  background: rgba(255, 0, 0, 0.06);
+  color: #b10000;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+
+/* 폼 */
+.erp-section-title {
+  font-size: 20px;
+  font-weight: 900;
+  margin: 8px 0 12px;
+}
+
+.erp-help {
+  margin-top: -4px;
+  margin-bottom: 14px;
+  color: rgba(0,0,0,0.65);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.erp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.erp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.erp-label {
+  font-weight: 900;
+  font-size: 13px;
+  color: rgba(0,0,0,0.8);
+}
+
+.erp-input,
+.erp-select,
+.erp-textarea {
+  border: 1px solid rgba(0,0,0,0.12);
+  background: rgba(255,255,255,0.85);
+  border-radius: 14px;
+  padding: 12px 12px;
+  font-size: 14px;
+  outline: none;
+}
+
+.erp-textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.erp-primary {
+  width: 100%;
+  border: 0;
+  background: #111;
+  color: #fff;
+  padding: 14px 16px;
+  border-radius: 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+/* 모바일 */
+@media (max-width: 860px) {
+  .erp-card {
+    max-width: 680px;
+  }
+  .erp-tabs {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+  .erp-grid {
+    grid-template-columns: 1fr;
+  }
 }
