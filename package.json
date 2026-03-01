@@ -22,11 +22,11 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.18",
+    "@tailwindcss/postcss": "^4.2.1",
     "@types/node": "^20.11.17",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
-    "autoprefixer": "^10.4.24",
+    "autoprefixer": "^10.4.27",
     "postcss": "^8.5.6",
     "prisma": "^5.8.0",
     "tailwindcss": "^4.1.18",
@@ -36,5 +36,4 @@
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   }
-
 }
