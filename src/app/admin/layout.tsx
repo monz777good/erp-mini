@@ -4,10 +4,8 @@ import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/session";
 
 async function currentPath() {
-  // ✅ Next.js 16: headers()는 Promise라 await 필요
   const h = await headers();
   const url = h.get("x-url") || "";
-
   try {
     return url ? new URL(url).pathname : "";
   } catch {
@@ -17,16 +15,13 @@ async function currentPath() {
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser(null as any);
-
-  if (!user || String(user.role).toUpperCase() !== "ADMIN") {
-    redirect("/login");
-  }
+  if (!user || String(user.role).toUpperCase() !== "ADMIN") redirect("/login");
 
   const pathname = await currentPath();
 
   return (
     <div className="erp-page">
-      <div className="erp-topbar">
+      <header className="erp-topbar">
         <div className="erp-topbar-inner">
           <Link className="erp-brand" href="/admin/dashboard">
             한의N원외탕전 ERP
@@ -53,9 +48,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </button>
           </form>
         </div>
-      </div>
+      </header>
 
-      <div className="erp-container">{children}</div>
+      <main className="erp-container">{children}</main>
     </div>
   );
 }
