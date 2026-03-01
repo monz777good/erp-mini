@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+type Role = "SALES" | "ADMIN";
+
 export default function LoginPage() {
   const router = useRouter();
 
-  const [role, setRole] = useState<"SALES" | "ADMIN">("SALES");
+  const [role, setRole] = useState<Role>("SALES");
   const [autoLogin, setAutoLogin] = useState(true);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     try {
@@ -27,137 +30,267 @@ export default function LoginPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (loading) return;
 
-    const endpoint = role === "ADMIN" ? "/api/login" : "/api/sales-login";
+    setLoading(true);
+    try {
+      const endpoint = role === "ADMIN" ? "/api/login" : "/api/sales-login";
 
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ name, phone, pin }),
-    });
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: String(phone).replace(/\D/g, ""),
+          pin: String(pin).replace(/\D/g, ""),
+        }),
+      });
 
-    if (!res.ok) {
-      alert("로그인 실패");
-      return;
+      if (!res.ok) {
+        alert("로그인 실패 (이름/전화/PIN 확인)");
+        return;
+      }
+
+      if (autoLogin) {
+        localStorage.setItem(
+          "erp_login_saved",
+          JSON.stringify({ name, phone, pin, role, autoLogin })
+        );
+      } else {
+        localStorage.removeItem("erp_login_saved");
+      }
+
+      router.replace(role === "ADMIN" ? "/admin/dashboard" : "/orders");
+    } finally {
+      setLoading(false);
     }
-
-    if (autoLogin) {
-      localStorage.setItem(
-        "erp_login_saved",
-        JSON.stringify({ name, phone, pin, role, autoLogin })
-      );
-    } else {
-      localStorage.removeItem("erp_login_saved");
-    }
-
-    router.replace(role === "ADMIN" ? "/admin/dashboard" : "/orders");
   }
 
   return (
-    <div
-      className="min-h-screen w-full bg-cover bg-center"
-      style={{
-        backgroundImage:
-          "linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url('/bg.jpg')",
-      }}
-    >
-      <div className="min-h-screen w-full flex items-center justify-center p-4">
-        <div className="w-full max-w-xl rounded-3xl bg-white/85 backdrop-blur-md shadow-2xl border border-white/40 overflow-hidden">
-          <div className="px-6 py-7 md:px-10 md:py-10">
-            <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-neutral-900">
-              한의N원외탕전 ERP 로그인
-            </h1>
-            <p className="mt-2 text-sm md:text-base text-neutral-600">
-              이름 / 전화번호 / PIN 입력 후 로그인
-            </p>
+    <div style={styles.page}>
+      {/* 배경 오버레이 */}
+      <div style={styles.overlay} />
 
-            <form onSubmit={onSubmit} className="mt-7 space-y-5">
-              <div className="grid gap-2">
-                <label className="text-sm font-semibold text-neutral-800">
-                  이름
-                </label>
-                <input
-                  className="h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-base outline-none focus:ring-2 focus:ring-neutral-900/20"
-                  placeholder="예: 홍길동"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <label className="text-sm font-semibold text-neutral-800">
-                  전화번호
-                </label>
-                <input
-                  className="h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-base outline-none focus:ring-2 focus:ring-neutral-900/20"
-                  placeholder="숫자만 입력"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                  required
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <label className="text-sm font-semibold text-neutral-800">
-                  PIN
-                </label>
-                <input
-                  className="h-11 w-full rounded-xl border border-neutral-200 bg-white px-3 text-base outline-none focus:ring-2 focus:ring-neutral-900/20"
-                  placeholder="예: 1111"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-                  required
-                />
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
-                <div className="flex items-center gap-6">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
-                    <input
-                      type="radio"
-                      name="role"
-                      checked={role === "SALES"}
-                      onChange={() => setRole("SALES")}
-                    />
-                    영업사원
-                  </label>
-                  <label className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
-                    <input
-                      type="radio"
-                      name="role"
-                      checked={role === "ADMIN"}
-                      onChange={() => setRole("ADMIN")}
-                    />
-                    관리자
-                  </label>
-                </div>
-
-                <label className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
-                  <input
-                    type="checkbox"
-                    checked={autoLogin}
-                    onChange={(e) => setAutoLogin(e.target.checked)}
-                  />
-                  자동로그인
-                </label>
-              </div>
-
-              <button
-                type="submit"
-                className="mt-2 h-12 w-full rounded-2xl bg-neutral-900 text-white font-extrabold tracking-wide shadow-lg hover:bg-neutral-800 active:scale-[0.99]"
-              >
-                로그인
-              </button>
-
-              <div className="pt-3 text-center text-sm text-neutral-600 font-semibold">
-                © 한의N원외탕전
-              </div>
-            </form>
+      {/* 가운데 카드 */}
+      <div style={styles.wrap}>
+        <div style={styles.card}>
+          <div style={styles.header}>
+            <div style={styles.title}>한의N원외탕전 ERP 로그인</div>
+            <div style={styles.sub}>이름 / 전화번호 / PIN 입력 후 로그인</div>
           </div>
+
+          <form onSubmit={onSubmit} style={styles.form}>
+            <div style={styles.field}>
+              <label style={styles.label}>이름</label>
+              <input
+                style={styles.input}
+                placeholder="예: 홍길동"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>전화번호</label>
+              <input
+                style={styles.input}
+                placeholder="숫자만 입력"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                inputMode="numeric"
+                required
+              />
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>PIN</label>
+              <input
+                style={styles.input}
+                placeholder="예: 1111"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                inputMode="numeric"
+                required
+              />
+            </div>
+
+            <div style={styles.rowBetween}>
+              <div style={styles.roleWrap}>
+                <label style={styles.radioLabel}>
+                  <input
+                    type="radio"
+                    name="role"
+                    checked={role === "SALES"}
+                    onChange={() => setRole("SALES")}
+                  />
+                  <span style={styles.radioText}>영업사원</span>
+                </label>
+
+                <label style={styles.radioLabel}>
+                  <input
+                    type="radio"
+                    name="role"
+                    checked={role === "ADMIN"}
+                    onChange={() => setRole("ADMIN")}
+                  />
+                  <span style={styles.radioText}>관리자</span>
+                </label>
+              </div>
+
+              <label style={styles.checkLabel}>
+                <input
+                  type="checkbox"
+                  checked={autoLogin}
+                  onChange={(e) => setAutoLogin(e.target.checked)}
+                />
+                <span style={styles.checkText}>자동로그인</span>
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              style={{
+                ...styles.button,
+                opacity: loading ? 0.7 : 1,
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
+              disabled={loading}
+            >
+              {loading ? "로그인 중..." : "로그인"}
+            </button>
+
+            <div style={styles.footer}>© 한의N원외탕전</div>
+          </form>
         </div>
       </div>
     </div>
   );
 }
+
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    minHeight: "100vh",
+    width: "100%",
+    backgroundImage:
+      "url('/bg.jpg')",
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    position: "relative",
+  },
+  overlay: {
+    position: "absolute",
+    inset: 0,
+    background:
+      "linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.45) 100%)",
+  },
+  wrap: {
+    position: "relative",
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 560,
+    background: "rgba(255,255,255,0.88)",
+    border: "1px solid rgba(255,255,255,0.45)",
+    borderRadius: 24,
+    boxShadow: "0 24px 70px rgba(0,0,0,0.35)",
+    backdropFilter: "blur(10px)",
+    WebkitBackdropFilter: "blur(10px)",
+    overflow: "hidden",
+  },
+  header: {
+    padding: "26px 26px 12px",
+  },
+  title: {
+    fontSize: 30,
+    fontWeight: 900,
+    letterSpacing: -0.5,
+    color: "#111",
+  },
+  sub: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: 700,
+    color: "rgba(0,0,0,0.55)",
+  },
+  form: {
+    padding: "10px 26px 22px",
+    display: "grid",
+    gap: 14,
+  },
+  field: {
+    display: "grid",
+    gap: 6,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: 900,
+    color: "rgba(0,0,0,0.78)",
+  },
+  input: {
+    height: 44,
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.12)",
+    padding: "0 12px",
+    outline: "none",
+    fontSize: 16,
+    background: "rgba(255,255,255,0.95)",
+  },
+  rowBetween: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+    marginTop: 2,
+  },
+  roleWrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: 18,
+  },
+  radioLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontWeight: 900,
+    color: "rgba(0,0,0,0.78)",
+  },
+  radioText: {
+    fontSize: 14,
+  },
+  checkLabel: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontWeight: 900,
+    color: "rgba(0,0,0,0.78)",
+  },
+  checkText: {
+    fontSize: 14,
+  },
+  button: {
+    height: 48,
+    borderRadius: 16,
+    border: "none",
+    background: "#111",
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: 900,
+    letterSpacing: 0.2,
+    marginTop: 6,
+  },
+  footer: {
+    textAlign: "center",
+    fontSize: 13,
+    fontWeight: 800,
+    color: "rgba(0,0,0,0.55)",
+    paddingTop: 6,
+  },
+};
