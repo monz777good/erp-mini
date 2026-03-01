@@ -29,14 +29,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
           <nav className="erp-nav">
             <Link href="/admin/dashboard" aria-current={pathname === "/admin/dashboard" ? "page" : undefined}>
+              대시보드
+            </Link>
+
+            {/* 아래 경로가 실제로 존재하면 그대로 쓰면 됨 */}
+            <Link href="/admin/orders" aria-current={pathname.startsWith("/admin/orders") ? "page" : undefined}>
               주문
             </Link>
+
             <Link href="/admin/items" aria-current={pathname.startsWith("/admin/items") ? "page" : undefined}>
               품목
             </Link>
+
             <Link href="/admin/clients" aria-current={pathname.startsWith("/admin/clients") ? "page" : undefined}>
               거래처/사업자등록증
             </Link>
+
             <Link href="/admin/stock" aria-current={pathname.startsWith("/admin/stock") ? "page" : undefined}>
               재고관리
             </Link>
@@ -50,7 +58,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </header>
 
-      {/* ✅ 관리자 페이지도 "흰 카드" 안에 */}
       <div className="erp-shell">
         <div className="erp-card">{children}</div>
       </div>

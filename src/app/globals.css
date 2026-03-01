@@ -2,19 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* =========================
-   GLOBAL THEME (깔끔 + 가독성)
-   ========================= */
-
 :root{
   --bg0:#05070c;
   --bg1:#0b1220;
   --bg2:#111827;
 
-  --card:#ffffff;          /* 카드 기본 흰색 */
-  --card-alpha:0.96;       /* 불투명(거의 흰색) */
-  --text:#0f172a;          /* 진한 글자 */
-  --muted:#475569;         /* 설명 */
+  --text:#0f172a;
+  --muted:#475569;
   --line:rgba(15,23,42,.10);
 
   --shadow: 0 22px 60px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.22);
@@ -24,13 +18,12 @@
 
 *{ box-sizing:border-box; }
 html, body{ height:100%; }
+
 body{
   margin:0;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   color: var(--text);
-
-  /* ✅ 배경 이미지 없어도 무조건 예쁜 그라데이션 */
   background:
     radial-gradient(1200px 600px at 20% 15%, rgba(99,102,241,.22), transparent 60%),
     radial-gradient(900px 500px at 80% 20%, rgba(16,185,129,.18), transparent 65%),
@@ -39,13 +32,7 @@ body{
   background-attachment: fixed;
 }
 
-/* =========================
-   LAYOUT WRAPPERS
-   ========================= */
-
-.erp-page{
-  min-height:100vh;
-}
+.erp-page{ min-height:100vh; }
 
 .erp-shell{
   max-width: 1280px;
@@ -60,17 +47,15 @@ body{
   justify-content:center;
 }
 
-/* ✅ 모든 화면을 흰색 불투명 카드 안으로 강제 */
 .erp-card{
   width: 100%;
-  background: rgba(255,255,255,var(--card-alpha));
+  background: rgba(255,255,255,.96);
   border: 1px solid rgba(255,255,255,.45);
   border-radius: var(--r);
   box-shadow: var(--shadow);
   padding: 26px;
 }
 
-/* 카드 안 “헤더” 통일 */
 .erp-title{
   margin:0 0 10px;
   font-size: 30px;
@@ -86,10 +71,7 @@ body{
   color: var(--muted);
 }
 
-/* =========================
-   TOPBAR (관리자 상단 메뉴)
-   ========================= */
-
+/* ===== TOPBAR ===== */
 .erp-topbar{
   position: sticky;
   top: 0;
@@ -100,7 +82,6 @@ body{
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
-
 .erp-topbar-inner{
   max-width:1280px;
   margin:0 auto;
@@ -110,7 +91,6 @@ body{
   align-items:center;
   justify-content: space-between;
 }
-
 .erp-brand{
   color:#fff;
   text-decoration:none;
@@ -118,14 +98,12 @@ body{
   letter-spacing:-0.4px;
   white-space: nowrap;
 }
-
 .erp-nav{
   display:flex;
   flex-wrap:wrap;
   gap:10px;
   align-items:center;
 }
-
 .erp-nav a{
   height:36px;
   display:inline-flex;
@@ -140,13 +118,11 @@ body{
   background: rgba(255,255,255,.10);
   border: 1px solid rgba(255,255,255,.12);
 }
-
 .erp-nav a[aria-current="page"]{
   background: rgba(255,255,255,.92);
   color:#111;
   border-color: rgba(255,255,255,.92);
 }
-
 .erp-logout{
   height:36px;
   padding:0 12px;
@@ -158,10 +134,7 @@ body{
   cursor:pointer;
 }
 
-/* =========================
-   FORMS (입력/버튼 통일)
-   ========================= */
-
+/* ===== FORMS ===== */
 .erp-field{ margin-bottom: 14px; }
 .erp-label{
   display:block;
@@ -169,7 +142,6 @@ body{
   font-weight: 900;
   color: var(--text);
 }
-
 .erp-input{
   width:100%;
   height:44px;
@@ -181,19 +153,16 @@ body{
   outline:none;
   font-size: 15px;
 }
-
 .erp-input:focus{
   border-color: rgba(15,23,42,.32);
   box-shadow: 0 0 0 4px rgba(15,23,42,.08);
 }
-
 .erp-row{
   display:flex;
   gap:12px;
   align-items:center;
   flex-wrap:wrap;
 }
-
 .erp-btn{
   width:100%;
   height:48px;
@@ -208,24 +177,20 @@ body{
 }
 .erp-btn:disabled{ opacity:.55; cursor:not-allowed; }
 
-/* =========================
-   TABLE (목록 가독성 통일)
-   ========================= */
-
+/* ===== TABLE (PC 기본) ===== */
 .erp-table-wrap{
   width:100%;
   overflow:auto;
   border-radius: 14px;
   border: 1px solid var(--line);
   background: rgba(255,255,255,.98);
+  -webkit-overflow-scrolling: touch;
 }
-
 table{
   width:100%;
   border-collapse: collapse;
-  min-width: 900px; /* 목록은 넓게 */
+  min-width: 900px;
 }
-
 thead th{
   position: sticky;
   top:0;
@@ -236,27 +201,32 @@ thead th{
   border-bottom: 1px solid rgba(15,23,42,.12);
   white-space: nowrap;
 }
-
 tbody td{
   padding: 12px;
   border-bottom: 1px solid rgba(15,23,42,.08);
   color:#111;
   white-space: nowrap;
 }
+tbody tr:hover td{ background: rgba(15,23,42,.03); }
 
-tbody tr:hover td{
-  background: rgba(15,23,42,.03);
-}
-
-/* =========================
-   MOBILE (메뉴 슬라이드 말고 "누르면" 그리드)
-   ========================= */
-
+/* ✅ 모바일에서 거래처/재고 화면 깨지는 것 방지:
+   - 표는 무조건 스크롤
+   - 긴 텍스트는 줄바꿈 허용(주소/메모)
+*/
 @media (max-width: 900px){
   .erp-shell{ padding: 18px 12px 50px; }
+  .erp-card{ padding: 18px; border-radius: 16px; }
+  .erp-title{ font-size: 24px; }
+
   .erp-topbar-inner{ flex-direction: column; align-items: stretch; }
   .erp-nav{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; }
   .erp-nav a, .erp-logout{ width:100%; }
-  .erp-card{ padding: 18px; border-radius: 16px; }
-  .erp-title{ font-size: 24px; }
+
+  /* ✅ 모바일 표: 최소폭 줄이고, 셀 줄바꿈 허용 */
+  table{ min-width: 720px; }            /* 너무 크면 깨져서 조금 줄임 */
+  tbody td{ white-space: normal; }      /* 주소/거래처명/메모 줄바꿈 */
+  thead th{ white-space: nowrap; }      /* 헤더는 유지 */
+
+  /* ✅ input들이 화면 밖으로 밀리지 않게 */
+  input, select, textarea { max-width: 100%; }
 }
