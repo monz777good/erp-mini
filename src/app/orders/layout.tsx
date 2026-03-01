@@ -1,26 +1,7 @@
-import Link from "next/link";
+// src/app/orders/layout.tsx
+import React from "react";
 
 export default function OrdersLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="erp-page">
-      <header className="erp-topbar">
-        <div className="erp-topbar-inner">
-          <Link className="erp-brand" href="/orders">
-            한의N원외탕전 ERP
-          </Link>
-
-          <div style={{ flex: 1 }} />
-
-          {/* ✅ 로그아웃은 GET /logout */}
-          <Link className="erp-logout" href="/logout">
-            로그아웃
-          </Link>
-        </div>
-      </header>
-
-      <div className="erp-shell">
-        <div className="erp-card">{children}</div>
-      </div>
-    </div>
-  );
+  // ✅ orders 라우트에서는 불필요한 텍스트/여백/중복 헤더를 절대 출력하지 않음
+  return <>{children}</>;
 }
