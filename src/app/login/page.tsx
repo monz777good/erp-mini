@@ -9,28 +9,45 @@ export default function LoginPage() {
   const router = useRouter();
 
   const [role, setRole] = useState<Role>("SALES");
-  const [autoLogin, setAutoLogin] = useState(true);
+
+  // ✅ 기본은 자동로그인 OFF (빈칸 + placeholder만 보이게)
+  const [autoLogin, setAutoLogin] = useState(false);
+
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // ✅ 저장된 값이 있어도 "autoLogin=true"로 저장된 경우에만 자동 채움
   useEffect(() => {
     try {
       const saved = localStorage.getItem("erp_login_saved");
       if (!saved) return;
+
       const obj = JSON.parse(saved);
+      if (obj?.autoLogin !== true) return;
+
       if (obj?.name) setName(obj.name);
       if (obj?.phone) setPhone(obj.phone);
       if (obj?.pin) setPin(obj.pin);
       if (obj?.role === "ADMIN" || obj?.role === "SALES") setRole(obj.role);
-      if (typeof obj?.autoLogin === "boolean") setAutoLogin(obj.autoLogin);
+
+      setAutoLogin(true);
     } catch {}
   }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    const cleanName = name.trim();
+    const cleanPhone = String(phone).replace(/\D/g, "");
+    const cleanPin = String(pin).replace(/\D/g, "");
+
+    if (!cleanName || !cleanPhone || !cleanPin) {
+      alert("이름/전화번호/PIN을 모두 입력해주세요.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -41,9 +58,9 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          name: name.trim(),
-          phone: String(phone).replace(/\D/g, ""),
-          pin: String(pin).replace(/\D/g, ""),
+          name: cleanName,
+          phone: cleanPhone,
+          pin: cleanPin,
         }),
       });
 
@@ -52,10 +69,17 @@ export default function LoginPage() {
         return;
       }
 
+      // ✅ 체크한 사람만 저장/복원
       if (autoLogin) {
         localStorage.setItem(
           "erp_login_saved",
-          JSON.stringify({ name, phone, pin, role, autoLogin })
+          JSON.stringify({
+            name: cleanName,
+            phone: cleanPhone,
+            pin: cleanPin,
+            role,
+            autoLogin: true,
+          })
         );
       } else {
         localStorage.removeItem("erp_login_saved");
@@ -88,6 +112,7 @@ export default function LoginPage() {
                 placeholder="예: 홍길동"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                autoComplete="off"
                 required
               />
             </div>
@@ -100,6 +125,7 @@ export default function LoginPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
                 inputMode="numeric"
+                autoComplete="off"
                 required
               />
             </div>
@@ -112,6 +138,7 @@ export default function LoginPage() {
                 value={pin}
                 onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                 inputMode="numeric"
+                autoComplete="off"
                 required
               />
             </div>
@@ -173,8 +200,7 @@ const styles: Record<string, React.CSSProperties> = {
   page: {
     minHeight: "100vh",
     width: "100%",
-    backgroundImage:
-      "url('/bg.jpg')",
+    backgroundImage: "url('/bg.jpg')",
     backgroundSize: "cover",
     backgroundPosition: "center",
     position: "relative",
