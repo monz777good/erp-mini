@@ -181,7 +181,21 @@ body{
 }
 .erp-btn:disabled{ opacity:.55; cursor:not-allowed; }
 
-/* ===== TABLE (핵심: 모바일에서도 줄바꿈 금지 + 가로 스크롤) ===== */
+/* ✅ 라디오/체크박스 폭 강제(모바일에서 이상해지는 거 방지) */
+input[type="radio"], input[type="checkbox"]{
+  width:auto !important;
+  height:auto !important;
+  max-width:none !important;
+}
+
+/* ✅ 어떤 페이지가 input/select를 inline style로 폭 고정해도 모바일에서 안 깨지게 */
+.erp-card input,
+.erp-card select,
+.erp-card textarea{
+  max-width: 100% !important;
+}
+
+/* ===== TABLE (모바일: 줄바꿈 금지 + 가로 스크롤) ===== */
 .erp-table-wrap{
   width:100%;
   overflow-x:auto;
@@ -210,7 +224,7 @@ tbody td{
   padding: 12px;
   border-bottom: 1px solid rgba(15,23,42,.08);
   color:#111;
-  white-space: nowrap; /* ✅ 여기 중요: 글자 세로 찢어짐 방지 */
+  white-space: nowrap; /* ✅ 글자 세로 찢어짐 방지 */
 }
 tbody tr:hover td{ background: rgba(15,23,42,.03); }
 
@@ -223,6 +237,33 @@ tbody tr:hover td{ background: rgba(15,23,42,.03); }
   .erp-nav{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; }
   .erp-nav a, .erp-logout{ width:100%; }
 
-  /* ✅ 폼은 모바일에서 무조건 세로로 */
+  /* ✅ 폼/버튼은 모바일에서 무조건 세로 정렬 */
   .erp-row{ flex-direction: column; align-items: stretch; }
+
+  /*
+    🔥 핵심: 페이지 안에 인라인으로 "2컬럼 grid"가 박혀있어도
+    모바일에서는 강제로 1컬럼으로 바꿔버림.
+    (네 스샷 같은 '라벨 왼쪽 + 인풋 오른쪽 잘림'이 이걸로 끝남)
+  */
+  .erp-card [style*="grid-template-columns"]{
+    grid-template-columns: 1fr !important;
+  }
+  .erp-card [style*="display:grid"],
+  .erp-card [style*="display: grid"]{
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ✅ 인라인 flex 2열로 만들어둔 것도 모바일에서 세로로 */
+  .erp-card [style*="display:flex"],
+  .erp-card [style*="display: flex"]{
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  /* ✅ 인풋/셀렉트가 오른쪽으로 튀어나가는 거 방지 */
+  .erp-card input,
+  .erp-card select,
+  .erp-card textarea{
+    width:100% !important;
+  }
 }
