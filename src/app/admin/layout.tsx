@@ -29,20 +29,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
           <nav className="erp-nav">
             <Link href="/admin/dashboard" aria-current={pathname === "/admin/dashboard" ? "page" : undefined}>
-              대시보드
+              주문(대시보드)
             </Link>
+
             <Link href="/admin/items" aria-current={pathname.startsWith("/admin/items") ? "page" : undefined}>
               품목
             </Link>
+
             <Link href="/admin/clients" aria-current={pathname.startsWith("/admin/clients") ? "page" : undefined}>
               거래처/사업자등록증
             </Link>
+
             <Link href="/admin/stock" aria-current={pathname.startsWith("/admin/stock") ? "page" : undefined}>
               재고관리
             </Link>
           </nav>
 
-          {/* ✅ 로그아웃은 GET /logout */}
           <Link className="erp-logout" href="/logout">
             로그아웃
           </Link>
