@@ -10,10 +10,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect("/login");
 
   return (
-    <div className="erp-shell">
-      <div style={{ width: "min(1100px, 100%)" }}>
+    <div className="admin-bg">
+      <div className="admin-wrap">
         <AdminTopNav />
-        <div className="erp-card">{children}</div>
+        {/* ✅ 여기서는 카드로 감싸지 않음: 각 페이지가 알아서 카드 렌더 */}
+        {children}
       </div>
     </div>
   );

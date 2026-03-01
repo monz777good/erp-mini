@@ -1,232 +1,140 @@
+/* ============================= */
+/* Tailwind 기본 (필수) */
+/* ============================= */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root{
-  --bg0:#05070c;
-  --bg1:#0b1220;
-  --bg2:#111827;
 
-  --text:#0f172a;
-  --muted:#475569;
-  --line:rgba(15,23,42,.10);
-
-  --shadow: 0 22px 60px rgba(0,0,0,.35), 0 8px 22px rgba(0,0,0,.22);
-  --shadow2: 0 14px 34px rgba(0,0,0,.28), 0 6px 14px rgba(0,0,0,.18);
-  --r:18px;
+/* ============================= */
+/* 기본 리셋 */
+/* ============================= */
+* {
+  box-sizing: border-box;
 }
 
-*{ box-sizing:border-box; }
-html, body{ height:100%; }
+html, body {
+  padding: 0;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Noto Sans KR", Arial, sans-serif;
+}
 
-body{
-  margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  color: var(--text);
+
+/* ============================= */
+/* ===== Admin layout 배경 ===== */
+/* ============================= */
+.admin-bg{
+  min-height: 100vh;
   background:
-    radial-gradient(1200px 600px at 20% 15%, rgba(99,102,241,.22), transparent 60%),
-    radial-gradient(900px 500px at 80% 20%, rgba(16,185,129,.18), transparent 65%),
-    radial-gradient(900px 700px at 50% 90%, rgba(59,130,246,.16), transparent 60%),
-    linear-gradient(135deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 100%);
-  background-attachment: fixed;
+    radial-gradient(1200px 600px at 15% 15%, rgba(30,58,138,.35), transparent 60%),
+    radial-gradient(900px 500px at 90% 10%, rgba(2,132,199,.25), transparent 55%),
+    linear-gradient(180deg, #06121a 0%, #071b25 35%, #07111a 100%);
+  padding: 28px 16px;
 }
 
-.erp-page{ min-height:100vh; }
-
-.erp-shell{
-  max-width: 1280px;
+.admin-wrap{
+  width: min(1100px, 100%);
   margin: 0 auto;
-  padding: 26px 18px 60px;
 }
 
-.erp-center{
-  min-height: calc(100vh - 80px);
+
+/* ============================= */
+/* ===== 상단 메뉴바 ===== */
+/* ============================= */
+.topbar{
   display:flex;
   align-items:center;
-  justify-content:center;
+  justify-content:space-between;
+  gap: 14px;
+  margin-bottom: 16px;
 }
 
-.erp-card{
-  width: 100%;
-  background: rgba(255,255,255,.96);
-  border: 1px solid rgba(255,255,255,.45);
-  border-radius: var(--r);
-  box-shadow: var(--shadow);
-  padding: 26px;
-}
-
-.erp-title{
-  margin:0 0 10px;
-  font-size: 30px;
-  line-height:1.15;
+.brand{
   font-weight: 900;
-  letter-spacing: -0.6px;
-  color: var(--text);
-}
-.erp-subtitle{
-  margin:0 0 18px;
-  font-size:14px;
-  font-weight:800;
-  color: var(--muted);
+  font-size: 18px;
+  color: white;
+  white-space: nowrap;
+  padding: 10px 12px;
 }
 
-/* ===== TOPBAR ===== */
-.erp-topbar{
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  padding: 12px 0;
-  background: rgba(0,0,0,.35);
-  border-bottom: 1px solid rgba(255,255,255,.10);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-.erp-topbar-inner{
-  max-width:1280px;
-  margin:0 auto;
-  padding: 0 18px;
+.tabs{
   display:flex;
-  gap:12px;
-  align-items:center;
-  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  flex: 1;
 }
-.erp-brand{
-  color:#fff;
-  text-decoration:none;
-  font-weight: 950;
-  letter-spacing:-0.4px;
-  white-space: nowrap;
-}
-.erp-nav{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  align-items:center;
-}
-.erp-nav a{
-  height:36px;
+
+.tab{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  padding: 0 12px;
-  border-radius: 10px;
-  text-decoration:none;
-  font-weight:900;
-  font-size:13px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(255,255,255,.08);
   color: rgba(255,255,255,.92);
-  background: rgba(255,255,255,.10);
-  border: 1px solid rgba(255,255,255,.12);
-}
-.erp-nav a[aria-current="page"]{
-  background: rgba(255,255,255,.92);
-  color:#111;
-  border-color: rgba(255,255,255,.92);
-}
-.erp-logout{
-  height:36px;
-  padding:0 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,.16);
-  background: rgba(0,0,0,.30);
-  color: rgba(255,255,255,.95);
-  font-weight: 950;
-  cursor:pointer;
-}
-
-/* ===== FORMS ===== */
-.erp-field{ margin-bottom: 14px; }
-.erp-label{
-  display:block;
-  margin-bottom:8px;
   font-weight: 900;
-  color: var(--text);
+  text-decoration: none;
+  transition: transform .08s ease, background .15s ease;
 }
-.erp-input{
-  width:100%;
-  height:44px;
-  padding: 0 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(15,23,42,.14);
-  background: rgba(255,255,255,.98);
-  color:#111;
-  outline:none;
-  font-size: 15px;
-}
-.erp-input:focus{
-  border-color: rgba(15,23,42,.32);
-  box-shadow: 0 0 0 4px rgba(15,23,42,.08);
-}
-.erp-row{
-  display:flex;
-  gap:12px;
-  align-items:center;
-  flex-wrap:wrap;
-}
-.erp-btn{
-  width:100%;
-  height:48px;
-  border:0;
-  border-radius: 14px;
-  background:#111827;
-  color:#fff;
-  font-weight: 950;
-  font-size:16px;
-  cursor:pointer;
-  box-shadow: var(--shadow2);
-}
-.erp-btn:disabled{ opacity:.55; cursor:not-allowed; }
 
-/* ===== TABLE (PC 기본) ===== */
-.erp-table-wrap{
-  width:100%;
-  overflow:auto;
+.tab:hover{
+  transform: translateY(-1px);
+  background: rgba(255,255,255,.12);
+}
+
+.tab.on{
+  background: rgba(255,255,255,.18);
+  border-color: rgba(255,255,255,.28);
+}
+
+
+/* ============================= */
+/* ===== 로그아웃 버튼 ===== */
+/* ============================= */
+.logout{
+  padding: 10px 14px;
   border-radius: 14px;
-  border: 1px solid var(--line);
-  background: rgba(255,255,255,.98);
-  -webkit-overflow-scrolling: touch;
-}
-table{
-  width:100%;
-  border-collapse: collapse;
-  min-width: 900px;
-}
-thead th{
-  position: sticky;
-  top:0;
-  background: #f3f4f6;
-  color:#111;
-  font-weight: 950;
-  padding: 12px;
-  border-bottom: 1px solid rgba(15,23,42,.12);
+  border: 1px solid rgba(255,255,255,.22);
+  background: rgba(0,0,0,.25);
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
   white-space: nowrap;
 }
-tbody td{
-  padding: 12px;
-  border-bottom: 1px solid rgba(15,23,42,.08);
-  color:#111;
-  white-space: nowrap;
+
+.logout:hover{
+  background: rgba(0,0,0,.35);
 }
-tbody tr:hover td{ background: rgba(15,23,42,.03); }
 
-/* ✅ 모바일에서 거래처/재고 화면 깨지는 것 방지:
-   - 표는 무조건 스크롤
-   - 긴 텍스트는 줄바꿈 허용(주소/메모)
-*/
-@media (max-width: 900px){
-  .erp-shell{ padding: 18px 12px 50px; }
-  .erp-card{ padding: 18px; border-radius: 16px; }
-  .erp-title{ font-size: 24px; }
 
-  .erp-topbar-inner{ flex-direction: column; align-items: stretch; }
-  .erp-nav{ display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:8px; }
-  .erp-nav a, .erp-logout{ width:100%; }
+/* ============================= */
+/* ===== 카드 UI ===== */
+/* ============================= */
+.erp-card{
+  background: rgba(255,255,255,.96);
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 22px;
+  padding: 22px;
+  box-shadow: 0 18px 45px rgba(0,0,0,.25);
+}
 
-  /* ✅ 모바일 표: 최소폭 줄이고, 셀 줄바꿈 허용 */
-  table{ min-width: 720px; }            /* 너무 크면 깨져서 조금 줄임 */
-  tbody td{ white-space: normal; }      /* 주소/거래처명/메모 줄바꿈 */
-  thead th{ white-space: nowrap; }      /* 헤더는 유지 */
 
-  /* ✅ input들이 화면 밖으로 밀리지 않게 */
-  input, select, textarea { max-width: 100%; }
+/* ============================= */
+/* 입력창 기본 스타일 */
+/* ============================= */
+input, select, textarea {
+  border: 1px solid rgba(0,0,0,0.15);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+
+/* ============================= */
+/* 버튼 기본 스타일 */
+/* ============================= */
+button {
+  border-radius: 10px;
 }

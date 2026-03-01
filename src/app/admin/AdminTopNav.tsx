@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-function isActive(pathname: string, href: string) {
+function active(pathname: string, href: string) {
   if (href === "/admin/orders") return pathname === "/admin" || pathname.startsWith("/admin/orders");
   return pathname.startsWith(href);
 }
@@ -13,11 +13,9 @@ export default function AdminTopNav() {
   const router = useRouter();
 
   async function logout() {
-    // 둘 중 하나만 있어도 되게 안전하게
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() =>
       fetch("/api/logout", { method: "POST", credentials: "include" }).catch(() => null)
     );
-
     router.push("/login");
     router.refresh();
   }
@@ -30,18 +28,18 @@ export default function AdminTopNav() {
   ];
 
   return (
-    <div className="erp-topbar">
-      <div className="erp-brand">한의N원외탕전 ERP</div>
+    <div className="topbar">
+      <div className="brand">한의N원외탕전 ERP</div>
 
-      <div className="erp-nav">
+      <nav className="tabs" aria-label="관리자 메뉴">
         {links.map((l) => (
-          <Link key={l.href} href={l.href} className={isActive(pathname, l.href) ? "active" : ""}>
+          <Link key={l.href} href={l.href} className={`tab ${active(pathname, l.href) ? "on" : ""}`}>
             {l.label}
           </Link>
         ))}
-      </div>
+      </nav>
 
-      <button className="erp-logout" onClick={logout}>
+      <button className="logout" onClick={logout}>
         로그아웃
       </button>
     </div>
