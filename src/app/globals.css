@@ -1,184 +1,164 @@
-/* src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* ✅ 기본 리셋 + box-sizing */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
+/* -------------------------
+   Global reset / safe layout
+-------------------------- */
 html,
 body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  /* ✅ 모바일 주소창/하단바 대응 */
-  min-height: 100svh;
+  height: 100%;
 }
 
-/* ✅ 기본 폰트/렌더링 */
 body {
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", Arial, sans-serif;
+  margin: 0;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: #0b0f14;
+  text-rendering: optimizeLegibility;
 }
 
-/* ✅ 로그인/전체 배경 (이미지 + 블러 + 딤) */
-.erp-bg-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image: url("https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=2400&q=80");
+/* iOS/모바일에서 입력 시 확대/레이아웃 깨짐 방지 */
+input,
+select,
+textarea,
+button {
+  font-size: 16px;
+}
+
+/* -------------------------
+   ERP Background (all pages)
+   - 이미지가 없어도 그라데이션으로 안전하게 깔림
+-------------------------- */
+:root {
+  --erp-bg-url: url("https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=2400&q=80");
+  --erp-overlay: rgba(0, 0, 0, 0.35);
+}
+
+.erp-bg {
+  min-height: 100dvh;
+  width: 100%;
+  background-image:
+    linear-gradient(var(--erp-overlay), var(--erp-overlay)),
+    var(--erp-bg-url),
+    linear-gradient(135deg, #0b1320 0%, #1b2a3a 45%, #122033 100%);
   background-size: cover;
   background-position: center;
-  background-repeat: no-repeat;
-  transform: scale(1.03);
-  filter: blur(10px);
+  background-attachment: fixed;
 }
 
-.erp-bg-overlay::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  /* 가독성용 딤 */
-  background: rgba(0, 0, 0, 0.35);
+@media (max-width: 768px) {
+  .erp-bg {
+    background-attachment: scroll; /* 모바일에서 fixed는 종종 깨짐 */
+  }
 }
 
-/* ✅ 로그인 화면: 스크롤 완전 차단 + 중앙정렬 */
-.erp-no-scroll {
-  height: 100svh;
-  overflow: hidden;
+/* -------------------------
+   Page frame
+-------------------------- */
+.erp-page {
+  min-height: 100dvh;
+  width: 100%;
+  padding: 24px 16px 32px;
 }
 
 .erp-page-center {
+  min-height: 100dvh;
   width: 100%;
-  height: 100svh;
   display: grid;
   place-items: center;
-  padding: 16px; /* ✅ 안전패딩(삐져나옴 방지) */
+  padding: 24px 16px;
 }
 
-/* ✅ 카드: 화면보다 커지면 자동 축소/내부 스크롤(극소형 기기 대비) */
-.erp-card {
-  width: min(680px, 92vw);
-  max-height: calc(100svh - 32px);
-  overflow: auto;
+.erp-no-scroll {
+  overflow: hidden;
+}
 
-  border-radius: 18px;
+/* -------------------------
+   Content container
+-------------------------- */
+.erp-container {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+/* -------------------------
+   Surfaces (cards/tables)
+   - "투명해서 안보임" 방지: 거의 불투명
+-------------------------- */
+.erp-surface {
   background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-
-  padding: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 22px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
 }
 
-/* 카드 안 스크롤바 예쁘게(필요시) */
-.erp-card::-webkit-scrollbar {
-  width: 10px;
-}
-.erp-card::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.18);
-  border-radius: 999px;
-}
-.erp-card::-webkit-scrollbar-track {
-  background: transparent;
+.erp-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 22px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
 }
 
+/* -------------------------
+   Typography helpers
+-------------------------- */
 .erp-title {
-  text-align: center;
-  margin: 4px 0 0;
-  font-size: 34px;
   font-weight: 900;
   letter-spacing: -0.02em;
 }
 
-.erp-subtitle {
-  text-align: center;
-  margin: 8px 0 18px;
-  font-size: 14px;
-  opacity: 0.75;
+.erp-text-stroke-white {
+  /* 검은 글씨(또는 어두운 글씨)에 흰 테두리 느낌 */
+  text-shadow:
+    -1px -1px 0 rgba(255, 255, 255, 0.9),
+     1px -1px 0 rgba(255, 255, 255, 0.9),
+    -1px  1px 0 rgba(255, 255, 255, 0.9),
+     1px  1px 0 rgba(255, 255, 255, 0.9),
+     0px  2px 8px rgba(0, 0, 0, 0.35);
 }
 
-/* 폼 */
+/* -------------------------
+   Form sizing (login etc.)
+-------------------------- */
 .erp-form {
-  display: grid;
-  gap: 14px;
-}
-
-.erp-label {
-  font-size: 13px;
-  font-weight: 800;
-  margin: 0 0 6px;
+  width: min(640px, calc(100vw - 32px));
 }
 
 .erp-input {
   width: 100%;
   height: 52px;
-  padding: 0 14px;
+  padding: 0 16px;
   border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.95);
   outline: none;
-  background: rgba(255, 255, 255, 0.92);
-  font-size: 16px;
 }
 
 .erp-input:focus {
-  border-color: rgba(0, 0, 0, 0.35);
-  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.08);
+  border-color: rgba(34, 197, 94, 0.55);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15);
 }
 
-.erp-options {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.erp-radio-group {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-weight: 800;
-}
-
-.erp-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 800;
-}
-
-/* 버튼 */
 .erp-btn {
-  width: 100%;
   height: 56px;
-  border: 0;
-  border-radius: 16px;
-  font-size: 16px;
-  font-weight: 900;
-  cursor: pointer;
-  background: #8fb39b;
-  color: white;
+  border-radius: 14px;
+  font-weight: 800;
 }
 
-.erp-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.erp-btn-primary {
+  background: rgba(134, 180, 142, 0.95);
+  color: #ffffff;
 }
 
-/* ✅ 모바일에서 더 “꽉 차는” 현상 방지 */
-@media (max-width: 420px) {
-  .erp-card {
-    padding: 18px;
-  }
-  .erp-title {
-    font-size: 28px;
-  }
-  .erp-input {
-    height: 50px;
-  }
+.erp-btn-primary:hover {
+  filter: brightness(0.97);
+}
+
+/* 가로 삐져나옴 방지 */
+.erp-safe {
+  max-width: 100%;
+  overflow-x: clip;
 }
