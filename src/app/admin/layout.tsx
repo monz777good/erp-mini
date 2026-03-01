@@ -50,7 +50,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </header>
 
-      <main className="erp-container">{children}</main>
+      {/* ✅ 관리자 페이지도 "흰 카드" 안에 */}
+      <div className="erp-shell">
+        <div className="erp-card">{children}</div>
+      </div>
     </div>
   );
 }
