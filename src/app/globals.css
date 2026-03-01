@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ====== 전체 기본 ====== */
+/* 기본 */
 html,
 body {
   height: 100%;
@@ -11,143 +11,164 @@ body {
 body {
   margin: 0;
   color: #111;
-  background: url("/bg.jpg") center / cover no-repeat fixed;
 }
 
-/* ====== 공통 배경/레이아웃 ====== */
-.page-bg {
+/* 기본 링크(보라색/밑줄) 제거 */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+a:visited {
+  color: inherit;
+}
+
+/* 공통 배경: 무조건 bg.jpg */
+.app-bg {
   min-height: 100vh;
-  width: 100%;
-  padding: 24px 16px;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  background-image: url("/bg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  position: relative;
 }
 
+/* 배경 위에 살짝 어둡게 덮어서 가독성 확보 */
+.app-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.app-inner {
+  position: relative;
+  z-index: 1;
+  padding: 18px 16px 40px;
+}
+
+/* 페이지 폭 */
 .page-wrap {
-  width: 100%;
-  max-width: 980px;
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
-/* 상단 브랜드/로그아웃 라인 */
-.page-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.75); /* ✅ 흰색 불투명 */
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  backdrop-filter: blur(10px);
-}
-
-.page-brand {
-  font-weight: 950;
-  font-size: 18px;
-}
-
-/* ====== 메인 카드(겉 카드 딱 1개만) ====== */
-.glass-card {
+/* 흰 카드(내용은 무조건 이 안에) */
+.erp-card {
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 22px;
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
   padding: 22px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
 }
 
-/* ====== 탭/버튼 ====== */
+/* 상단바(관리자/영업사원 공통으로 써도 됨) */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  margin: 10px 0 16px;
+  background: rgba(255, 255, 255, 0.28); /* ✅ 흰색 불투명 */
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(10px);
+}
+
+.brand {
+  font-weight: 950;
+  white-space: nowrap;
+}
+
 .tabs {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  margin-left: 10px;
 }
 
-.tab-btn {
+.tab {
   padding: 10px 14px;
   border-radius: 999px;
   border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.75); /* ✅ 흰색 불투명 */
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.35);
   font-weight: 900;
-  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.12s ease, background 0.12s ease;
 }
 
-.tab-btn.on {
-  background: rgba(17, 17, 17, 0.88);
-  color: #fff;
-  border-color: rgba(17, 17, 17, 0.2);
+.tab:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.tab.on {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(0, 0, 0, 0.18);
+}
+
+/* 우측 버튼(로그아웃/새로고침 등) */
+.right-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 .btn {
-  padding: 11px 14px;
+  padding: 10px 14px;
   border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  background: rgba(255, 255, 255, 0.6);
   font-weight: 900;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.btn.dark {
-  background: rgba(17, 17, 17, 0.92);
-  color: white;
-  border-color: rgba(0, 0, 0, 0.2);
+.btn:hover {
+  background: rgba(255, 255, 255, 0.85);
 }
 
-.btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* ====== 폼 ====== */
-.form-grid {
+/* 로그인 중앙 정렬 */
+.center-wrap {
+  min-height: calc(100vh - 60px);
   display: grid;
-  grid-template-columns: 150px 1fr;
-  gap: 10px;
-  align-items: center;
-  margin-bottom: 12px;
+  place-items: center;
+  padding: 20px 16px 40px;
 }
 
-@media (max-width: 720px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
+.login-card {
+  width: min(720px, 100%);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 26px;
+  padding: 26px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
 }
 
+.field {
+  margin-top: 14px;
+}
+.label {
+  font-weight: 950;
+  margin-bottom: 8px;
+}
 .input,
 .select,
 .textarea {
   width: 100%;
-  padding: 11px 12px;
-  border-radius: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
   border: 1px solid rgba(0, 0, 0, 0.14);
   outline: none;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.85);
 }
-
 .textarea {
-  min-height: 90px;
+  min-height: 110px;
   resize: vertical;
 }
 
-/* 안내/메시지 */
-.msg {
-  border-radius: 16px;
-  padding: 12px 14px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: rgba(255, 255, 255, 0.9);
-  font-weight: 900;
-  margin-bottom: 12px;
-}
-
-.msg.err {
-  border-color: rgba(220, 20, 60, 0.4);
-  color: crimson;
-}
-
-.msg.ok {
-  border-color: rgba(76, 175, 80, 0.4);
-  color: #1b5e20;
+.hr {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 18px 0;
 }
