@@ -7,8 +7,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <>
       <header className="erp-topnav">
         <div className="erp-topnav-inner">
-          <div className="erp-brand">
-            <span className="erp-outline-white">한의N원외탕전</span>
+          <div className="erp-brand" aria-label="brand">
+            <span>한의N원외탕전</span>
           </div>
 
           <div className="erp-navwrap">

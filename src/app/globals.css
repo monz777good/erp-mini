@@ -102,15 +102,30 @@ body {
   }
 }
 
-/* ====== Readability text (white outline) ====== */
+/* ====== Readability: white outline / shadow ====== */
 .erp-outline-white {
   color: #111;
   text-shadow:
-    -1px -1px 0 rgba(255, 255, 255, 0.88),
-    1px -1px 0 rgba(255, 255, 255, 0.88),
-    -1px 1px 0 rgba(255, 255, 255, 0.88),
-    1px 1px 0 rgba(255, 255, 255, 0.88),
-    0 2px 12px rgba(0, 0, 0, 0.25);
+    -1px -1px 0 rgba(255, 255, 255, 0.92),
+    1px -1px 0 rgba(255, 255, 255, 0.92),
+    -1px 1px 0 rgba(255, 255, 255, 0.92),
+    1px 1px 0 rgba(255, 255, 255, 0.92),
+    0 2px 14px rgba(0, 0, 0, 0.28);
+}
+
+/* ✅ 관리자 화면 텍스트 자동 가독성 적용 (페이지 파일 수정 거의 안 하게) */
+.erp-main h1,
+.erp-main h2,
+.erp-main h3,
+.erp-main p,
+.erp-main small,
+.erp-main label {
+  text-shadow:
+    -1px -1px 0 rgba(255, 255, 255, 0.85),
+    1px -1px 0 rgba(255, 255, 255, 0.85),
+    -1px 1px 0 rgba(255, 255, 255, 0.85),
+    1px 1px 0 rgba(255, 255, 255, 0.85),
+    0 2px 14px rgba(0, 0, 0, 0.25);
 }
 
 /* ====== Inputs / Buttons ====== */
@@ -186,7 +201,6 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-/* ✅ 모바일에서도 한 줄 유지 + 좌우 스크롤 탭 */
 .erp-topnav-inner {
   width: min(1200px, 96vw);
   margin: 0 auto;
@@ -194,67 +208,64 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap; /* ✅ 모바일에서 가로 스크롤 대신 줄바꿈 */
 }
 
-/* ✅ “한의N원외탕전” 로고 카드형 */
+/* ✅ “한의N원외탕전” 로고: 하얀 카드형 + 흰 테두리 느낌 */
 .erp-brand {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
   border-radius: 14px;
-  background: rgba(0, 0, 0, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.95); /* ✅ 하얀색 */
+  border: 1px solid rgba(255, 255, 255, 0.9);
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
   font-weight: 900;
-  color: #fff;
+  color: #111;
   letter-spacing: -0.02em;
   white-space: nowrap;
 }
 
-/* 브랜드 텍스트 자체 가독성(흰 테두리 느낌) */
+/* 브랜드 텍스트 자체 가독성 */
 .erp-brand span {
+  color: #111;
   text-shadow:
-    -1px -1px 0 rgba(255, 255, 255, 0.75),
-    1px -1px 0 rgba(255, 255, 255, 0.75),
-    -1px 1px 0 rgba(255, 255, 255, 0.75),
-    1px 1px 0 rgba(255, 255, 255, 0.75),
-    0 2px 10px rgba(0, 0, 0, 0.35);
+    -1px -1px 0 rgba(255, 255, 255, 0.95),
+    1px -1px 0 rgba(255, 255, 255, 0.95),
+    -1px 1px 0 rgba(255, 255, 255, 0.95),
+    1px 1px 0 rgba(255, 255, 255, 0.95),
+    0 2px 12px rgba(0, 0, 0, 0.22);
 }
 
 .erp-navwrap {
   flex: 1;
-  min-width: 0; /* ✅ 이거 없으면 모바일에서 깨짐 */
+  min-width: 280px; /* ✅ 너무 좁아지면 아래줄로 내려가게 */
 }
 
-/* ✅ 한 줄 탭바 + 좌우 스크롤 */
+/* ✅ 모바일: 슬라이드(가로 스크롤) 제거 -> 그냥 줄바꿈 탭 */
 .erp-navlinks {
   display: flex;
   gap: 8px;
   align-items: center;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  white-space: nowrap;
+  flex-wrap: wrap;     /* ✅ 핵심 */
+  overflow: visible;   /* ✅ 핵심 */
+  white-space: normal; /* ✅ 핵심 */
   padding: 2px 2px;
-  scrollbar-width: none; /* firefox */
-}
-.erp-navlinks::-webkit-scrollbar {
-  display: none; /* chrome */
 }
 
 .erp-navlink {
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(255, 255, 255, 0.95);
   text-decoration: none;
-  padding: 8px 10px;
+  padding: 9px 12px;
   border-radius: 12px;
   font-weight: 900;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .erp-navlink:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .erp-logout {
@@ -267,11 +278,12 @@ body {
   white-space: nowrap;
   border: 1px solid rgba(255, 255, 255, 0.18);
 }
+
 .erp-logout:hover {
   background: rgba(255, 255, 255, 0.18);
 }
 
-/* ✅ 모바일에서 상단바 요소 크기/간격 조정 */
+/* ✅ 모바일에서 탭/로그아웃 크기 살짝 줄이기 */
 @media (max-width: 560px) {
   .erp-topnav-inner {
     padding: 10px 8px;
@@ -281,10 +293,13 @@ body {
     padding: 7px 10px;
     border-radius: 12px;
   }
+  .erp-navwrap {
+    min-width: 0;
+    flex-basis: 100%;
+  }
   .erp-navlink {
-    padding: 7px 9px;
+    padding: 8px 10px;
     border-radius: 11px;
-    font-weight: 900;
   }
   .erp-logout {
     padding: 8px 10px;
@@ -292,7 +307,7 @@ body {
   }
 }
 
-/* ====== Common admin readable surfaces ====== */
+/* ====== Tables: mobile에서 "세로로 난리" 방지 (가로 유지) ====== */
 .erp-main table {
   width: 100%;
   background: rgba(255, 255, 255, 0.94);
@@ -312,4 +327,17 @@ body {
 .erp-main th {
   background: rgba(0, 0, 0, 0.04);
   font-weight: 900;
+}
+
+/* ✅ 모바일에서 표는 “가로 유지” + 필요하면 가로 스크롤(표는 괜찮음) */
+@media (max-width: 720px) {
+  .erp-main table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .erp-main th,
+  .erp-main td {
+    white-space: nowrap;
+  }
 }
