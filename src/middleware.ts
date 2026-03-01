@@ -1,32 +1,41 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { getSessionUserEdge } from "@/lib/session-edge";
+import { NextRequest, NextResponse } from "next/server";
 
-export const config = {
-  matcher: ["/((?!_next|favicon.ico|api).*)"],
-};
+const SESSION_COOKIE = "erp_session";
 
-export async function middleware(req: NextRequest) {
+function isPublicPath(pathname: string) {
+  if (pathname === "/login") return true;
+  if (pathname.startsWith("/api/")) return true; // API는 각 route에서 권한 체크
+  if (pathname.startsWith("/_next/")) return true;
+  if (pathname.startsWith("/favicon")) return true;
+  if (pathname.startsWith("/images/")) return true;
+  return false;
+}
+
+export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // 로그인 페이지는 통과
-  if (pathname.startsWith("/login")) return NextResponse.next();
+  if (isPublicPath(pathname)) return NextResponse.next();
 
-  const user = await getSessionUserEdge(req);
+  // 보호할 화면들(너는 AppShell 아래 거의 전부)
+  const needAuth =
+    pathname.startsWith("/orders") ||
+    pathname.startsWith("/clients") ||
+    pathname.startsWith("/admin");
 
-  // 로그인 안 했으면 /login으로
-  if (!user) {
+  if (!needAuth) return NextResponse.next();
+
+  const hasSession = !!req.cookies.get(SESSION_COOKIE)?.value;
+
+  if (!hasSession) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-
-  // /admin은 ADMIN만
-  if (pathname.startsWith("/admin") && user.role !== "ADMIN") {
-    const url = req.nextUrl.clone();
-    url.pathname = "/orders";
+    url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
   return NextResponse.next();
 }
+
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+};
