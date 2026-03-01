@@ -1,20 +1,20 @@
-// src/app/admin/layout.tsx
 import { redirect } from "next/navigation";
-import { getSessionUser } from "@/lib/session";
+import { requireAdminUser } from "@/lib/session";
+import AdminTopNav from "./AdminTopNav";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default async function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const user = await getSessionUser(); // ✅ 인자 절대 넣지마
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const user = await requireAdminUser();
+  if (!user) redirect("/login");
 
-  if (!user || String(user.role).toUpperCase() !== "ADMIN") {
-    redirect("/login");
-  }
-
-  return <>{children}</>;
+  return (
+    <div className="erp-shell">
+      <div style={{ width: "min(1100px, 100%)" }}>
+        <AdminTopNav />
+        <div className="erp-card">{children}</div>
+      </div>
+    </div>
+  );
 }
