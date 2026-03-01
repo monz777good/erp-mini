@@ -1,81 +1,133 @@
-/* 전체 화면 중앙 */
-.erp-page-center {
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== 기본 ===== */
+:root {
+  --bg1: #060b16;
+  --bg2: #0b2a33;
+  --card: rgba(255, 255, 255, 0.92);
+  --text: #0b1220;
+  --muted: #5a6472;
+  --border: rgba(0, 0, 0, 0.08);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background: radial-gradient(1200px 700px at 20% 10%, rgba(71, 92, 255, 0.25), transparent 60%),
+    radial-gradient(900px 600px at 80% 30%, rgba(0, 194, 255, 0.18), transparent 55%),
+    radial-gradient(900px 700px at 50% 90%, rgba(0, 255, 170, 0.10), transparent 60%),
+    linear-gradient(140deg, var(--bg1), var(--bg2));
+  background-attachment: fixed;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo",
+    "Malgun Gothic", Arial, "Helvetica Neue", Helvetica, sans-serif;
+}
+
+/* ===== 공용 레이아웃 ===== */
+.erp-shell {
   min-height: 100vh;
+  padding: 26px 18px 40px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.erp-card {
+  width: min(1100px, 100%);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  padding: 22px 22px 26px;
+}
+
+/* ===== 상단바 ===== */
+.erp-topbar {
+  width: min(1100px, 100%);
+  margin: 0 auto 16px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #0f172a, #1e293b);
+  justify-content: space-between;
+  color: #fff;
 }
 
-/* 스크롤 제거 */
-.erp-no-scroll {
-  overflow: hidden;
+.erp-brand {
+  font-weight: 900;
+  letter-spacing: -0.2px;
 }
 
-/* 로그인 카드 */
-.erp-login-card {
-  width: 420px;
-  max-width: 92vw;
-  padding: 40px;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.95);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-}
-
-/* 제목 */
-.erp-login-title {
-  font-size: 28px;
-  font-weight: 800;
-  margin-bottom: 8px;
-  text-align: center;
-}
-
-/* 설명 */
-.erp-login-sub {
-  text-align: center;
-  margin-bottom: 25px;
-  color: #444;
-}
-
-/* 라벨 */
-.erp-label {
-  font-weight: 700;
-  margin-top: 15px;
-  display: block;
-}
-
-/* 입력창 */
-.erp-input {
-  width: 100%;
-  padding: 14px;
-  margin-top: 6px;
-  border-radius: 12px;
-  border: 1px solid #ddd;
-  font-size: 16px;
-}
-
-/* 역할 선택 */
-.erp-role-row {
-  margin-top: 18px;
+.erp-nav {
   display: flex;
-  gap: 20px;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
-/* 버튼 */
-.erp-login-btn {
-  width: 100%;
-  margin-top: 24px;
-  padding: 16px;
-  border-radius: 14px;
-  border: none;
-  font-size: 17px;
-  font-weight: 700;
-  color: white;
-  background: #0f172a;
+.erp-nav a,
+.erp-nav button {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-weight: 800;
   cursor: pointer;
 }
 
-.erp-login-btn:hover {
-  background: #020617;
+.erp-nav a.active {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.erp-logout {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.18);
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+/* ===== 폼/테이블 공통 ===== */
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+label {
+  font-weight: 800;
+}
+
+/* 모바일 */
+@media (max-width: 640px) {
+  .erp-shell {
+    padding: 18px 12px 28px;
+  }
+  .erp-card {
+    padding: 18px 14px 18px;
+    border-radius: 16px;
+  }
+  .erp-topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .erp-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .erp-logout {
+    width: 100%;
+  }
 }
