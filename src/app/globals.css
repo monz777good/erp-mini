@@ -10,6 +10,13 @@
   --muted: rgba(0, 0, 0, 0.62);
 }
 
+/* ✅ overflow/삐져나옴 방지 핵심 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html,
 body {
   height: 100%;
@@ -23,6 +30,11 @@ body {
 a { color: inherit; text-decoration: none; }
 a:visited { color: inherit; }
 
+input, select, textarea {
+  max-width: 100%;
+  min-width: 0; /* ✅ grid에서 삐져나오는 원인 제거 */
+}
+
 /* ✅ 전체 배경 */
 .app-bg {
   min-height: 100vh;
@@ -31,7 +43,7 @@ a:visited { color: inherit; }
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-attachment: scroll; /* fixed 금지(모바일 튐/스크롤 원인) */
+  background-attachment: scroll;
   position: relative;
   overflow: hidden;
 }
@@ -137,10 +149,10 @@ a:visited { color: inherit; }
 }
 .btn-primary:hover { background: rgba(0, 0, 0, 0.92); }
 
-/* ✅ 폼 */
+/* ✅ 폼: 삐져나옴 방지용 grid */
 .form-grid {
   display: grid;
-  grid-template-columns: 150px 1fr;
+  grid-template-columns: minmax(120px, 160px) minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   margin-bottom: 12px;
@@ -162,11 +174,7 @@ a:visited { color: inherit; }
 
 .textarea { min-height: 110px; resize: vertical; }
 
-.hr {
-  height: 1px;
-  background: rgba(0,0,0,.08);
-  margin: 18px 0;
-}
+.hr { height: 1px; background: rgba(0,0,0,.08); margin: 18px 0; }
 
 /* ✅ 메시지 */
 .msg {
@@ -178,9 +186,9 @@ a:visited { color: inherit; }
   margin: 12px 0 16px;
 }
 .msg.err { border-color: rgba(220, 38, 38, .35); color: #b91c1c; }
-.msg.ok { border-color: rgba(16, 185, 129, .35); color: #0f766e; }
+.msg.ok  { border-color: rgba(16, 185, 129, .35); color: #0f766e; }
 
-/* ✅ 로그인: 짧고 가운데 집중 */
+/* ✅ 로그인: 가운데 집중 */
 .center-wrap {
   min-height: 100vh;
   min-height: 100dvh;
@@ -197,17 +205,8 @@ a:visited { color: inherit; }
   padding: 26px;
 }
 
-.login-title {
-  font-size: 34px;
-  font-weight: 950;
-  letter-spacing: -0.4px;
-  margin-bottom: 6px;
-}
-.login-sub {
-  color: var(--muted);
-  font-weight: 800;
-  margin-bottom: 16px;
-}
+.login-title { font-size: 34px; font-weight: 950; letter-spacing: -0.4px; margin-bottom: 6px; }
+.login-sub   { color: var(--muted); font-weight: 800; margin-bottom: 16px; }
 
 /* ✅ 모바일 */
 @media (max-width: 640px) {

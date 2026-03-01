@@ -2,43 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-type Item = { id: string; name: string };
-type Client = {
-  id: string;
-  name: string;
-  ceoName?: string | null;
-  bizNo?: string | null;
-  addr?: string | null;
-  tel?: string | null;
-  careNo?: string | null;
-  email?: string | null;
-  remark?: string | null;
-};
-
-type OrderRow = {
-  id: string;
-  createdAt: string;
-  status: string;
-  receiverName: string;
-  receiverAddr: string;
-  phone?: string | null;
-  mobile?: string | null;
-  message?: string | null;
-  items: { name: string; quantity: number }[];
-};
-
-type CartRow = { itemId: string; name: string; quantity: number };
-
 function digitsOnly(v: string) {
   return String(v ?? "").replace(/\D/g, "");
 }
 
+type Item = { id: string; name: string };
+type Client = { id: string; name?: string; addr?: string; bizNo?: string; tel?: string; careNo?: string; ceoName?: string };
+type CartRow = { itemId: string; name: string; quantity: number };
+
+async function fetchJson(url: string) {
+  const res = await fetch(url, { credentials: "include" });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    const msg = json?.message ? String(json.message) : `${res.status} ${res.statusText}`;
+    throw new Error(`${msg}  (url: ${url})`);
+  }
+  return json;
+}
+
 export default function OrdersPage() {
   const [tab, setTab] = useState<"ORDER" | "QUERY" | "CLIENT">("ORDER");
-
-  const [items, setItems] = useState<Item[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [orders, setOrders] = useState<OrderRow[]>([]);
 
   const [loadingBase, setLoadingBase] = useState(true);
   const [loadingOrders, setLoadingOrders] = useState(false);
@@ -47,27 +30,29 @@ export default function OrdersPage() {
   const [error, setError] = useState("");
   const [okMsg, setOkMsg] = useState("");
 
-  // 주문 탭
+  const [items, setItems] = useState<Item[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+
+  // ORDER
   const [clientKeyword, setClientKeyword] = useState("");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [itemKeyword, setItemKeyword] = useState("");
   const [selectedItemId, setSelectedItemId] = useState("");
-  const [addQty, setAddQty] = useState(1);
-
+  const [addQty, setAddQty] = useState<number>(1);
   const [cart, setCart] = useState<CartRow[]>([]);
 
   const [receiverName, setReceiverName] = useState("");
   const [receiverAddr, setReceiverAddr] = useState("");
-  const [mobile, setMobile] = useState("");
   const [phone, setPhone] = useState("");
-  const [message, setMessage] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [note, setNote] = useState("");
 
-  // 조회 탭
-  const [from, setFrom] = useState(() => new Date().toISOString().slice(0, 10));
-  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
+  // QUERY
   const [queryClientId, setQueryClientId] = useState("");
+  const [searchClientKeyword, setSearchClientKeyword] = useState("");
+  const [orders, setOrders] = useState<any[]>([]);
 
-  // 거래처 등록 탭
+  // CLIENT REGISTER
   const [newClientName, setNewClientName] = useState("");
   const [newClientCeoName, setNewClientCeoName] = useState("");
   const [newClientBizNo, setNewClientBizNo] = useState("");
@@ -81,48 +66,61 @@ export default function OrdersPage() {
   const careNoDigits = useMemo(() => digitsOnly(newClientCareNo), [newClientCareNo]);
 
   const filteredClientsForOrder = useMemo(() => {
-    const kw = clientKeyword.trim();
+    const kw = clientKeyword.trim().toLowerCase();
     if (!kw) return clients;
     return clients.filter((c) => {
-      const t = `${c.name ?? ""} ${c.addr ?? ""} ${c.bizNo ?? ""} ${c.tel ?? ""}`;
-      return t.includes(kw);
+      const s = `${c?.name ?? ""} ${c?.addr ?? ""} ${c?.bizNo ?? ""} ${c?.tel ?? ""}`.toLowerCase();
+      return s.includes(kw);
     });
   }, [clients, clientKeyword]);
 
   const filteredItemsForOrder = useMemo(() => {
-    const kw = itemKeyword.trim();
+    const kw = itemKeyword.trim().toLowerCase();
     if (!kw) return items;
-    return items.filter((it) => (it.name ?? "").includes(kw));
+    return items.filter((it) => String(it?.name ?? "").toLowerCase().includes(kw));
   }, [items, itemKeyword]);
 
+  const filteredClientsForSearch = useMemo(() => {
+    const kw = searchClientKeyword.trim().toLowerCase();
+    if (!kw) return clients;
+    return clients.filter((c) => String(c?.name ?? "").toLowerCase().includes(kw));
+  }, [clients, searchClientKeyword]);
+
   async function loadAll() {
-    setLoadingBase(true);
     setError("");
     setOkMsg("");
+    setLoadingBase(true);
 
     try {
-      const [r1, r2] = await Promise.all([
-        fetch("/api/sales/clients", { credentials: "include", cache: "no-store" }),
-        fetch("/api/items", { credentials: "include", cache: "no-store" }),
-      ]);
-
-      const j1 = await r1.json().catch(() => null);
-      const j2 = await r2.json().catch(() => null);
-
-      if (!r1.ok || !j1?.ok) throw new Error(j1?.message ?? "LOAD_CLIENTS_FAILED");
-      if (!r2.ok) throw new Error(j2?.message ?? "LOAD_ITEMS_FAILED");
-
-      const clientsList: Client[] = Array.isArray(j1?.clients) ? j1.clients : [];
-      const itemsList: Item[] = Array.isArray(j2) ? j2 : Array.isArray(j2?.items) ? j2.items : [];
-
-      setClients(clientsList);
+      const itemsJson = await fetchJson("/api/items");
+      const itemsList = Array.isArray(itemsJson) ? itemsJson : Array.isArray(itemsJson?.items) ? itemsJson.items : [];
       setItems(itemsList);
 
-      if (!queryClientId && clientsList[0]?.id) setQueryClientId(clientsList[0].id);
+      const clientsJson = await fetchJson("/api/sales/clients");
+      const clientsList = Array.isArray(clientsJson) ? clientsJson : Array.isArray(clientsJson?.clients) ? clientsJson.clients : [];
+      setClients(clientsList);
+
+      if (!queryClientId && clientsList?.[0]?.id) setQueryClientId(clientsList[0].id);
     } catch (e: any) {
       setError(String(e?.message ?? e));
     } finally {
       setLoadingBase(false);
+    }
+  }
+
+  async function loadOrders() {
+    setLoadingOrders(true);
+    setError("");
+    setOkMsg("");
+    try {
+      const url = queryClientId ? `/api/sales/orders?clientId=${encodeURIComponent(queryClientId)}` : "/api/sales/orders";
+      const json = await fetchJson(url);
+      setOrders(Array.isArray(json?.orders) ? json.orders : Array.isArray(json) ? json : []);
+    } catch (e: any) {
+      setError(String(e?.message ?? e));
+      setOrders([]);
+    } finally {
+      setLoadingOrders(false);
     }
   }
 
@@ -131,7 +129,7 @@ export default function OrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 거래처 선택하면 배송정보 자동 세팅
+  // 거래처 선택 시 배송정보 자동
   useEffect(() => {
     const c = clients.find((x) => x.id === selectedClientId);
     if (!c) return;
@@ -140,11 +138,8 @@ export default function OrdersPage() {
     setReceiverAddr(c.addr ?? "");
 
     const telDigits = digitsOnly(c.tel ?? "");
-    if (telDigits.length === 10 || telDigits.length === 11) {
-      setMobile(telDigits);
-    } else if (c.tel) {
-      setPhone(c.tel);
-    }
+    if (telDigits.length === 10 || telDigits.length === 11) setMobile(telDigits);
+    else if (c.tel) setPhone(c.tel);
   }, [selectedClientId, clients]);
 
   function addToCart() {
@@ -192,72 +187,32 @@ export default function OrdersPage() {
       if (!receiverAddr.trim()) throw new Error("주소를 입력하세요.");
 
       const mob = digitsOnly(mobile);
-      if (!(mob.length === 10 || mob.length === 11)) throw new Error("핸드폰번호(숫자 10~11자리)가 필요합니다.");
+      if (!(mob.length === 10 || mob.length === 11)) throw new Error("핸드폰(숫자만) 필요");
 
-      const payload = {
-        clientId: selectedClientId || null,
-        receiverName: receiverName.trim(),
-        receiverAddr: receiverAddr.trim(),
-        mobile: mob,
-        phone: digitsOnly(phone) || null,
-        message: message.trim() || null,
-        items: cart.map((r) => ({ itemId: r.itemId, quantity: r.quantity })),
-      };
-
-      let res = await fetch("/api/sales/orders", {
+      const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          receiverName: receiverName.trim(),
+          receiverAddr: receiverAddr.trim(),
+          receiverPhone: digitsOnly(phone),
+          receiverMobile: mob,
+          note: note.trim(),
+          cart,
+        }),
       });
 
-      // 혹시 예전 경로 fallback
-      if (res.status === 404) {
-        res = await fetch("/api/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        });
-      }
-
       const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.ok) throw new Error(json?.message ?? "ORDER_FAILED");
+      if (!res.ok || !json?.ok) throw new Error(json?.message ?? `${res.status} ${res.statusText}`);
 
-      setOkMsg(`주문요청 완료 (${json?.count ?? cart.length}건)`);
-      clearCart();
+      setOkMsg("주문요청 완료");
+      setCart([]);
+      setNote("");
     } catch (e: any) {
       setError(String(e?.message ?? e));
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function loadOrders() {
-    setLoadingOrders(true);
-    setError("");
-    setOkMsg("");
-
-    try {
-      const qs = new URLSearchParams();
-      if (from) qs.set("from", from);
-      if (to) qs.set("to", to);
-      if (queryClientId) qs.set("clientId", queryClientId);
-
-      const res = await fetch(`/api/sales/orders?${qs.toString()}`, {
-        credentials: "include",
-        cache: "no-store",
-      });
-
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.ok) throw new Error(json?.message ?? "LOAD_ORDERS_FAILED");
-
-      setOrders(Array.isArray(json?.orders) ? json.orders : []);
-    } catch (e: any) {
-      setError(String(e?.message ?? e));
-      setOrders([]);
-    } finally {
-      setLoadingOrders(false);
     }
   }
 
@@ -268,9 +223,6 @@ export default function OrdersPage() {
 
     try {
       if (!newClientName.trim()) throw new Error("거래처명을 입력하세요.");
-      if (newClientCareNo.trim() && careNoDigits.length !== 8) {
-        throw new Error("요양기관번호는 숫자만 8자리로 입력하세요.");
-      }
 
       const fd = new FormData();
       fd.append("name", newClientName.trim());
@@ -290,7 +242,7 @@ export default function OrdersPage() {
       });
 
       const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.ok) throw new Error(json?.message ?? "CLIENT_CREATE_FAILED");
+      if (!res.ok || !json?.ok) throw new Error(json?.message ?? `${res.status} ${res.statusText}`);
 
       setOkMsg("거래처 등록 완료");
       setNewClientName("");
@@ -317,7 +269,7 @@ export default function OrdersPage() {
       <div className="app-bg">
         <div className="app-inner">
           <div className="page-wrap">
-            <div className="erp-card">불러오는 중…</div>
+            <div className="card-soft">불러오는 중...</div>
           </div>
         </div>
       </div>
@@ -328,7 +280,6 @@ export default function OrdersPage() {
     <div className="app-bg">
       <div className="app-inner">
         <div className="page-wrap">
-          {/* ✅ 상단바: 좌측 브랜드 / 탭 / 우측 로그아웃 */}
           <div className="topbar">
             <div className="brand">한의N원외탕전 ERP</div>
 
@@ -350,31 +301,21 @@ export default function OrdersPage() {
             </div>
           </div>
 
-          {error ? (
-            <div className="erp-card" style={{ borderColor: "crimson", color: "crimson", fontWeight: 900, marginBottom: 14 }}>
-              {error}
-            </div>
-          ) : null}
+          {error ? <div className="msg err">{error}</div> : null}
+          {okMsg ? <div className="msg ok">{okMsg}</div> : null}
 
-          {okMsg ? (
-            <div className="erp-card" style={{ borderColor: "rgba(0,160,60,.35)", color: "#0a6b2a", fontWeight: 900, marginBottom: 14 }}>
-              {okMsg}
-            </div>
-          ) : null}
-
-          {/* ✅ 내용은 무조건 흰 카드 안 */}
-          <div className="erp-card">
+          <div className="card-soft">
             {tab === "ORDER" && (
               <>
-                <div style={{ fontSize: 22, fontWeight: 950, marginBottom: 14 }}>주문요청</div>
+                <div style={{ fontSize: 28, fontWeight: 950, marginBottom: 14 }}>주문요청</div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>거래처 검색</div>
+                <div className="form-grid">
+                  <div className="label">거래처 검색</div>
                   <input className="input" placeholder="거래처 검색 (이름/주소/사업자번호/전화)" value={clientKeyword} onChange={(e) => setClientKeyword(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>거래처(선택)</div>
+                <div className="form-grid">
+                  <div className="label">거래처(선택)</div>
                   <select className="select" value={selectedClientId} onChange={(e) => setSelectedClientId(e.target.value)}>
                     <option value="">(선택안함)</option>
                     {filteredClientsForOrder.map((c) => (
@@ -383,13 +324,13 @@ export default function OrdersPage() {
                   </select>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>품목 검색</div>
+                <div className="form-grid">
+                  <div className="label">품목 검색</div>
                   <input className="input" placeholder="품목 검색" value={itemKeyword} onChange={(e) => setItemKeyword(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>품목</div>
+                <div className="form-grid">
+                  <div className="label">품목</div>
                   <select className="select" value={selectedItemId} onChange={(e) => setSelectedItemId(e.target.value)}>
                     <option value="">(선택)</option>
                     {filteredItemsForOrder.map((it) => (
@@ -398,26 +339,26 @@ export default function OrdersPage() {
                   </select>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>수량</div>
-                  <input className="input" value={addQty} onChange={(e) => setAddQty(Number(e.target.value) || 1)} />
+                <div className="form-grid">
+                  <div className="label">수량</div>
+                  <input className="input" value={addQty} onChange={(e) => setAddQty(Number(e.target.value) || 1)} inputMode="numeric" />
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
                   <button className="btn" onClick={addToCart}>장바구니 담기</button>
                 </div>
 
                 <div className="hr" />
 
-                <div style={{ fontSize: 18, fontWeight: 950, marginBottom: 10 }}>장바구니 (여러 품목 한번에)</div>
+                <div style={{ fontSize: 20, fontWeight: 950, marginBottom: 10 }}>장바구니</div>
                 {cart.length === 0 ? (
-                  <div style={{ color: "rgba(0,0,0,.65)", fontWeight: 800 }}>장바구니가 비었습니다.</div>
+                  <div style={{ fontWeight: 800, color: "rgba(0,0,0,.6)" }}>장바구니가 비었습니다.</div>
                 ) : (
                   <div style={{ display: "grid", gap: 10 }}>
                     {cart.map((r) => (
-                      <div key={r.itemId} style={{ display: "grid", gridTemplateColumns: "1fr 120px 90px", gap: 10, alignItems: "center" }}>
-                        <div style={{ fontWeight: 900 }}>{r.name}</div>
-                        <input className="input" value={r.quantity} onChange={(e) => changeCartQty(r.itemId, Number(e.target.value) || 1)} />
+                      <div key={r.itemId} style={{ display: "grid", gridTemplateColumns: "1fr 120px 110px", gap: 10, alignItems: "center" }}>
+                        <div style={{ fontWeight: 950 }}>{r.name}</div>
+                        <input className="input" value={r.quantity} onChange={(e) => changeCartQty(r.itemId, Number(e.target.value) || 1)} inputMode="numeric" />
                         <button className="btn" onClick={() => removeCart(r.itemId)}>삭제</button>
                       </div>
                     ))}
@@ -429,41 +370,36 @@ export default function OrdersPage() {
 
                 <div className="hr" />
 
-                <div style={{ fontSize: 18, fontWeight: 950, marginBottom: 10 }}>배송정보</div>
+                <div style={{ fontSize: 20, fontWeight: 950, marginBottom: 10 }}>배송정보</div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>수하인</div>
+                <div className="form-grid">
+                  <div className="label">수하인</div>
                   <input className="input" value={receiverName} onChange={(e) => setReceiverName(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>주소</div>
+                <div className="form-grid">
+                  <div className="label">주소</div>
                   <input className="input" value={receiverAddr} onChange={(e) => setReceiverAddr(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>핸드폰(필수)</div>
-                  <input className="input" value={mobile} onChange={(e) => setMobile(e.target.value)} />
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>전화(선택)</div>
+                <div className="form-grid">
+                  <div className="label">전화(선택)</div>
                   <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>배송메세지</div>
-                  <input className="input" value={message} onChange={(e) => setMessage(e.target.value)} />
+                <div className="form-grid">
+                  <div className="label">핸드폰(필수)</div>
+                  <input className="input" value={mobile} onChange={(e) => setMobile(e.target.value)} />
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button
-                    className="btn"
-                    disabled={saving}
-                    onClick={submitCartOrder}
-                    style={{ background: "rgba(0,0,0,.85)", color: "white", border: "none" }}
-                  >
-                    {saving ? "처리 중..." : "주문요청 제출"}
+                <div className="form-grid">
+                  <div className="label">배송메모</div>
+                  <textarea className="textarea" value={note} onChange={(e) => setNote(e.target.value)} />
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                  <button className="btn btn-primary" disabled={saving} onClick={submitCartOrder}>
+                    {saving ? "전송 중..." : "주문요청"}
                   </button>
                 </div>
               </>
@@ -471,126 +407,86 @@ export default function OrdersPage() {
 
             {tab === "QUERY" && (
               <>
-                <div style={{ fontSize: 22, fontWeight: 950, marginBottom: 14 }}>주문조회</div>
+                <div style={{ fontSize: 28, fontWeight: 950, marginBottom: 14 }}>주문 조회</div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>기간</div>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    <input className="input" style={{ width: 200 }} value={from} onChange={(e) => setFrom(e.target.value)} />
-                    <div style={{ fontWeight: 900, alignSelf: "center" }}>~</div>
-                    <input className="input" style={{ width: 200 }} value={to} onChange={(e) => setTo(e.target.value)} />
-                  </div>
+                <div className="form-grid">
+                  <div className="label">거래처 검색</div>
+                  <input className="input" placeholder="거래처명 검색" value={searchClientKeyword} onChange={(e) => setSearchClientKeyword(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>거래처</div>
+                <div className="form-grid">
+                  <div className="label">거래처 선택</div>
                   <select className="select" value={queryClientId} onChange={(e) => setQueryClientId(e.target.value)}>
                     <option value="">(전체)</option>
-                    {clients.map((c) => (
+                    {filteredClientsForSearch.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginBottom: 12 }}>
                   <button className="btn" onClick={loadOrders} disabled={loadingOrders}>
                     {loadingOrders ? "불러오는 중..." : "조회"}
                   </button>
                 </div>
 
-                <div className="hr" />
-
-                {orders.length === 0 ? (
-                  <div style={{ color: "rgba(0,0,0,.65)", fontWeight: 800 }}>표시할 주문이 없습니다.</div>
-                ) : (
-                  <div style={{ display: "grid", gap: 12 }}>
-                    {orders.map((o) => (
-                      <div key={o.id} style={{ padding: 14, borderRadius: 16, border: "1px solid rgba(0,0,0,.10)", background: "rgba(255,255,255,.75)" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                          <div style={{ fontWeight: 950 }}>
-                            {o.receiverName} / {o.status}
-                          </div>
-                          <div style={{ fontWeight: 900, color: "rgba(0,0,0,.65)" }}>
-                            {String(o.createdAt).slice(0, 10)}
-                          </div>
-                        </div>
-                        <div style={{ marginTop: 8, fontWeight: 800, color: "rgba(0,0,0,.75)" }}>
-                          {o.receiverAddr}
-                        </div>
-                        <div style={{ marginTop: 10 }}>
-                          {o.items?.map((it, idx) => (
-                            <div key={idx} style={{ fontWeight: 900 }}>
-                              - {it.name} x {it.quantity}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div style={{ fontWeight: 900, color: "rgba(0,0,0,.7)" }}>
+                  {orders.length === 0 ? "표시할 주문이 없습니다." : `총 ${orders.length}건`}
+                </div>
               </>
             )}
 
             {tab === "CLIENT" && (
               <>
-                <div style={{ fontSize: 22, fontWeight: 950, marginBottom: 14 }}>거래처 등록</div>
+                <div style={{ fontSize: 28, fontWeight: 950, marginBottom: 14 }}>거래처 등록</div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>거래처명</div>
+                <div className="form-grid">
+                  <div className="label">거래처명</div>
                   <input className="input" value={newClientName} onChange={(e) => setNewClientName(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>대표자명</div>
+                <div className="form-grid">
+                  <div className="label">대표자명</div>
                   <input className="input" value={newClientCeoName} onChange={(e) => setNewClientCeoName(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>사업자번호</div>
+                <div className="form-grid">
+                  <div className="label">사업자번호</div>
                   <input className="input" value={newClientBizNo} onChange={(e) => setNewClientBizNo(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>주소</div>
+                <div className="form-grid">
+                  <div className="label">주소</div>
                   <input className="input" value={newClientAddr} onChange={(e) => setNewClientAddr(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>전화</div>
+                <div className="form-grid">
+                  <div className="label">전화</div>
                   <input className="input" value={newClientTel} onChange={(e) => setNewClientTel(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>요양기관번호</div>
-                  <input className="input" placeholder="숫자 8자리(선택)" value={newClientCareNo} onChange={(e) => setNewClientCareNo(e.target.value)} />
+                <div className="form-grid">
+                  <div className="label">요양기관번호</div>
+                  <input className="input" value={newClientCareNo} onChange={(e) => setNewClientCareNo(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>이메일</div>
+                <div className="form-grid">
+                  <div className="label">이메일</div>
                   <input className="input" value={newClientEmail} onChange={(e) => setNewClientEmail(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>비고</div>
+                <div className="form-grid">
+                  <div className="label">비고</div>
                   <textarea className="textarea" value={newClientRemark} onChange={(e) => setNewClientRemark(e.target.value)} />
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 10, alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ fontWeight: 900 }}>사업자등록증</div>
-                  <input
-                    className="input"
-                    type="file"
-                    onChange={(e) => setBizFile(e.target.files?.[0] ?? null)}
-                  />
+                <div className="form-grid">
+                  <div className="label">사업자등록증</div>
+                  <input className="input" type="file" onChange={(e) => setBizFile(e.target.files?.[0] ?? null)} />
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button
-                    className="btn"
-                    disabled={saving}
-                    onClick={createClient}
-                    style={{ background: "rgba(0,0,0,.85)", color: "white", border: "none" }}
-                  >
+                  <button className="btn btn-primary" disabled={saving} onClick={createClient}>
                     {saving ? "등록 중..." : "거래처 등록"}
                   </button>
                 </div>
