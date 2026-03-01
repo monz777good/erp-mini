@@ -1,31 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+
+type Role = "SALES" | "ADMIN";
 
 export default function LoginPage() {
   const router = useRouter();
+  const sp = useSearchParams();
 
-  // ✅ hydration 전 화면 숨김 (깜빡임 제거 핵심)
-  const [mounted, setMounted] = useState(false);
+  const initialRole = (sp.get("role")?.toUpperCase() as Role) || "SALES";
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
-  const [role, setRole] = useState<"SALES" | "ADMIN">("SALES");
-  const [autoLogin, setAutoLogin] = useState(true);
+  const [role, setRole] = useState<Role>(initialRole);
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    const r = (sp.get("role")?.toUpperCase() as Role) || "SALES";
+    setRole(r);
+  }, [sp]);
 
-  if (!mounted) return null; // 🔥 이 줄이 깜빡임 제거
+  function digitsOnly(v: string) {
+    return v.replace(/\D/g, "");
+  }
 
-  async function handleLogin(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (loading) return;
-
+    setMsg(null);
     setLoading(true);
 
     try {
@@ -34,165 +39,181 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          name,
-          phone,
-          pin,
+          name: name.trim(),
+          phone: digitsOnly(phone),
+          pin: pin.trim(),
           role,
-          autoLogin,
+          remember,
         }),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert("로그인 실패");
-        setLoading(false);
+        setMsg(data?.error || "로그인 실패");
         return;
       }
 
-      // ✅ 관리자면 관리자 페이지로
-      if (role === "ADMIN") {
-        router.push("/admin/orders");
-      } else {
-        router.push("/orders");
-      }
-
-      router.refresh();
-    } catch (err) {
-      alert("서버 오류");
+      router.replace(role === "ADMIN" ? "/admin/orders" : "/orders");
+    } catch (err: any) {
+      setMsg(err?.message || "로그인 오류");
+    } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background:
-          "radial-gradient(1200px 600px at 15% 15%, rgba(30,58,138,.35), transparent 60%), radial-gradient(900px 500px at 90% 10%, rgba(2,132,199,.25), transparent 55%), linear-gradient(180deg, #06121a 0%, #071b25 35%, #07111a 100%)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20,
-      }}
-    >
-      <form
-        onSubmit={handleLogin}
-        style={{
-          width: 420,
-          background: "white",
-          borderRadius: 24,
-          padding: 30,
-          boxShadow: "0 20px 60px rgba(0,0,0,.4)",
-        }}
-      >
-        <h1 style={{ fontSize: 28, fontWeight: 900, marginBottom: 6 }}>
-          한의N원외탕전 ERP 로그인
-        </h1>
+    <div className="erp-overlay">
+      <div className="erp-shell">
+        <div className="erp-shell-inner" style={{ maxWidth: 820 }}>
+          <div className="erp-card">
+            <h1 style={{ fontSize: 34, fontWeight: 900, marginBottom: 6 }}>
+              한의N원외탕전 ERP 로그인
+            </h1>
+            <div style={{ color: "#444", marginBottom: 18, fontWeight: 700 }}>
+              이름 / 전화번호 / PIN 입력 후 로그인
+            </div>
 
-        <div style={{ fontWeight: 600, opacity: 0.7, marginBottom: 20 }}>
-          이름 / 전화번호 / PIN 입력 후 로그인
-        </div>
-
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>이름</div>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="홍길동"
-            required
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>전화번호</div>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="01012341234"
-            required
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>PIN</div>
-          <input
-            type="password"
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            placeholder="예: 1111"
-            required
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div
-          style={{
-            background: "#f4f4f4",
-            padding: 14,
-            borderRadius: 16,
-            marginBottom: 20,
-          }}
-        >
-          <label style={{ marginRight: 16 }}>
-            <input
-              type="radio"
-              checked={role === "SALES"}
-              onChange={() => setRole("SALES")}
-            />{" "}
-            영업사원
-          </label>
-
-          <label>
-            <input
-              type="radio"
-              checked={role === "ADMIN"}
-              onChange={() => setRole("ADMIN")}
-            />{" "}
-            관리자
-          </label>
-
-          <div style={{ marginTop: 10 }}>
-            <label>
+            <form onSubmit={onSubmit}>
+              <label style={{ display: "block", fontWeight: 800, marginTop: 10 }}>
+                이름
+              </label>
               <input
-                type="checkbox"
-                checked={autoLogin}
-                onChange={(e) => setAutoLogin(e.target.checked)}
-              />{" "}
-              자동로그인
-            </label>
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="예: 홍길동"
+                style={{
+                  width: "100%",
+                  height: 46,
+                  padding: "0 14px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.15)",
+                  outline: "none",
+                  marginTop: 6,
+                }}
+              />
+
+              <label style={{ display: "block", fontWeight: 800, marginTop: 14 }}>
+                전화번호
+              </label>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="숫자만 입력"
+                inputMode="numeric"
+                style={{
+                  width: "100%",
+                  height: 46,
+                  padding: "0 14px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.15)",
+                  outline: "none",
+                  marginTop: 6,
+                }}
+              />
+
+              <label style={{ display: "block", fontWeight: 800, marginTop: 14 }}>
+                PIN
+              </label>
+              <input
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                placeholder="예: 1111"
+                inputMode="numeric"
+                style={{
+                  width: "100%",
+                  height: 46,
+                  padding: "0 14px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.15)",
+                  outline: "none",
+                  marginTop: 6,
+                }}
+              />
+
+              <div
+                style={{
+                  marginTop: 18,
+                  padding: 14,
+                  borderRadius: 16,
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  background: "rgba(0,0,0,0.03)",
+                  display: "flex",
+                  gap: 18,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 800 }}>
+                  <input
+                    type="radio"
+                    checked={role === "SALES"}
+                    onChange={() => setRole("SALES")}
+                  />
+                  영업사원
+                </label>
+
+                <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 800 }}>
+                  <input
+                    type="radio"
+                    checked={role === "ADMIN"}
+                    onChange={() => setRole("ADMIN")}
+                  />
+                  관리자
+                </label>
+
+                <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 800 }}>
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                  />
+                  자동로그인
+                </label>
+              </div>
+
+              {msg ? (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 12,
+                    borderRadius: 12,
+                    background: "rgba(255,0,0,0.06)",
+                    border: "1px solid rgba(255,0,0,0.15)",
+                    color: "#a10000",
+                    fontWeight: 800,
+                  }}
+                >
+                  {msg}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  width: "100%",
+                  height: 54,
+                  borderRadius: 16,
+                  border: 0,
+                  marginTop: 18,
+                  fontWeight: 900,
+                  fontSize: 16,
+                  background: "#111",
+                  color: "#fff",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  opacity: loading ? 0.7 : 1,
+                }}
+              >
+                {loading ? "로그인 중..." : "로그인"}
+              </button>
+
+              <div style={{ marginTop: 14, color: "#666", textAlign: "center", fontWeight: 700 }}>
+                © 한의N원외탕전
+              </div>
+            </form>
           </div>
         </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            width: "100%",
-            height: 52,
-            borderRadius: 18,
-            background: loading ? "#999" : "#222",
-            color: "white",
-            fontWeight: 900,
-            fontSize: 16,
-            cursor: "pointer",
-          }}
-        >
-          {loading ? "로그인 중..." : "로그인"}
-        </button>
-
-        <div
-          style={{
-            marginTop: 18,
-            textAlign: "center",
-            fontWeight: 700,
-            opacity: 0.5,
-            fontSize: 13,
-          }}
-        >
-          © 한의N원외탕전
-        </div>
-      </form>
+      </div>
     </div>
   );
 }

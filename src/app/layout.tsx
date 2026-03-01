@@ -1,15 +1,10 @@
+import type { ReactNode } from "react";
 import "./globals.css";
 
-export const metadata = {
-  title: "한의N원외탕전 ERP",
-  description: "ERP System",
-};
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="ko">
       <body>{children}</body>

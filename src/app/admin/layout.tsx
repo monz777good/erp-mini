@@ -14,7 +14,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     <div className="admin-bg">
       <div className="admin-wrap">
         <AdminTopNav />
-        <div className="erp-card">{children}</div>
+        {/* ✅ 겉 큰 카드(erp-card) 제거: 각 페이지 내부 카드만 보이게 */}
+        {children}
       </div>
     </div>
   );
