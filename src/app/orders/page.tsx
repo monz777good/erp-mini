@@ -1,273 +1,222 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import AppShell from "@/components/AppShell";
 
 type Item = { id: string; name: string };
-type Client = { id: string; name: string; ownerName?: string | null };
+type Client = { id: string; name: string };
 
-export default function OrdersPage() {
-  const router = useRouter();
+function onlyDigits(v: string) {
+  return String(v ?? "").replace(/\D/g, "");
+}
 
-  const [err, setErr] = useState<string>("");
+export default function OrdersPage({
+  searchParams,
+}: {
+  searchParams?: { tab?: string };
+}) {
+  const tab = searchParams?.tab || "order";
+
   const [items, setItems] = useState<Item[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const [clientQuery, setClientQuery] = useState("");
-  const [itemQuery, setItemQuery] = useState("");
-
-  const [clientId, setClientId] = useState<string>("");
-  const [itemId, setItemId] = useState<string>("");
-  const [qty, setQty] = useState<number>(1);
+  // 주문 입력 상태
+  const [clientQ, setClientQ] = useState("");
+  const [itemQ, setItemQ] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [itemId, setItemId] = useState("");
+  const [qty, setQty] = useState(1);
 
   const [receiverName, setReceiverName] = useState("");
   const [receiverPhone, setReceiverPhone] = useState("");
-  const [receiverAddr, setReceiverAddr] = useState("");
-  const [note, setNote] = useState("");
+  const [address, setAddress] = useState("");
+  const [memo, setMemo] = useState("");
 
-  const filteredClients = useMemo(() => {
-    const q = clientQuery.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter((c) =>
-      [c.name, c.ownerName ?? ""].join(" ").toLowerCase().includes(q)
-    );
-  }, [clients, clientQuery]);
+  const input =
+    "w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20";
+  const select =
+    "w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 outline-none focus:ring-2 focus:ring-black/20";
 
-  const filteredItems = useMemo(() => {
-    const q = itemQuery.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((it) => it.name.toLowerCase().includes(q));
-  }, [items, itemQuery]);
-
-  async function load() {
-    setErr("");
-    try {
-      const [itemsRes, clientsRes] = await Promise.all([
-        fetch("/api/items", { credentials: "include" }),
-        fetch("/api/sales/clients", { credentials: "include" }),
-      ]);
-
-      // 로그인 풀렸으면 로그인으로
-      if (itemsRes.status === 401 || clientsRes.status === 401) {
-        router.replace("/login");
-        return;
-      }
-
-      if (!itemsRes.ok) throw new Error("품목 불러오기 실패");
-      if (!clientsRes.ok) throw new Error("거래처 불러오기 실패");
-
-      const itemsJson = await itemsRes.json();
-      const clientsJson = await clientsRes.json();
-
-      setItems(Array.isArray(itemsJson) ? itemsJson : itemsJson?.items ?? []);
-      setClients(
-        Array.isArray(clientsJson) ? clientsJson : clientsJson?.clients ?? []
-      );
-    } catch (e: any) {
-      setErr(e?.message || "서버 오류");
-    }
-  }
-
+  // ✅ 데이터 로딩: items + clients (401이면 AppShell이 /api/me에서 튕겨줌)
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    (async () => {
+      setErr(null);
+      try {
+        const [itRes, clRes] = await Promise.all([
+          fetch("/api/items", { credentials: "include" }),
+          fetch("/api/sales/clients", { credentials: "include" }),
+        ]);
+
+        // items
+        if (itRes.ok) {
+          const itJson = await itRes.json().catch(() => []);
+          setItems(Array.isArray(itJson) ? itJson : itJson?.items ?? []);
+        } else {
+          setItems([]);
+        }
+
+        // clients
+        if (clRes.ok) {
+          const clJson = await clRes.json().catch(() => []);
+          setClients(Array.isArray(clJson) ? clJson : clJson?.clients ?? []);
+        } else {
+          // 여기서 빨간 “Unauthorized” 같은 원문구 띄우지 말고, 사용자용 문구
+          setClients([]);
+          setErr("거래처 불러오기 실패");
+        }
+      } catch {
+        setErr("서버 오류");
+      }
+    })();
   }, []);
 
-  async function logout() {
-    try {
-      await fetch("/api/logout", { method: "POST", credentials: "include" });
-    } catch {}
-    router.replace("/login");
-  }
+  const filteredClients = useMemo(() => {
+    const q = clientQ.trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter((c) => c.name.toLowerCase().includes(q));
+  }, [clients, clientQ]);
+
+  const filteredItems = useMemo(() => {
+    const q = itemQ.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((i) => i.name.toLowerCase().includes(q));
+  }, [items, itemQ]);
 
   async function submitOrder() {
-    setErr("");
-    try {
-      if (!itemId) return setErr("품목을 선택해줘");
-      if (!receiverName.trim()) return setErr("수하인명을 입력해줘");
-      if (!receiverAddr.trim()) return setErr("주소를 입력해줘");
+    setErr(null);
+    if (!itemId) return setErr("품목을 선택해주세요.");
+    if (!receiverName.trim()) return setErr("수하인명을 입력해주세요.");
+    if (!address.trim()) return setErr("주소를 입력해주세요.");
 
+    setLoading(true);
+    try {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           itemId,
+          quantity: qty,
           clientId: clientId || null,
-          quantity: Number(qty || 1),
-          receiverName: receiverName.trim(),
-          receiverPhone: String(receiverPhone || "").replace(/\D/g, ""),
-          receiverAddr: receiverAddr.trim(),
-          note: note?.trim() || null,
+          receiverName,
+          receiverAddr: address,
+          receiverPhone: onlyDigits(receiverPhone),
+          note: memo || null,
         }),
       });
 
-      if (res.status === 401) {
-        router.replace("/login");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setErr(json?.error || "주문 요청 실패");
         return;
       }
 
-      if (!res.ok) {
-        const t = await res.text().catch(() => "");
-        throw new Error(t || "주문 요청 실패");
-      }
-
-      alert("주문 요청 완료");
-      // 입력 일부 초기화
-      setItemId("");
+      // 성공 시 초기화(원하면 유지로 바꿔도 됨)
+      setMemo("");
       setQty(1);
-      setReceiverName("");
-      setReceiverPhone("");
-      setReceiverAddr("");
-      setNote("");
-    } catch (e: any) {
-      setErr(e?.message || "서버 오류");
+    } catch {
+      setErr("서버 오류");
+    } finally {
+      setLoading(false);
     }
   }
 
   return (
-    <div className="app-shell">
-      <div className="app-card">
-        <div className="topbar">
-          <div className="brand">한의N원외탕전 ERP</div>
+    <AppShell>
+      {err ? (
+        <div className="mt-2 mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 font-semibold">
+          {err}
+        </div>
+      ) : null}
 
-          <div className="nav">
-            <a className="pill primary" href="/orders">
-              주문
-            </a>
-            <a className="pill" href="/orders?tab=history">
-              조회
-            </a>
-            <a className="pill" href="/clients/new">
-              거래처 등록
-            </a>
+      {tab === "history" ? (
+        <div className="mt-2">
+          <div className="text-2xl font-extrabold mb-2">조회</div>
+          <div className="text-sm text-black/55 mb-6">
+            조회 UI는 다음 단계에서 “내 거래처/내 주문만” 기준으로 고급스럽게 붙이면 됨.
           </div>
 
-          <div className="actions">
-            <button className="pill" type="button" onClick={load}>
-              새로고침
-            </button>
-            <button className="pill" type="button" onClick={logout}>
-              로그아웃
-            </button>
+          <div className="rounded-2xl border border-black/10 bg-white/70 p-5">
+            <div className="text-sm text-black/60">
+              (임시) 현재는 UI 복구/라우팅/배경/카드가 우선이라 조회 화면은 안정화만 해둠.
+            </div>
           </div>
         </div>
+      ) : (
+        <div className="mt-2">
+          <div className="text-2xl font-extrabold mb-2">주문요청</div>
+          <div className="text-sm text-black/55 mb-6">
+            거래처/품목을 선택하고 배송정보 입력 후 주문요청
+          </div>
 
-        <div className="content">
-          {err ? <div className="error-banner">{err}</div> : null}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <div className="text-sm font-bold mb-2">거래처 검색</div>
+              <input className={input} value={clientQ} onChange={(e) => setClientQ(e.target.value)} placeholder="거래처 검색 (이름/대표자)" />
+            </div>
 
-          <div className="section-title">주문요청</div>
-          <div className="muted">거래처/품목을 검색하고 배송정보 입력 후 주문요청</div>
+            <div className="md:col-span-2">
+              <div className="text-sm font-bold mb-2">거래처(선택)</div>
+              <select className={select} value={clientId} onChange={(e) => setClientId(e.target.value)}>
+                <option value="">(선택안함)</option>
+                {filteredClients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
 
-          <div style={{ height: 12 }} />
+            <div className="md:col-span-2">
+              <div className="text-sm font-bold mb-2">품목 검색</div>
+              <input className={input} value={itemQ} onChange={(e) => setItemQ(e.target.value)} placeholder="품목 검색" />
+            </div>
 
-          {/* 입력 폼 */}
-          <div
-            style={{
-              background: "rgba(255,255,255,0.65)",
-              border: "1px solid rgba(0,0,0,0.08)",
-              borderRadius: 18,
-              padding: 16,
-            }}
-          >
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                submitOrder();
-              }}
+            <div className="md:col-span-2">
+              <div className="text-sm font-bold mb-2">품목</div>
+              <select className={select} value={itemId} onChange={(e) => setItemId(e.target.value)}>
+                <option value="">(선택)</option>
+                {filteredItems.map((i) => (
+                  <option key={i.id} value={i.id}>{i.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <div className="text-sm font-bold mb-2">수량</div>
+              <input className={input} type="number" min={1} value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value || 1)))} />
+            </div>
+            <div>
+              <div className="text-sm font-bold mb-2">수하인명</div>
+              <input className={input} value={receiverName} onChange={(e) => setReceiverName(e.target.value)} placeholder="예: 홍길동" />
+            </div>
+
+            <div>
+              <div className="text-sm font-bold mb-2">전화번호</div>
+              <input className={input} value={receiverPhone} onChange={(e) => setReceiverPhone(e.target.value)} placeholder="숫자만" />
+            </div>
+            <div>
+              <div className="text-sm font-bold mb-2">주소 전체</div>
+              <input className={input} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="예: 경기도 시흥시 ..." />
+            </div>
+
+            <div className="md:col-span-2">
+              <div className="text-sm font-bold mb-2">배송메세지(선택)</div>
+              <input className={input} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 취급주의" />
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <button
+              disabled={loading}
+              onClick={submitOrder}
+              className="px-6 py-3 rounded-2xl bg-black text-white font-extrabold shadow-md disabled:opacity-50"
             >
-              <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label>거래처 검색</label>
-                  <input
-                    value={clientQuery}
-                    onChange={(e) => setClientQuery(e.target.value)}
-                    placeholder="거래처 검색 (이름/대표자)"
-                  />
-                </div>
-
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label>거래처(선택)</label>
-                  <select value={clientId} onChange={(e) => setClientId(e.target.value)}>
-                    <option value="">(선택안함)</option>
-                    {filteredClients.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                        {c.ownerName ? ` / ${c.ownerName}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label>품목 검색</label>
-                  <input
-                    value={itemQuery}
-                    onChange={(e) => setItemQuery(e.target.value)}
-                    placeholder="품목 검색"
-                  />
-                </div>
-
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label>품목</label>
-                  <select value={itemId} onChange={(e) => setItemId(e.target.value)}>
-                    <option value="">(선택)</option>
-                    {filteredItems.map((it) => (
-                      <option key={it.id} value={it.id}>
-                        {it.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label>수량</label>
-                  <input
-                    value={String(qty)}
-                    onChange={(e) => setQty(Number(e.target.value || 1))}
-                    inputMode="numeric"
-                  />
-                </div>
-
-                <div>
-                  <label>수하인명</label>
-                  <input value={receiverName} onChange={(e) => setReceiverName(e.target.value)} />
-                </div>
-
-                <div>
-                  <label>전화번호</label>
-                  <input
-                    value={receiverPhone}
-                    onChange={(e) => setReceiverPhone(e.target.value.replace(/\D/g, ""))}
-                    placeholder="숫자만"
-                    inputMode="numeric"
-                  />
-                </div>
-
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label>주소 전체</label>
-                  <input value={receiverAddr} onChange={(e) => setReceiverAddr(e.target.value)} />
-                </div>
-
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label>배송메세지(선택)</label>
-                  <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="예: 취급주의" />
-                </div>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-                <button className="primary" type="submit">
-                  주문 요청
-                </button>
-              </div>
-            </form>
+              {loading ? "요청 중..." : "주문 요청"}
+            </button>
           </div>
-
-          <div style={{ height: 16 }} />
-
-          <div className="muted">※ 조회/목록(장바구니 등)은 다음 단계에서 예쁘게 카드로 붙여줄게.</div>
         </div>
-      </div>
-    </div>
+      )}
+    </AppShell>
   );
 }
