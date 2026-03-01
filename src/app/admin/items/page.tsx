@@ -4,158 +4,188 @@ import { useEffect, useMemo, useState } from "react";
 
 type Item = { id: string; name: string; createdAt?: string };
 
-function normalizeItems(data: any): Item[] {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.items)) return data.items;
-  return [];
-}
-
 export default function AdminItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [name, setName] = useState("");
   const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
-
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return items;
-    return items.filter((it) => it.name.toLowerCase().includes(s));
-  }, [items, q]);
+  const [msg, setMsg] = useState("");
 
   async function load() {
-    setLoading(true);
-    setErr("");
-    try {
-      const res = await fetch("/api/admin/items", {
-        method: "GET",
-        credentials: "include", // ✅ 핵심
-        cache: "no-store",
-      });
+    setMsg("");
+    const res = await fetch("/api/admin/items", {
+      method: "GET",
+      credentials: "include", // ✅ 쿠키 무조건 포함
+      cache: "no-store",
+    });
 
-      if (res.status === 401) {
-        setErr("권한 없음 (관리자 로그인 필요)");
-        setItems([]);
-        return;
-      }
-      if (!res.ok) {
-        setErr(`불러오기 실패 (${res.status})`);
-        setItems([]);
-        return;
-      }
-
-      const data = await res.json();
-      setItems(normalizeItems(data));
-    } catch {
-      setErr("네트워크 오류");
+    if (!res.ok) {
+      setMsg(`불러오기 실패 (${res.status})`);
       setItems([]);
-    } finally {
-      setLoading(false);
+      return;
     }
+
+    const data = await res.json();
+    setItems(Array.isArray(data) ? data : []);
   }
 
   async function add() {
-    const v = name.trim();
-    if (!v) return;
+    setMsg("");
+    const res = await fetch("/api/admin/items", {
+      method: "POST",
+      credentials: "include", // ✅ 쿠키 무조건 포함
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
 
-    setLoading(true);
-    setErr("");
-    try {
-      const res = await fetch("/api/admin/items", {
-        method: "POST",
-        credentials: "include", // ✅ 핵심
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: v }),
-      });
-
-      if (res.status === 401) {
-        setErr("권한 없음 (관리자 로그인 필요)");
-        return;
-      }
-      if (!res.ok) {
-        const t = await res.text().catch(() => "");
-        setErr(t || `추가 실패 (${res.status})`);
-        return;
-      }
-
-      setName("");
-      await load();
-    } finally {
-      setLoading(false);
+    if (!res.ok) {
+      const t = await res.json().catch(() => null);
+      setMsg(t?.message || `추가 실패 (${res.status})`);
+      return;
     }
+    setName("");
+    await load();
+  }
+
+  async function del(id: string) {
+    if (!confirm("삭제할까요?")) return;
+    setMsg("");
+    const res = await fetch(`/api/admin/items?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      credentials: "include", // ✅ 쿠키 무조건 포함
+    });
+    if (!res.ok) {
+      setMsg(`삭제 실패 (${res.status})`);
+      return;
+    }
+    await load();
   }
 
   useEffect(() => {
     load();
   }, []);
 
+  const filtered = useMemo(() => {
+    const s = q.trim();
+    if (!s) return items;
+    return items.filter((x) => x.name?.includes(s));
+  }, [items, q]);
+
   return (
-    <div>
-      <h1 className="erp-title">품목 등록 (관리자)</h1>
-      <p className="erp-subtitle">품목 추가/삭제/수정은 관리자만 가능합니다.</p>
+    <div className="erp-shell">
+      <div className="erp-card">
+        <h1 style={{ fontSize: 34, fontWeight: 900, marginBottom: 6 }}>품목 등록 (관리자)</h1>
+        <div style={{ fontWeight: 700, opacity: 0.75, marginBottom: 14 }}>
+          품목 추가/삭제/수정은 관리자만 가능합니다.
+        </div>
 
-      {err ? <div style={{ color: "#b91c1c", fontWeight: 950, marginBottom: 10 }}>{err}</div> : null}
+        {msg ? <div style={{ color: "crimson", fontWeight: 900, marginBottom: 10 }}>{msg}</div> : null}
 
-      <div style={{ background: "rgba(255,255,255,.9)", border: "1px solid rgba(15,23,42,.10)", borderRadius: 16, padding: 14 }}>
-        <div style={{ fontWeight: 950, marginBottom: 10 }}>품목 추가</div>
-
-        <div className="erp-row">
+        <div style={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, padding: 14, marginBottom: 14 }}>
+          <div style={{ fontWeight: 900, marginBottom: 10 }}>품목 추가</div>
           <input
-            className="erp-input"
-            placeholder="품목명 (예: 죽염 1.8 2mL)"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            placeholder="품목명 (예: 죽염 1.8 2mL)"
+            style={{
+              width: "100%",
+              padding: "14px 14px",
+              borderRadius: 12,
+              border: "1px solid rgba(0,0,0,0.12)",
+              marginBottom: 10,
+              fontSize: 16,
+              fontWeight: 800,
+            }}
           />
-          <button className="erp-btn" style={{ width: 120, height: 44 }} onClick={add} disabled={loading}>
-            추가
-          </button>
-          <button className="erp-btn" style={{ width: 120, height: 44, background: "#334155" }} onClick={load} disabled={loading}>
-            새로고침
-          </button>
-        </div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              onClick={add}
+              style={{
+                padding: "12px 18px",
+                borderRadius: 12,
+                border: "1px solid rgba(0,0,0,0.12)",
+                background: "#111827",
+                color: "white",
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              추가
+            </button>
+            <button
+              onClick={load}
+              style={{
+                padding: "12px 18px",
+                borderRadius: 12,
+                border: "1px solid rgba(0,0,0,0.12)",
+                background: "#334155",
+                color: "white",
+                fontWeight: 900,
+                cursor: "pointer",
+              }}
+            >
+              새로고침
+            </button>
+          </div>
 
-        <div style={{ marginTop: 10 }}>
-          <input className="erp-input" placeholder="품목 검색 (예: 죽염, 자하거, PDRN...)" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
-      </div>
-
-      <div style={{ marginTop: 14, background: "rgba(255,255,255,.9)", border: "1px solid rgba(15,23,42,.10)", borderRadius: 16, padding: 14 }}>
-        <div className="erp-row" style={{ justifyContent: "space-between" }}>
-          <div style={{ fontWeight: 950 }}>목록</div>
-          <div style={{ fontWeight: 900, color: "#334155" }}>
-            {filtered.length}개 표시 / 전체 {items.length}개
+          <div style={{ marginTop: 12 }}>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="품목 검색 (예: 죽염, 자하거, PDRN...)"
+              style={{
+                width: "100%",
+                padding: "14px 14px",
+                borderRadius: 12,
+                border: "1px solid rgba(0,0,0,0.12)",
+                fontSize: 16,
+                fontWeight: 800,
+              }}
+            />
           </div>
         </div>
 
-        <div className="erp-table-wrap" style={{ marginTop: 10 }}>
-          <table>
-            <thead>
-              <tr>
-                <th>품목</th>
-                <th>등록일</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={2} style={{ padding: 18, textAlign: "center", color: "#64748b", fontWeight: 900 }}>
-                    목록이 없습니다.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((it) => (
-                  <tr key={it.id}>
-                    <td style={{ fontWeight: 900 }}>{it.name}</td>
-                    <td>{it.createdAt ? String(it.createdAt).slice(0, 10) : "-"}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <div style={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ padding: 14, fontWeight: 900, display: "flex", justifyContent: "space-between" }}>
+            <span>목록</span>
+            <span>{filtered.length}개 표시 / 전체 {items.length}개</span>
+          </div>
 
-        <div style={{ marginTop: 10, fontSize: 13, color: "#475569", fontWeight: 800 }}>
-          * 주문에 사용된 품목은 삭제가 막힐 수 있습니다(기록 보호). 그 경우 이름 수정으로 정리하세요.
+          <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: 18, textAlign: "center", fontWeight: 800, opacity: 0.7 }}>목록이 없습니다.</div>
+            ) : (
+              filtered.map((it) => (
+                <div
+                  key={it.id}
+                  style={{
+                    padding: 14,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    borderTop: "1px solid rgba(0,0,0,0.06)",
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ fontWeight: 900 }}>{it.name}</div>
+                  <button
+                    onClick={() => del(it.id)}
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: 12,
+                      border: "1px solid rgba(0,0,0,0.12)",
+                      background: "rgba(239, 68, 68, 0.1)",
+                      color: "#b91c1c",
+                      fontWeight: 900,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    삭제
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -1,35 +1,37 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/session";
+import { requireAdminUser } from "@/lib/session";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-// ✅ 관리자만 거래처 전체 조회 (빌드 안전 버전)
-export async function GET() {
-  const admin = await requireAdmin();
-  if (!admin) {
-    return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
-  }
+export async function GET(req: Request) {
+  const admin = requireAdminUser();
+  if (!admin) return NextResponse.json({ message: "관리자 권한 없음" }, { status: 401 });
 
-  try {
-    // ✅ "필드명 불일치"로 빌드가 계속 터져서
-    // 일단 안전하게: 존재가 확실한 것만 반환한다.
-    const clients = await prisma.client.findMany({
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        createdAt: true,
-        name: true,
-        bizRegNo: true,
-      },
-    });
+  const { searchParams } = new URL(req.url);
+  const q = String(searchParams.get("q") ?? "").trim();
 
-    return NextResponse.json({ ok: true, clients });
-  } catch (e: any) {
-    console.error(e);
-    return NextResponse.json(
-      { ok: false, error: e?.message ?? "FAILED" },
-      { status: 500 }
-    );
-  }
+  const where =
+    q.length >= 1
+      ? {
+          OR: [
+            { name: { contains: q } },
+            { bizNo: { contains: q } },
+            { instNo: { contains: q } },
+            { email: { contains: q } },
+            { phone: { contains: q } },
+            { address: { contains: q } },
+            { note: { contains: q } },
+            { salesName: { contains: q } },
+          ],
+        }
+      : {};
+
+  const rows = await (prisma as any).client.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json(rows);
 }

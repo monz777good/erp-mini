@@ -1,140 +1,129 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-type Client = {
+type ClientRow = {
   id: string;
   createdAt?: string;
-  salesName?: string; // 영업사원명
-  name: string;       // 거래처명
-  bizNo?: string;     // 사업자번호
-  orgNo?: string;     // 요양기관번호
+  salesName?: string;
+  name?: string;
+  bizNo?: string;
+  instNo?: string;
   email?: string;
   address?: string;
   phone?: string;
   note?: string;
 };
 
-function normalizeClients(data: any): Client[] {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.clients)) return data.clients;
-  return [];
-}
-
 export default function AdminClientsPage() {
-  const [clients, setClients] = useState<Client[]>([]);
+  const [rows, setRows] = useState<ClientRow[]>([]);
   const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
+  const [msg, setMsg] = useState("");
 
-  const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return clients;
-    return clients.filter((c) => {
-      const blob = [
-        c.salesName, c.name, c.bizNo, c.orgNo, c.email, c.address, c.phone, c.note
-      ].filter(Boolean).join(" ").toLowerCase();
-      return blob.includes(s);
+  async function load(keyword?: string) {
+    setMsg("");
+    const qs = keyword ? `?q=${encodeURIComponent(keyword)}` : "";
+    const res = await fetch(`/api/admin/clients${qs}`, {
+      method: "GET",
+      credentials: "include", // ✅ 쿠키 무조건 포함
+      cache: "no-store",
     });
-  }, [clients, q]);
 
-  async function load() {
-    setLoading(true);
-    setErr("");
-    try {
-      const res = await fetch("/api/admin/clients", {
-        method: "GET",
-        credentials: "include", // ✅ 핵심
-        cache: "no-store",
-      });
-
-      if (res.status === 401) {
-        setErr("조회 실패 (401) - 관리자 로그인 상태를 확인하세요.");
-        setClients([]);
-        return;
-      }
-      if (!res.ok) {
-        setErr(`조회 실패 (${res.status})`);
-        setClients([]);
-        return;
-      }
-
-      const data = await res.json();
-      setClients(normalizeClients(data));
-    } catch {
-      setErr("네트워크 오류");
-      setClients([]);
-    } finally {
-      setLoading(false);
+    if (!res.ok) {
+      setMsg(`조회 실패 (${res.status}) - 관리자 로그인 상태를 확인하세요.`);
+      setRows([]);
+      return;
     }
+
+    const data = await res.json();
+    setRows(Array.isArray(data) ? data : []);
   }
 
   useEffect(() => {
-    load();
+    load("");
   }, []);
 
   return (
-    <div>
-      <h1 className="erp-title">거래처 / 사업자등록증</h1>
-      <p className="erp-subtitle">거래처 정보 및 사업자등록증 업로드 현황을 관리합니다.</p>
+    <div className="erp-shell">
+      <div className="erp-card">
+        <h1 style={{ fontSize: 34, fontWeight: 900, marginBottom: 6 }}>거래처 / 사업자등록증</h1>
+        <div style={{ fontWeight: 700, opacity: 0.75, marginBottom: 14 }}>
+          거래처 정보 및 사업자등록증 업로드 현황을 관리합니다.
+        </div>
 
-      {err ? <div style={{ color: "#b91c1c", fontWeight: 950, marginBottom: 10 }}>{err}</div> : null}
+        {msg ? <div style={{ color: "crimson", fontWeight: 900, marginBottom: 10 }}>{msg}</div> : null}
 
-      <div className="erp-row" style={{ marginBottom: 12 }}>
         <input
-          className="erp-input"
-          placeholder="검색(거래처/요양기관/이메일/비고/영업사원/전화)"
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          placeholder="검색(거래처/요양기관/이메일/비고/영업사원/전화)"
+          style={{
+            width: "100%",
+            padding: "14px 14px",
+            borderRadius: 12,
+            border: "1px solid rgba(0,0,0,0.12)",
+            fontSize: 16,
+            fontWeight: 800,
+            marginBottom: 10,
+          }}
         />
-        <button className="erp-btn" style={{ width: 140, height: 44, background: "#334155" }} onClick={load} disabled={loading}>
-          {loading ? "불러오는 중..." : "새로고침"}
+
+        <button
+          onClick={() => load(q.trim())}
+          style={{
+            padding: "12px 18px",
+            borderRadius: 12,
+            border: "1px solid rgba(0,0,0,0.12)",
+            background: "#334155",
+            color: "white",
+            fontWeight: 900,
+            cursor: "pointer",
+            marginBottom: 14,
+          }}
+        >
+          새로고침
         </button>
-      </div>
 
-      <div className="erp-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>등록일</th>
-              <th>영업사원</th>
-              <th>거래처명</th>
-              <th>사업자번호</th>
-              <th>요양기관번호</th>
-              <th>이메일</th>
-              <th>주소</th>
-              <th>전화</th>
-              <th>비고</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={9} style={{ padding: 18, textAlign: "center", color: "#64748b", fontWeight: 900 }}>
-                  데이터 없음
-                </td>
+        <div style={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
+            <thead>
+              <tr style={{ background: "rgba(0,0,0,0.04)" }}>
+                {["등록일", "영업사원", "거래처명", "사업자번호", "요양기관번호", "이메일", "주소", "전화", "비고"].map((h) => (
+                  <th key={h} style={{ textAlign: "left", padding: 12, fontWeight: 900, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ) : (
-              filtered.map((c) => (
-                <tr key={c.id}>
-                  <td>{c.createdAt ? String(c.createdAt).slice(0, 10) : "-"}</td>
-                  <td>{c.salesName ?? "-"}</td>
-                  <td style={{ fontWeight: 900 }}>{c.name}</td>
-                  <td>{c.bizNo ?? "-"}</td>
-                  <td>{c.orgNo ?? "-"}</td>
-                  <td>{c.email ?? "-"}</td>
-                  <td style={{ minWidth: 260 }}>{c.address ?? "-"}</td>
-                  <td>{c.phone ?? "-"}</td>
-                  <td style={{ minWidth: 220 }}>{c.note ?? "-"}</td>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ padding: 18, textAlign: "center", fontWeight: 800, opacity: 0.7 }}>
+                    데이터 없음
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.id} style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                    <td style={{ padding: 12, fontWeight: 800 }}>{r.createdAt ? String(r.createdAt).slice(0, 10) : "-"}</td>
+                    <td style={{ padding: 12, fontWeight: 800 }}>{r.salesName ?? "-"}</td>
+                    <td style={{ padding: 12, fontWeight: 900 }}>{r.name ?? "-"}</td>
+                    <td style={{ padding: 12, fontWeight: 800 }}>{r.bizNo ?? "-"}</td>
+                    <td style={{ padding: 12, fontWeight: 800 }}>{r.instNo ?? "-"}</td>
+                    <td style={{ padding: 12, fontWeight: 800 }}>{r.email ?? "-"}</td>
+                    <td style={{ padding: 12, fontWeight: 800 }}>{r.address ?? "-"}</td>
+                    <td style={{ padding: 12, fontWeight: 800 }}>{r.phone ?? "-"}</td>
+                    <td style={{ padding: 12, fontWeight: 800 }}>{r.note ?? "-"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-      <div style={{ marginTop: 10, fontSize: 13, color: "#475569", fontWeight: 800 }}>
-        * 모바일에서는 표가 “가로 스크롤”로 보이는 게 정상입니다(글자 세로 찢어짐 방지).
+        <div style={{ marginTop: 10, fontSize: 12, fontWeight: 800, opacity: 0.7 }}>
+          * 모바일에서는 표가 “가로 스크롤”로 보이는 게 정상입니다(글자 세로 찢어짐 방지).
+        </div>
       </div>
     </div>
   );
