@@ -1,58 +1,68 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { saveSessionUser } from "@/lib/session";
-import { verifyPin } from "@/lib/pin";
+import { hashPin, verifyPin } from "@/lib/pin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function digitsOnly(v: string) {
   return String(v ?? "").replace(/\D/g, "");
 }
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({} as any));
-    const phone = digitsOnly(body.phone);
-    const pin = String(body.pin ?? "");
+    const body = await req.json().catch(() => ({}));
+
+    const name = String(body?.name ?? "").trim();
+    const phone = digitsOnly(body?.phone);
+    const pin = String(body?.pin ?? "").trim();
 
     if (!phone || !pin) {
       return NextResponse.json(
-        { ok: false, code: "BAD_REQUEST", message: "전화번호와 PIN을 입력하세요." },
+        { ok: false, message: "전화번호와 PIN을 입력하세요." },
         { status: 400 }
       );
     }
 
     const user = await prisma.user.findUnique({ where: { phone } });
 
+    // ✅ 1) 유저가 없으면 "SALES만" 첫 등록 허용 (관리자 자동생성 금지)
     if (!user) {
-      return NextResponse.json(
-        { ok: false, code: "NO_USER", message: "사용자를 찾을 수 없습니다." },
-        { status: 401 }
-      );
+      if (!name) {
+        return NextResponse.json(
+          { ok: false, message: "처음 등록은 이름이 필요합니다." },
+          { status: 400 }
+        );
+      }
+
+      const created = await prisma.user.create({
+        data: {
+          name,
+          phone,
+          role: "SALES",
+          pin: hashPin(pin),
+        },
+      });
+
+      await saveSessionUser({ id: created.id, name: created.name, role: created.role });
+      return NextResponse.json({ ok: true, created: true });
     }
 
-    // ✅ 영업사원 로그인 화면: SALES/ADMIN 둘 다 허용
-    if (user.role !== "SALES" && user.role !== "ADMIN") {
-      return NextResponse.json(
-        { ok: false, code: "FORBIDDEN", message: "권한이 없습니다." },
-        { status: 403 }
-      );
-    }
-
+    // ✅ 2) 유저가 있으면 PIN 검증
     const ok = verifyPin(pin, user.pin ?? null);
     if (!ok) {
       return NextResponse.json(
-        { ok: false, code: "BAD_PIN", message: "PIN이 올바르지 않습니다." },
+        { ok: false, message: "PIN이 올바르지 않습니다." },
         { status: 401 }
       );
     }
 
     await saveSessionUser({ id: user.id, name: user.name, role: user.role });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, created: false });
   } catch (e: any) {
     return NextResponse.json(
-      { ok: false, code: "SERVER_ERROR", message: String(e?.message ?? e) },
+      { ok: false, message: String(e?.message ?? e) },
       { status: 500 }
     );
   }

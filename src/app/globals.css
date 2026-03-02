@@ -1,7 +1,90 @@
 @import "tailwindcss";
 
-/* 전체 기본값 */
-html,
+:root {
+  --bg0: 8 10 18;
+  --bg1: 16 20 36;
+  --text: 245 247 255;
+  --muted: 200 208 230;
+}
+
+html, body { height: 100%; }
+
 body {
-  height: 100%;
+  margin: 0;
+  overflow-x: hidden; /* ✅ 모바일 삐져나옴 방지 */
+  color: rgb(var(--text));
+  background:
+    radial-gradient(1200px 800px at 15% 20%, rgba(120, 105, 255, 0.30), transparent 60%),
+    radial-gradient(900px 650px at 85% 30%, rgba(0, 210, 255, 0.22), transparent 55%),
+    radial-gradient(800px 700px at 50% 95%, rgba(255, 70, 190, 0.14), transparent 60%),
+    linear-gradient(180deg, rgb(var(--bg0)) 0%, rgb(var(--bg1)) 100%);
+  background-attachment: fixed;
+}
+
+.bg-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.12'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+  opacity: 0.25;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-radius: 22px;
+}
+
+.glass-soft {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.30);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 18px;
+}
+
+.input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgb(var(--text));
+  outline: none;
+}
+
+.input::placeholder { color: rgba(200, 208, 230, 0.55); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.10);
+  color: rgb(var(--text));
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease, border 120ms ease;
+}
+.btn:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+.btn:active { transform: translateY(0px); }
+
+.btn-primary {
+  background: rgba(120, 105, 255, 0.32);
+  border-color: rgba(120, 105, 255, 0.42);
+}
+.btn-primary:hover {
+  background: rgba(120, 105, 255, 0.40);
+  border-color: rgba(120, 105, 255, 0.52);
 }

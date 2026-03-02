@@ -24,11 +24,10 @@ model User {
   name      String
   phone     String   @unique
   role      Role     @default(SALES)
-  pin       String?  // ✅ 추가: PIN 해시 저장
+  pin       String?  // ✅ 추가 (PIN 해시 저장)
   createdAt DateTime @default(now())
 
   orders    Order[]
-  clients   Client[] @relation("SalesClients")
 }
 
 model Item {
@@ -50,36 +49,30 @@ model Client {
   memo         String?
   createdAt    DateTime @default(now())
 
-  // ✅ “내 거래처만 보기”용 (영업사원 소유)
-  salesId      String?
-  sales        User?    @relation("SalesClients", fields: [salesId], references: [id])
-
   orders       Order[]
-
-  @@index([salesId])
 }
 
 model Order {
-  id          String      @id @default(cuid())
-  quantity    Int
-  status      OrderStatus @default(REQUESTED)
-  note        String?
-  createdAt   DateTime    @default(now())
+  id           String      @id @default(cuid())
+  quantity     Int
+  status       OrderStatus @default(REQUESTED)
+  note         String?
+  createdAt    DateTime    @default(now())
 
-  userId      String
-  user        User        @relation(fields: [userId], references: [id])
+  userId       String
+  user         User        @relation(fields: [userId], references: [id])
 
-  itemId      String
-  item        Item        @relation(fields: [itemId], references: [id])
+  itemId       String
+  item         Item        @relation(fields: [itemId], references: [id])
 
-  clientId    String?
-  client      Client?     @relation(fields: [clientId], references: [id])
+  clientId     String?
+  client       Client?     @relation(fields: [clientId], references: [id])
 
   receiverName String
   receiverAddr String
   receiverTel  String?
   receiverMob  String?
-  boxCount     Int        @default(1)
-  shippingFee  Int        @default(3850)
+  boxCount     Int         @default(1)
+  shippingFee  Int         @default(3850)
   message      String?
 }
