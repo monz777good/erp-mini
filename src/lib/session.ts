@@ -1,6 +1,8 @@
 // src/lib/session.ts
 import crypto from "crypto";
-import type { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export const SESSION_COOKIE = "erp_session";
 
@@ -10,149 +12,143 @@ export type SessionUser = {
   role: "SALES" | "ADMIN";
 };
 
-type SessionPayload = {
-  v: 1;
-  user: SessionUser;
-  iat: number;
-};
-
 function getSecret() {
   const s = process.env.SESSION_PASSWORD;
   if (!s) throw new Error("SESSION_PASSWORD is missing");
   return s;
 }
 
-function b64url(buf: Buffer) {
-  return buf
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
+function sign(payload: string) {
+  return crypto.createHmac("sha256", getSecret()).update(payload).digest("hex");
 }
 
-function b64urlToBuf(s: string) {
-  s = s.replace(/-/g, "+").replace(/_/g, "/");
-  while (s.length % 4) s += "=";
-  return Buffer.from(s, "base64");
+function encode(user: SessionUser) {
+  const payload = Buffer.from(JSON.stringify(user), "utf8").toString("base64url");
+  const sig = sign(payload);
+  return `${payload}.${sig}`;
 }
 
-function sign(data: string) {
-  return b64url(crypto.createHmac("sha256", getSecret()).update(data).digest());
-}
+function decode(token: string): SessionUser | null {
+  const [payload, sig] = token.split(".");
+  if (!payload || !sig) return null;
 
-export function createSessionToken(user: SessionUser) {
-  const payload: SessionPayload = { v: 1, user, iat: Date.now() };
-  const body = b64url(Buffer.from(JSON.stringify(payload), "utf-8"));
-  const sig = sign(body);
-  return `${body}.${sig}`;
-}
-
-export function readSessionToken(raw: string | undefined | null): SessionUser | null {
-  if (!raw) return null;
-  const [body, sig] = raw.split(".");
-  if (!body || !sig) return null;
-
-  const expected = sign(body);
-  if (expected !== sig) return null;
+  const expected = sign(payload);
+  if (sig !== expected) return null;
 
   try {
-    const json = JSON.parse(b64urlToBuf(body).toString("utf-8")) as SessionPayload;
-    if (!json?.user?.id || !json?.user?.role) return null;
-    return json.user;
+    const json = Buffer.from(payload, "base64url").toString("utf8");
+    return JSON.parse(json) as SessionUser;
   } catch {
     return null;
   }
 }
 
-function parseCookieHeader(header: string | null): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (!header) return out;
-  for (const part of header.split(";")) {
-    const i = part.indexOf("=");
-    if (i === -1) continue;
-    const k = part.slice(0, i).trim();
-    const v = part.slice(i + 1).trim();
-    if (k) out[k] = v;
+// ✅ 공통: 쿠키 헤더에서 SESSION_COOKIE 값만 뽑기
+function parseCookieHeader(cookieHeader: string): string | null {
+  if (!cookieHeader) return null;
+  const m = cookieHeader.match(new RegExp(`${SESSION_COOKIE}=([^;]+)`));
+  return m?.[1] ?? null;
+}
+
+/**
+ * ✅ (레거시 호환) 미들웨어에서 쓰던 토큰 읽기 함수
+ * - NextRequest를 주로 받지만, Request도 허용
+ * - 토큰 문자열만 리턴 (없으면 null)
+ */
+export function readSessionToken(req: Request | NextRequest): string | null {
+  const cookieHeader = req.headers.get("cookie") || "";
+  return parseCookieHeader(cookieHeader);
+}
+
+// ✅ req 있으면 헤더에서, 없으면 cookies() 사용 (Next16: cookies() async)
+async function readCookieValue(req?: Request | NextRequest): Promise<string | null> {
+  if (req) {
+    const cookieHeader = req.headers.get("cookie") || "";
+    return parseCookieHeader(cookieHeader);
   }
-  return out;
+
+  try {
+    const c = await cookies();
+    return c.get(SESSION_COOKIE)?.value ?? null;
+  } catch {
+    return null;
+  }
 }
 
-export function getSessionUserFromRequest(req: Request): SessionUser | null {
-  const jar = parseCookieHeader(req.headers.get("cookie"));
-  return readSessionToken(jar[SESSION_COOKIE]);
+export async function getSessionUser(req?: Request | NextRequest): Promise<SessionUser | null> {
+  const token = await readCookieValue(req);
+  if (!token) return null;
+  return decode(token);
 }
 
-// ✅ 기존 코드 호환: getSessionUser() 또는 getSessionUser(req)
-export function getSessionUser(req?: Request): SessionUser | null {
-  if (!req) return null; // 서버 컴포넌트에서 req 없이 검사하지 않음(불안정 방지)
-  return getSessionUserFromRequest(req);
+export async function requireUser(req?: Request | NextRequest): Promise<SessionUser> {
+  const user = await getSessionUser(req);
+  if (!user) throw new Error("Unauthorized");
+  return user;
 }
 
-// ✅ Guards (req 있는 경우)
-export function requireUser(req: Request): SessionUser {
-  const u = getSessionUserFromRequest(req);
-  if (!u) throw new Error("UNAUTHORIZED:NO_SESSION");
-  return u;
+export async function requireAdmin(req?: Request | NextRequest): Promise<SessionUser> {
+  const user = await requireUser(req);
+  if (user.role !== "ADMIN") throw new Error("Unauthorized");
+  return user;
 }
 
-export function requireSales(req: Request): SessionUser {
-  const u = getSessionUserFromRequest(req);
-  if (!u) throw new Error("UNAUTHORIZED:NO_SESSION");
-  if (u.role !== "SALES" && u.role !== "ADMIN") throw new Error("FORBIDDEN:NOT_SALES");
-  return u;
-}
+/**
+ * ✅ 쿠키 쓰기 (2가지 호출 다 지원)
+ * 1) saveSessionUser(user)          -> cookies()에 set
+ * 2) saveSessionUser(res, user)     -> res 헤더에 Set-Cookie로 set (기존 코드 호환)
+ */
+export async function saveSessionUser(arg1: SessionUser | NextResponse, arg2?: SessionUser) {
+  const user = (arg2 ?? arg1) as SessionUser;
+  const token = encode(user);
 
-export function requireAdmin(req: Request): SessionUser {
-  const u = getSessionUserFromRequest(req);
-  if (!u) throw new Error("UNAUTHORIZED:NO_SESSION");
-  if (u.role !== "ADMIN") throw new Error("FORBIDDEN:NOT_ADMIN");
-  return u;
-}
+  const cookieOptions = [
+    `${SESSION_COOKIE}=${token}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+  ];
+  // cookieOptions.push("Secure"); // HTTPS에서만 필요하면 켜
 
-// ================================
-// ✅ 핵심: "인자 없는 호출" 호환 지원
-// - layout 같은 곳에서 requireAdminUser() / requireAdmin() 을 0인자로 써도 빌드 통과
-// - 실제 보안은 middleware가 담당
-// ================================
-export function requireAdminUser(): SessionUser | null;
-export function requireAdminUser(req: Request): SessionUser;
-export function requireAdminUser(req?: Request): any {
-  if (!req) return null;
-  return requireAdmin(req);
-}
+  const setCookieValue = cookieOptions.join("; ");
 
-export function requireSalesUser(): SessionUser | null;
-export function requireSalesUser(req: Request): SessionUser;
-export function requireSalesUser(req?: Request): any {
-  if (!req) return null;
-  return requireSales(req);
-}
+  if (arg1 instanceof NextResponse) {
+    arg1.headers.append("Set-Cookie", setCookieValue);
+    return;
+  }
 
-// ✅ 쿠키 세팅은 "응답(res)"에만 한다 (Vercel에서 가장 안정적)
-export function setSessionUser(res: NextResponse, user: SessionUser) {
-  const token = createSessionToken(user);
-  // @ts-ignore
-  res.cookies.set(SESSION_COOKIE, token, {
+  const c = await cookies();
+  c.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 14,
   });
 }
 
-// ✅ 기존 코드 호환: saveSessionUser(res, user)
-export function saveSessionUser(res: NextResponse, user: SessionUser) {
-  return setSessionUser(res, user);
+// ✅ 기존 코드 호환(이름만 다른 케이스)
+export async function setSessionUser(arg1: SessionUser | NextResponse, arg2?: SessionUser) {
+  return saveSessionUser(arg1 as any, arg2 as any);
 }
 
-// ✅ 로그아웃/세션 삭제
-export function clearSession(res: NextResponse) {
-  // @ts-ignore
-  res.cookies.set(SESSION_COOKIE, "", {
+export async function clearSession(res?: NextResponse) {
+  const cookieOptions = [
+    `${SESSION_COOKIE}=`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    "Max-Age=0",
+  ];
+  const setCookieValue = cookieOptions.join("; ");
+
+  if (res instanceof NextResponse) {
+    res.headers.append("Set-Cookie", setCookieValue);
+    return;
+  }
+
+  const c = await cookies();
+  c.set(SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: 0,
   });

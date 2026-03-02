@@ -1,129 +1,90 @@
-import { NextResponse } from "next/server";
-import ExcelJS from "exceljs";
+// src/app/admin/orders/export/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
-import { OrderStatus } from "@prisma/client";
+import ExcelJS from "exceljs";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-function toDateOrNull(v: string | null) {
-  if (!v) return null;
-  const d = new Date(v);
-  return isNaN(d.getTime()) ? null : d;
+function onlyNumber(v: string) {
+  return String(v ?? "").replace(/[^\d]/g, "");
 }
 
-function toOrderStatuses(v: string | null): OrderStatus[] | null {
-  if (!v) return null;
-  const raw = v
-    .split(",")
-    .map((s) => s.trim().toUpperCase())
-    .filter(Boolean);
-
-  const allowed = new Set(Object.values(OrderStatus));
-  const parsed = raw.filter((x): x is OrderStatus => allowed.has(x as OrderStatus));
-  return parsed.length ? parsed : null;
-}
-
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
-    // ✅ 관리자 아니면 여기서 throw 됨
-    requireAdmin(req);
+    // ✅ 관리자 아니면 여기서 throw
+    await requireAdmin(req);
 
+    // ✅ 쿼리 파라미터 예: ?from=2026-03-01&to=2026-03-02
     const { searchParams } = new URL(req.url);
-
-    const from = toDateOrNull(searchParams.get("from"));
-    const to = toDateOrNull(searchParams.get("to"));
-    const statuses = toOrderStatuses(searchParams.get("statuses"));
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
 
     const where: any = {};
     if (from || to) {
       where.createdAt = {};
-      if (from) where.createdAt.gte = from;
-      if (to) {
-        const toExclusive = new Date(to);
-        if (
-          toExclusive.getHours() === 0 &&
-          toExclusive.getMinutes() === 0 &&
-          toExclusive.getSeconds() === 0 &&
-          toExclusive.getMilliseconds() === 0
-        ) {
-          toExclusive.setDate(toExclusive.getDate() + 1);
-        }
-        where.createdAt.lt = toExclusive;
-      }
+      if (from) where.createdAt.gte = new Date(`${from}T00:00:00.000Z`);
+      if (to) where.createdAt.lt = new Date(`${to}T23:59:59.999Z`);
     }
 
-    if (statuses) where.status = { in: statuses };
-
+    // ✅ 필요한 데이터 조회 (너 DB 구조에 맞게 include 조정 가능)
     const orders = await prisma.order.findMany({
       where,
-      include: { user: true, item: true },
+      include: {
+        user: true,
+        item: true,
+      },
       orderBy: { createdAt: "asc" },
     });
 
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("orders");
+    const ws = wb.addWorksheet("주문내역");
 
-    ws.columns = [
-      { header: "날짜", key: "createdAt", width: 20 },
-      { header: "영업사원", key: "sales", width: 14 },
-      { header: "상태", key: "status", width: 12 },
-      { header: "품목", key: "item", width: 24 },
-      { header: "수량", key: "qty", width: 8 },
-      { header: "수하인명", key: "receiverName", width: 14 },
-      { header: "주소", key: "receiverAddr", width: 40 },
-      { header: "전화", key: "receiverPhone", width: 16 },
-      { header: "핸드폰", key: "receiverMobile", width: 16 },
-      { header: "박스수량", key: "boxQty", width: 10 },
-      { header: "택배운임", key: "shipFee", width: 10 },
-      { header: "배송메세지", key: "message", width: 20 },
-      { header: "비고", key: "note", width: 24 },
-    ];
+    // ✅ 예시 헤더 (원하는 양식으로 바꿔도 됨)
+    ws.addRow([
+      "주문일시",
+      "영업사원",
+      "연락처",
+      "품목",
+      "수량",
+      "상태",
+      "수하인명",
+      "수하인주소",
+      "수하인전화",
+      "수하인핸드폰",
+      "메모",
+    ]);
 
     for (const o of orders) {
-      ws.addRow({
-        createdAt: new Date(o.createdAt).toLocaleString("ko-KR"),
-        sales: o.user?.name ?? "",
-        status: o.status,
-        item: o.item?.name ?? "",
-        qty: o.quantity ?? "",
-        receiverName: (o as any).receiverName ?? "",
-        receiverAddr: (o as any).receiverAddr ?? "",
-        receiverPhone: (o as any).receiverPhone ?? "",
-        receiverMobile: (o as any).receiverMobile ?? "",
-        boxQty: (o as any).boxQty ?? "",
-        shipFee: (o as any).shipFee ?? "",
-        message: (o as any).message ?? "",
-        note: o.note ?? "",
-      });
+      ws.addRow([
+        o.createdAt ? new Date(o.createdAt).toISOString() : "",
+        o.user?.name ?? "",
+        onlyNumber(o.user?.phone ?? ""),
+        o.item?.name ?? "",
+        (o as any).quantity ?? "",
+        String((o as any).status ?? ""),
+        (o as any).receiverName ?? "",
+        (o as any).receiverAddr ?? "",
+        onlyNumber((o as any).receiverTel ?? ""),
+        onlyNumber((o as any).receiverPhone ?? ""),
+        (o as any).note ?? "",
+      ]);
     }
 
-    ws.getRow(1).font = { bold: true };
-
     const buf = await wb.xlsx.writeBuffer();
-    const fileName = `orders_${Date.now()}.xlsx`;
 
-    return new NextResponse(buf as any, {
-      status: 200,
+    return new NextResponse(buf, {
       headers: {
         "Content-Type":
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Disposition": `attachment; filename="orders.xlsx"`,
       },
     });
   } catch (e: any) {
-    // ✅ 권한 에러는 401로
-    if (String(e?.message ?? "").startsWith("UNAUTHORIZED")) {
-      return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
-    }
-    if (String(e?.message ?? "").startsWith("FORBIDDEN")) {
-      return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
-    }
-
-    console.error(e);
     return NextResponse.json(
-      { ok: false, error: e?.message ?? "EXPORT_FAILED" },
-      { status: 500 }
+      { ok: false, message: e?.message ?? "Unauthorized" },
+      { status: 401 }
     );
   }
 }

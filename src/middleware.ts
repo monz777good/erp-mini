@@ -1,3 +1,4 @@
+// src/middleware.ts
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { readSessionToken, SESSION_COOKIE } from "@/lib/session";
@@ -7,48 +8,21 @@ export const config = {
 };
 
 export function middleware(req: NextRequest) {
-  const path = req.nextUrl.pathname;
+  const { pathname } = req.nextUrl;
 
-  // ✅ 공개 경로
-  if (
-    path === "/" ||
-    path.startsWith("/login") ||
-    path.startsWith("/admin-login") ||
-    path.startsWith("/sales-login")
-  ) {
+  // ✅ 로그인 페이지/정적은 그냥 통과
+  if (pathname.startsWith("/login") || pathname.startsWith("/sales-login")) {
     return NextResponse.next();
   }
 
-  const raw = req.cookies.get(SESSION_COOKIE)?.value;
-  const user = readSessionToken(raw);
+  // ✅ 여기 핵심: readSessionToken에는 "req"를 넣는다 (raw 문자열 넣는 거 아님)
+  const token = readSessionToken(req);
 
-  // ✅ 로그인 안 되어 있으면 무조건 /login
-  if (!user) {
+  // 로그인 안 되어 있으면 /login으로
+  if (!token) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
-  }
-
-  const role = user.role;
-
-  // ✅ 관리자 영역: ADMIN만
-  if (path.startsWith("/admin")) {
-    if (role !== "ADMIN") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/orders"; // 영업 화면으로 돌림
-      return NextResponse.redirect(url);
-    }
-    return NextResponse.next();
-  }
-
-  // ✅ 영업 영역: SALES 또는 ADMIN 허용
-  if (path.startsWith("/orders") || path.startsWith("/clients")) {
-    if (role !== "SALES" && role !== "ADMIN") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
-    }
-    return NextResponse.next();
   }
 
   return NextResponse.next();

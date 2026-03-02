@@ -15,25 +15,22 @@ export default function LoginPage() {
   async function submit() {
     setLoading(true);
     try {
-      const endpoint = tab === "ADMIN" ? "/api/auth/login" : "/api/auth/sales-login";
-
-      const body: any = { phone, pin };
-      // 영업사원 탭은 이름 필수 (신규 등록 때문)
-      if (tab === "SALES") body.name = name;
-
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          mode: tab,     // ⭐ 탭 그대로 서버로
+          name,
+          phone,
+          pin,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data?.ok === false) throw new Error(data?.message || "로그인 실패");
 
-      // ✅ 서버가 내려준 redirectTo로 이동 (선택한 탭대로)
-      const to = String(data?.redirectTo || (tab === "ADMIN" ? "/admin/orders" : "/orders"));
-      router.replace(to);
+      router.replace(String(data.redirect || (tab === "ADMIN" ? "/admin/orders" : "/orders")));
       router.refresh();
     } catch (e: any) {
       alert(e?.message || "로그인 오류");
@@ -78,12 +75,11 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {tab === "SALES" && (
-          <div style={{ marginTop: 16 }}>
-            <div style={{ fontWeight: 800, marginBottom: 6 }}>이름</div>
-            <input value={name} onChange={(e) => setName(e.target.value)} style={inp} placeholder="이름" />
-          </div>
-        )}
+        {/* ✅ 이름은 항상 보이게 */}
+        <div style={{ marginTop: 16 }}>
+          <div style={{ fontWeight: 800, marginBottom: 6 }}>이름</div>
+          <input value={name} onChange={(e) => setName(e.target.value)} style={inp} placeholder="이름(신규 영업 등록시 필요)" />
+        </div>
 
         <div style={{ marginTop: 16 }}>
           <div style={{ fontWeight: 800, marginBottom: 6 }}>전화번호</div>
