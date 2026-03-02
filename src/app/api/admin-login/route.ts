@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const ok = verifyPin(pin, user.pin ?? null);
+    const ok = verifyPin(pin, (user as any).pin ?? null);
     if (!ok) {
       return NextResponse.json(
         { ok: false, code: "BAD_PIN", message: "PIN이 올바르지 않습니다." },
@@ -48,8 +48,10 @@ export async function POST(req: Request) {
       );
     }
 
-    await saveSessionUser({ id: user.id, name: user.name, role: user.role });
-    return NextResponse.json({ ok: true });
+    // ✅ 핵심: 응답(res)에 쿠키를 세팅해야 Vercel에서 로그인 유지됨
+    const res = NextResponse.json({ ok: true });
+    saveSessionUser(res, { id: user.id, name: user.name, role: user.role as any });
+    return res;
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, code: "SERVER_ERROR", message: String(e?.message ?? e) },

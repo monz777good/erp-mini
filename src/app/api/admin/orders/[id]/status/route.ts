@@ -10,30 +10,43 @@ type Ctx = { params: Params | Promise<Params> };
 const ALLOWED = new Set(["REQUESTED", "APPROVED", "REJECTED", "DONE"]);
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
-  const admin = await requireAdmin();
-  if (admin instanceof NextResponse) return admin;
+  try {
+    // ✅ 관리자 검증 (req 필수)
+    requireAdmin(req);
 
-  const p = await ctx.params; // ✅ Promise든 object든 OK
-  const id = p?.id;
+    const p = await ctx.params; // Promise든 object든 OK
+    const id = p?.id;
 
-  if (!id) {
-    return NextResponse.json({ ok: false, message: "id 필요" }, { status: 400 });
-  }
+    if (!id) {
+      return NextResponse.json({ ok: false, message: "id 필요" }, { status: 400 });
+    }
 
-  const body = await req.json().catch(() => ({}));
-  const status = String(body?.status ?? "").toUpperCase().trim();
+    const body = await req.json().catch(() => ({}));
+    const status = String((body as any)?.status ?? "").toUpperCase().trim();
 
-  if (!ALLOWED.has(status)) {
+    if (!ALLOWED.has(status)) {
+      return NextResponse.json(
+        { ok: false, message: "status는 REQUESTED/APPROVED/REJECTED/DONE만" },
+        { status: 400 }
+      );
+    }
+
+    const order = await prisma.order.update({
+      where: { id },
+      data: { status: status as any },
+    });
+
+    return NextResponse.json({ ok: true, order });
+  } catch (e: any) {
+    if (String(e?.message ?? "").startsWith("UNAUTHORIZED")) {
+      return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+    }
+    if (String(e?.message ?? "").startsWith("FORBIDDEN")) {
+      return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
+    }
     return NextResponse.json(
-      { ok: false, message: "status는 REQUESTED/APPROVED/REJECTED/DONE만" },
-      { status: 400 }
+      { ok: false, error: String(e?.message ?? e) },
+      { status: 500 }
     );
   }
-
-  const order = await prisma.order.update({
-    where: { id },
-    data: { status: status as any },
-  });
-
-  return NextResponse.json({ ok: true, order });
 }

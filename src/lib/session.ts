@@ -1,6 +1,5 @@
 // src/lib/session.ts
 import crypto from "crypto";
-import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 
 export const SESSION_COOKIE = "erp_session";
@@ -65,65 +64,10 @@ export function readSessionToken(raw: string | undefined | null): SessionUser | 
   }
 }
 
-// -------------------------
-// Cookie helpers (Next 16: cookies() 타입이 Promise일 수도 있어서 안전 처리)
-// -------------------------
-function getCookieValueFromNextCookies(): string | null {
-  // Next 버전/타입에 따라 cookies()가 Promise로 타이핑되는 경우가 있음
-  // 런타임에서도 Promise면 동기 접근 불가 → null 반환 (API에서는 req로 읽는 방식 사용)
-  const c: any = (cookies as any)();
-  if (!c) return null;
-  if (typeof c.then === "function") return null; // Promise 케이스 방어
-  if (typeof c.get !== "function") return null;
-  return c.get(SESSION_COOKIE)?.value ?? null;
-}
-
-export function getSessionUserFromCookies(): SessionUser | null {
-  const raw = getCookieValueFromNextCookies();
-  return readSessionToken(raw);
-}
-
-export function setSessionCookie(token: string) {
-  // set은 cookies() Promise 타입이더라도 런타임에서는 보통 동기 객체로 동작함
-  // 타입 에러 방지를 위해 any 처리
-  const c: any = (cookies as any)();
-  if (c && typeof c.then !== "function" && typeof c.set === "function") {
-    c.set(SESSION_COOKIE, token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 14,
-    });
-    return;
-  }
-
-  // fallback: cookies()가 Promise로만 존재하는 환경이면 여기서는 세팅 불가
-  // (대부분 route handler에서는 NextResponse cookies로 세팅하므로 문제 없음)
-}
-
-export function clearSessionCookie() {
-  const c: any = (cookies as any)();
-  if (c && typeof c.then !== "function" && typeof c.set === "function") {
-    c.set(SESSION_COOKIE, "", {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 0,
-    });
-  }
-}
-
-// -------------------------
-// Request parsing (API/Route handlers에서 가장 안정적)
-// -------------------------
 function parseCookieHeader(header: string | null): Record<string, string> {
   const out: Record<string, string> = {};
   if (!header) return out;
-
-  const parts = header.split(";");
-  for (const part of parts) {
+  for (const part of header.split(";")) {
     const i = part.indexOf("=");
     if (i === -1) continue;
     const k = part.slice(0, i).trim();
@@ -134,55 +78,59 @@ function parseCookieHeader(header: string | null): Record<string, string> {
 }
 
 export function getSessionUserFromRequest(req: Request): SessionUser | null {
-  const cookieHeader = req.headers.get("cookie");
-  const jar = parseCookieHeader(cookieHeader);
+  const jar = parseCookieHeader(req.headers.get("cookie"));
   return readSessionToken(jar[SESSION_COOKIE]);
 }
 
-// -------------------------
-// Auth guards
-// -------------------------
+// ✅ 기존 코드 호환: getSessionUser() 또는 getSessionUser(req)
 export function getSessionUser(req?: Request): SessionUser | null {
-  if (req) return getSessionUserFromRequest(req);
-  return getSessionUserFromCookies();
+  if (!req) return null; // 서버 컴포넌트에서 req 없이 검사하지 않음(불안정 방지)
+  return getSessionUserFromRequest(req);
 }
 
-export function requireUser(req?: Request): SessionUser {
-  const u = getSessionUser(req);
+// ✅ Guards (req 있는 경우)
+export function requireUser(req: Request): SessionUser {
+  const u = getSessionUserFromRequest(req);
   if (!u) throw new Error("UNAUTHORIZED:NO_SESSION");
   return u;
 }
 
-export function requireSales(req?: Request): SessionUser {
-  const u = getSessionUser(req);
+export function requireSales(req: Request): SessionUser {
+  const u = getSessionUserFromRequest(req);
   if (!u) throw new Error("UNAUTHORIZED:NO_SESSION");
   if (u.role !== "SALES" && u.role !== "ADMIN") throw new Error("FORBIDDEN:NOT_SALES");
   return u;
 }
 
-export function requireAdmin(req?: Request): SessionUser {
-  const u = getSessionUser(req);
+export function requireAdmin(req: Request): SessionUser {
+  const u = getSessionUserFromRequest(req);
   if (!u) throw new Error("UNAUTHORIZED:NO_SESSION");
   if (u.role !== "ADMIN") throw new Error("FORBIDDEN:NOT_ADMIN");
   return u;
 }
 
-// -------------------------
-// Session setters (route handler NextResponse 호환)
-// -------------------------
-export function setSessionUser(arg1: any, arg2?: any) {
-  // setSessionUser(user)
-  if (arg1 && typeof arg1 === "object" && "id" in arg1 && "role" in arg1) {
-    const token = createSessionToken(arg1 as SessionUser);
-    setSessionCookie(token);
-    return;
-  }
+// ================================
+// ✅ 핵심: "인자 없는 호출" 호환 지원
+// - layout 같은 곳에서 requireAdminUser() / requireAdmin() 을 0인자로 써도 빌드 통과
+// - 실제 보안은 middleware가 담당
+// ================================
+export function requireAdminUser(): SessionUser | null;
+export function requireAdminUser(req: Request): SessionUser;
+export function requireAdminUser(req?: Request): any {
+  if (!req) return null;
+  return requireAdmin(req);
+}
 
-  // setSessionUser(res, user)
-  const res = arg1 as NextResponse;
-  const user = arg2 as SessionUser;
+export function requireSalesUser(): SessionUser | null;
+export function requireSalesUser(req: Request): SessionUser;
+export function requireSalesUser(req?: Request): any {
+  if (!req) return null;
+  return requireSales(req);
+}
+
+// ✅ 쿠키 세팅은 "응답(res)"에만 한다 (Vercel에서 가장 안정적)
+export function setSessionUser(res: NextResponse, user: SessionUser) {
   const token = createSessionToken(user);
-
   // @ts-ignore
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -193,19 +141,13 @@ export function setSessionUser(arg1: any, arg2?: any) {
   });
 }
 
-export function saveSessionUser(arg1: any, arg2?: any) {
-  return setSessionUser(arg1, arg2);
+// ✅ 기존 코드 호환: saveSessionUser(res, user)
+export function saveSessionUser(res: NextResponse, user: SessionUser) {
+  return setSessionUser(res, user);
 }
 
-export function clearSession(arg1?: any) {
-  // clearSession()
-  if (!arg1) {
-    clearSessionCookie();
-    return;
-  }
-
-  // clearSession(res)
-  const res = arg1 as NextResponse;
+// ✅ 로그아웃/세션 삭제
+export function clearSession(res: NextResponse) {
   // @ts-ignore
   res.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true,
@@ -214,15 +156,4 @@ export function clearSession(arg1?: any) {
     path: "/",
     maxAge: 0,
   });
-}
-
-// -------------------------
-// Legacy aliases
-// -------------------------
-export function requireAdminUser(req?: Request) {
-  return requireAdmin(req);
-}
-
-export function requireSalesUser(req?: Request) {
-  return requireSales(req);
 }

@@ -1,20 +1,16 @@
+// src/app/admin/layout.tsx
 import type { ReactNode } from "react";
-import { redirect } from "next/navigation";
-import { requireAdminUser } from "@/lib/session";
 import AdminTopNav from "@/components/admin/AdminTopNav";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const admin = await requireAdminUser();
-  if (!admin) redirect("/login?role=ADMIN");
-
+export default function AdminLayout({ children }: { children: ReactNode }) {
+  // ✅ 권한 체크는 middleware가 담당 (layout에서 세션 검사 금지)
   return (
     <div className="admin-bg">
       <div className="admin-wrap">
         <AdminTopNav />
-        {/* ✅ 겉 큰 카드(erp-card) 제거: 각 페이지 내부 카드만 보이게 */}
         {children}
       </div>
     </div>

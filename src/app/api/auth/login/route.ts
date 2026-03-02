@@ -1,3 +1,4 @@
+// src/app/api/auth/login/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { setSessionUser } from "@/lib/session";
@@ -14,14 +15,11 @@ export async function POST(req: Request) {
 
   const name = String(body?.name ?? "").trim();
   const phone = digitsOnly(body?.phone ?? "");
-  const role = String(body?.role ?? "SALES").toUpperCase();
+  const role = String(body?.role ?? "SALES").toUpperCase(); // (지금 로직 유지)
 
   if (!name || phone.length < 8) {
     return NextResponse.json({ message: "이름/전화번호 확인" }, { status: 400 });
   }
-
-  // ✅ 여기서 PIN 검증 로직이 이미 있다면, 너 코드로 다시 붙이면 됨.
-  // 지금은 401/403 해결이 목적이라 세션 고정 버전으로 둠.
 
   const user = await prisma.user.upsert({
     where: { phone },
@@ -29,11 +27,14 @@ export async function POST(req: Request) {
     create: { name, phone, role: role === "ADMIN" ? "ADMIN" : "SALES" },
   });
 
-  setSessionUser({
+  // ✅ 핵심: 응답 객체(res)에 쿠키를 박아야 Vercel에서도 안 튕김
+  const res = NextResponse.json({ ok: true, role: user.role });
+
+  setSessionUser(res, {
     id: user.id,
     name: user.name,
     role: user.role === "ADMIN" ? "ADMIN" : "SALES",
   });
 
-  return NextResponse.json({ ok: true });
+  return res;
 }

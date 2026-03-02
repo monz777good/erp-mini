@@ -1,20 +1,31 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
 
 export const runtime = "nodejs";
 
 /**
- * ✅ 품목 엑셀(리포트) - 빌드 통과/안전 버전
- * - 일단 JSON으로 내려줌 (엑셀 생성은 나중에 다시 붙이기)
+ * ✅ 품목 리포트(JSON)
  */
-export async function GET() {
-  const admin = await requireAdmin();
-  if (admin instanceof NextResponse) return admin;
+export async function GET(req: NextRequest) {
+  try {
+    requireAdmin(req);
 
-  const items = await prisma.item.findMany({
-    orderBy: { createdAt: "asc" },
-  });
+    const items = await prisma.item.findMany({
+      orderBy: { createdAt: "asc" },
+    });
 
-  return NextResponse.json({ ok: true, items });
+    return NextResponse.json({ ok: true, items });
+  } catch (e: any) {
+    if (String(e?.message ?? "").startsWith("UNAUTHORIZED")) {
+      return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+    }
+    if (String(e?.message ?? "").startsWith("FORBIDDEN")) {
+      return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
+    }
+    return NextResponse.json(
+      { ok: false, error: String(e?.message ?? e) },
+      { status: 500 }
+    );
+  }
 }

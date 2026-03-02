@@ -15,51 +15,74 @@ function asOrderStatus(v: any): OrderStatus | null {
 }
 
 // ✅ GET: 관리자 주문 목록
-// 지원: ?status=REQUESTED|APPROVED|REJECTED|DONE
 export async function GET(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (admin instanceof NextResponse) return admin;
+  try {
+    requireAdmin(req);
 
-  const { searchParams } = new URL(req.url);
-  const statusParam = searchParams.get("status")?.trim() || "";
-  const status = asOrderStatus(statusParam);
+    const { searchParams } = new URL(req.url);
+    const statusParam = searchParams.get("status")?.trim() || "";
+    const status = asOrderStatus(statusParam);
 
-  const where: any = {};
-  if (status) where.status = status;
+    const where: any = {};
+    if (status) where.status = status;
 
-  const orders = await prisma.order.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    include: {
-      user: { select: { name: true, phone: true } },
-      item: { select: { id: true, name: true } },
-      client: { select: { id: true, name: true, bizRegNo: true } }, // ✅ 요양기관번호
-    },
-  });
+    const orders = await prisma.order.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: { select: { name: true, phone: true } },
+        item: { select: { id: true, name: true } },
+        client: { select: { id: true, name: true, bizRegNo: true } },
+      },
+    });
 
-  return NextResponse.json({ ok: true, orders });
+    return NextResponse.json({ ok: true, orders });
+  } catch (e: any) {
+    if (String(e?.message ?? "").startsWith("UNAUTHORIZED")) {
+      return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+    }
+    if (String(e?.message ?? "").startsWith("FORBIDDEN")) {
+      return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
+    }
+    return NextResponse.json(
+      { ok: false, error: String(e?.message ?? e) },
+      { status: 500 }
+    );
+  }
 }
 
-// ✅ PATCH: 상태 변경 (승인/거절/출고완료)
+// ✅ PATCH: 상태 변경
 export async function PATCH(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (admin instanceof NextResponse) return admin;
+  try {
+    requireAdmin(req);
 
-  const body = await req.json().catch(() => ({}));
-  const id = String(body?.id ?? "");
-  const next = asOrderStatus(body?.status);
+    const body = await req.json().catch(() => ({}));
+    const id = String((body as any)?.id ?? "");
+    const next = asOrderStatus((body as any)?.status);
 
-  if (!id) {
-    return NextResponse.json({ ok: false, error: "missing id" }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ ok: false, error: "missing id" }, { status: 400 });
+    }
+    if (!next) {
+      return NextResponse.json({ ok: false, error: "invalid status" }, { status: 400 });
+    }
+
+    const updated = await prisma.order.update({
+      where: { id },
+      data: { status: next },
+    });
+
+    return NextResponse.json({ ok: true, order: updated });
+  } catch (e: any) {
+    if (String(e?.message ?? "").startsWith("UNAUTHORIZED")) {
+      return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+    }
+    if (String(e?.message ?? "").startsWith("FORBIDDEN")) {
+      return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
+    }
+    return NextResponse.json(
+      { ok: false, error: String(e?.message ?? e) },
+      { status: 500 }
+    );
   }
-  if (!next) {
-    return NextResponse.json({ ok: false, error: "invalid status" }, { status: 400 });
-  }
-
-  const updated = await prisma.order.update({
-    where: { id },
-    data: { status: next },
-  });
-
-  return NextResponse.json({ ok: true, order: updated });
 }

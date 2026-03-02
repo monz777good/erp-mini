@@ -45,8 +45,17 @@ export async function POST(req: Request) {
         },
       });
 
-      await saveSessionUser({ id: created.id, name: created.name, role: created.role });
-      return NextResponse.json({ ok: true, created: true });
+      // ✅ 응답 먼저 만들고 → 그 응답에 쿠키 심기
+      const res = NextResponse.json({ ok: true, created: true });
+
+      // ✅ saveSessionUser는 (res, user) 2개 인자
+      await saveSessionUser(res, {
+        id: created.id,
+        name: created.name,
+        role: String(created.role).toUpperCase() === "ADMIN" ? "ADMIN" : "SALES",
+      });
+
+      return res;
     }
 
     // ✅ 2) 유저가 있으면 PIN 검증
@@ -58,8 +67,16 @@ export async function POST(req: Request) {
       );
     }
 
-    await saveSessionUser({ id: user.id, name: user.name, role: user.role });
-    return NextResponse.json({ ok: true, created: false });
+    // ✅ 응답 먼저 만들고 → 그 응답에 쿠키 심기
+    const res = NextResponse.json({ ok: true, created: false });
+
+    await saveSessionUser(res, {
+      id: user.id,
+      name: user.name,
+      role: String(user.role).toUpperCase() === "ADMIN" ? "ADMIN" : "SALES",
+    });
+
+    return res;
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, message: String(e?.message ?? e) },
