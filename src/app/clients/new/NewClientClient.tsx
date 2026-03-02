@@ -21,6 +21,7 @@ export default function NewClientClient() {
     setLoading(true);
 
     try {
+      // 1) 거래처 생성
       const res = await fetch("/api/sales/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -28,14 +29,12 @@ export default function NewClientClient() {
         body: JSON.stringify({ name, owner }),
       });
 
-      const data = await res.json().catch(() => null);
-      if (!res.ok || !data?.ok) throw new Error(data?.message || "거래처 저장 실패");
+      const data = await res.json();
+      if (!data?.ok) throw new Error(data?.message || "거래처 생성 실패");
 
-      const clientId = data.client?.id;
-      if (!clientId) throw new Error("clientId가 없습니다.");
+      const clientId = data.client.id as string;
 
-      // ✅ 파일 업로드 (라우트 목록에 있는 경로로 맞춤)
-      // 너 로그에: /api/admin/clients/bizfile 이 존재함
+      // 2) 사업자등록증 업로드 (있을 때만)
       if (file) {
         const form = new FormData();
         form.append("clientId", clientId);
@@ -47,10 +46,9 @@ export default function NewClientClient() {
           body: form,
         });
 
-        const uploadData = await upload.json().catch(() => null);
-        if (!upload.ok || !uploadData?.ok) {
-          throw new Error(uploadData?.message || "사업자등록증 업로드 실패");
-        }
+        const uploadData = await upload.json();
+        if (!uploadData?.ok)
+          throw new Error(uploadData?.message || "파일 업로드 실패");
       }
 
       alert("등록 완료");
@@ -64,15 +62,7 @@ export default function NewClientClient() {
 
   return (
     <AppShell>
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-2xl font-black">거래처 등록</div>
-        <button
-          onClick={() => router.push("/clients")}
-          className="px-4 py-2 rounded-2xl border border-black/20 font-bold"
-        >
-          목록
-        </button>
-      </div>
+      <div className="text-2xl font-black">거래처 등록</div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <input
@@ -92,10 +82,10 @@ export default function NewClientClient() {
 
       <div className="mt-6">
         <div className="font-bold mb-2">사업자등록증 업로드</div>
-        <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-        <div className="text-xs opacity-60 mt-2">
-          파일은 선택 안 해도 거래처 등록은 됩니다.
-        </div>
+        <input
+          type="file"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
       </div>
 
       <div className="mt-6 flex justify-end">

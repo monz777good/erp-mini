@@ -1,4 +1,3 @@
-// src/app/clients/page.tsx
 import ClientsClient from "./ClientsClient";
 
 export const runtime = "nodejs";
