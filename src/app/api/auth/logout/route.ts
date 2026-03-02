@@ -1,6 +1,19 @@
-// src/app/api/auth/logout/route.ts
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export { POST } from "../../logout/route";
+export async function POST() {
+  const res = NextResponse.json({ ok: true });
+
+  // 세션 쿠키 삭제
+  res.cookies.set("erp_session", "", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    expires: new Date(0),
+  });
+
+  return res;
+}
