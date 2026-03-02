@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.8.0",
+    "@vercel/blob": "^2.3.0",
     "exceljs": "^4.4.0",
     "iron-session": "^8.0.4",
     "next": "^16.1.6",

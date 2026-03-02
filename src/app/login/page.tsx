@@ -20,7 +20,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const title = useMemo(() => (mode === "SALES" ? "영업사원 로그인" : "관리자 로그인"), [mode]);
+  const title = useMemo(
+    () => (mode === "SALES" ? "영업사원 로그인" : "관리자 로그인"),
+    [mode]
+  );
 
   async function submit() {
     setErr(null);
@@ -29,17 +32,9 @@ export default function LoginPage() {
     if (!p) return setErr("전화번호를 입력해주세요.");
     if (!pin) return setErr("PIN을 입력해주세요.");
 
-    // 영업사원은 최초 등록 시 이름 필요 (서버에서 요구할 수도 있으니 조건 완화)
-    if (mode === "SALES" && name.trim().length === 0) {
-      // 이름이 DB에 이미 있으면 없어도 되게 만들고 싶지만,
-      // 지금은 서버가 요구할 수도 있으니 입력 유도만 해둠.
-      // return setErr("영업사원은 이름을 입력해주세요.");
-    }
-
     setLoading(true);
     try {
-      // ✅ 여기 중요: “로그인 API 경로 혼선”을 끊기 위해 경로를 하나로 고정
-      // 네 라우트 목록에 /api/auth/login, /api/auth/sales-login 이 있으니 그걸 사용
+      // ✅ 경로는 auth로 고정(우리가 proxy로 /api/*에 연결해둠)
       const url = mode === "ADMIN" ? "/api/auth/login" : "/api/auth/sales-login";
 
       const res = await fetch(url, {
@@ -61,7 +56,17 @@ export default function LoginPage() {
 
       // ✅ 쿠키 반영 + 서버 라우트 재평가
       router.refresh();
-      router.replace(mode === "ADMIN" ? "/admin" : "/orders");
+
+      // ✅ 여기 핵심: role은 /api/me로 확인해서 확정 이동 (튕김 방지)
+      const meRes = await fetch("/api/auth/me", { credentials: "include" });
+      const me = await meRes.json().catch(() => null);
+
+      const role = String(me?.role ?? "").toUpperCase();
+      if (role === "ADMIN") {
+        router.replace("/admin");
+      } else {
+        router.replace("/orders");
+      }
     } catch {
       setErr("서버 오류");
     } finally {

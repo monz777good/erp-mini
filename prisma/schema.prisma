@@ -24,7 +24,7 @@ model User {
   name      String
   phone     String   @unique
   role      Role     @default(SALES)
-  pin       String?  // ✅ 추가 (PIN 해시 저장)
+  pin       String?  // ✅ PIN 해시 저장
   createdAt DateTime @default(now())
 
   orders    Order[]
@@ -42,12 +42,19 @@ model Client {
   id           String   @id @default(cuid())
   name         String
   bizRegNo     String?  @unique
+
   receiverName String?
   receiverAddr String?
   receiverTel  String?
   receiverMob  String?
+
   memo         String?
   createdAt    DateTime @default(now())
+
+  // ✅ 사업자등록증 파일(업로드 결과)
+  bizFileUrl        String?
+  bizFileName       String?
+  bizFileUploadedAt DateTime? // ✅ 업로드 시각 (추천: 업로드 기능에서 자동 저장)
 
   orders       Order[]
 }
@@ -72,6 +79,7 @@ model Order {
   receiverAddr String
   receiverTel  String?
   receiverMob  String?
+
   boxCount     Int         @default(1)
   shippingFee  Int         @default(3850)
   message      String?
