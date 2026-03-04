@@ -1,0 +1,155 @@
+[33m5e01171[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m fix clients api build error
+[33mf406a34[m add start:railway
+[33m3c8b57b[m fix railway port
+[33m83de58f[m erp fix
+[33m0cab442[m erp fix
+[33maf69104[m erp fix
+[33m6459fa3[m erp fix
+[33m3069c13[m erp fix
+[33m05ea84b[m erp fix
+[33mdad82ff[m erp fix
+[33m8750fff[m ordersclient full fix: force /api/sales/orders + accept rows
+[33m5791e50[m erp fix
+[33m99bbe98[m erp fix
+[33mad1d8b9[m erp fix
+[33mc940486[m style: date icon white + select option colors
+[33m9c4b91c[m restore OrdersClient UI (items back, list back, select style, optional client order)
+[33mce34063[m fix sales orders: allow no clientId + validate fields
+[33m1773e18[m fix clients fields + optional client order + bizfile url download
+[33m88dc943[m restore bizfile upload using Client.bizFileUrl
+[33m83d8c0a[m clients GET return full details safely
+[33m42b0989[m fix clients list + allow order without client
+[33mef0bbb2[m fix clients POST 500 (safe minimal create)
+[33m39f8be3[m fix clients api (add POST, avoid schema fields)
+[33mc634bd4[m fix: remove invalid client field owner from sales clients api
+[33m69cb4d1[m fix orders layout build
+[33m6c09aa7[m add api items list
+[33me15a6d1[m add items list api
+[33mee3b250[m fix order form load + auto select + autofill
+[33m4a0fe7b[m restore orders form + keep tabs
+[33m72c6ebc[m restore orders form from fade26d
+[33md70422a[m fix orders build by suspense wrapper
+[33m37a5115[m fix orders tab navigation + add filters + restore logout
+[33m566baed[m add client createdById security
+[33m771c79f[m client ownership + sales clients security
+[33m33a8141[m fix clients pages + sales clients api
+[33m994c61a[m add client medicalOrgNo/owner fields and fix sales clients POST
+[33md08d307[m add client owner fields
+[33m2da3d6d[m stock: merge extraV into stockV
+[33me37df00[m feat: stock save merges extra into stock
+[33m3d39ad3[m debug: show real stock PATCH error
+[33mb3f7c88[m fix clients DB mapping
+[33m84fc61c[m hide item id on admin items
+[33m5a9bfb6[m ...
+[33mc84ea98[m fix admin clients page api structure
+[33mc77b93f[m fix admin layout + next16 route handler params promise
+[33mefa4a06[m fix next16 params promise in api items [id] route
+[33md642640[m fix next16 params promise in admin items [id] route
+[33m9b46731[m fix admin items routes + frontend calls
+[33m9631b19[m fix route handler params for next16
+[33mdfbfc59[m fix admin items routes
+[33m7899e3e[m fix items [id] route handler ctx params
+[33m168575f[m fix
+[33m449a807[m fix: route handler ctx type
+[33mee66d65[m admin ui + api fix
+[33mc2d3f47[m admin ui + api fix
+[33mb84dc5f[m admin ui unified layout
+[33md14edab[m fix: requireAdmin import for admin items api
+[33mbb04f8b[m admin api fix (clients 401 / stock 405)
+[33mdcecbed[m admin ui fix
+[33m011dfdc[m pin plain mode
+[33m73533d2[m production redeploy
+[33ma8f9dff[m restore main production
+[33m5f34d6a[m production redeploy
+[33m9df4f5d[m force redeploy
+[33mbffff2a[m deploy fix
+[33mb03214d[m fix clients routes
+[33mbb2cc6e[m fix clients pages
+[33mfbc708b[m fix clients new lambda
+[33mb49ff92[m fix clients new lambda
+[33m12a3ab3[m fix clients routes
+[33m827d422[m build fix
+[33m3124592[m fix: tab-based login redirect (admin can enter orders)
+[33m3e7bf14[m fix logout + client upload
+[33m4a1ce28[m blob upload + env
+[33m53f5c64[m deploy: production update
+[33mfdd3832[m add health check
+[33m02b0cf7[m fix: login + admin + logen
+[33m5e05789[m fix: login/admin stabilize
+[33mad2e8bd[m fix: restore orders tabs + logout + history + clients
+[33m8c07f07[m fix: login mode tabs
+[33m42e0347[m chore: redeploy for env vars
+[33mfc7ed18[m restore role login UI
+[33m859e797[m fix: wrap orders in suspense
+[33m7d85a0a[m pin login system complete
+[33m016a2de[m deploy update
+[33me806297[m ui: restore premium shell + fix tailwind v4 postcss + login no-prefill + add clients page
+[33mfade26d[m fix: ui restore
+[33mf3a4f72[m fix tailwind postcss + restore global shell UI
+[33m6c474b5[m fix: restore tailwind postcss + global layout + appshell + clients route
+[33mb17ccfe[m ui: apply global background + card layout for orders
+[33m697faa2[m fix login card layout and background
+[33m7d17bb9[m restore login background and card UI
+[33m2f18223[m restore layout styling and tailwind
+[33mc81f9ff[m fix tailwind pipeline (postcss plugin)
+[33mdc4e03c[m fix tailwind postcss plugin (@tailwindcss/postcss)
+[33m1dbb1ea[m restore tailwind styling
+[33me6c83e2[m restore tailwind css
+[33mab2fa92[m restore premium orders UI and remove stray header
+[33m26ae247[m trigger vercel redeploy
+[33m2c2da75[m ui: unify bg + clean nav + center login + wrap all pages in card
+[33m46fb1aa[m feat: unify bg + tidy login/orders UI
+[33md4dfa90[m update: 수정내용
+[33m89d5887[m fix: admin layout/nav + remove duplicate routes + inventory 404
+[33md22a8e4[m fix: restore global css import
+[33mb62c7d3[m fix: login flicker removed
+[33m10fac45[m ui: global css full reset
+[33mf0b4c8f[m fix: restore admin top navigation
+[33mce124f6[m final fix: session + admin build stable
+[33m21d4b4f[m fix: admin auth 401/403 by nodejs runtime + include cookies
+[33mdc38d98[m restore admin page
+[33ma0f823e[m style: premium login UI
+[33m9b12d1f[m fix: login page duplicate/use-client and mobile layout
+[33m75876a4[m fix: restore orders list on admin dashboard
+[33mdec84a6[m ui: wrap orders pages in white card layout
+[33mf7f7d4a[m fix: restore global styles and layout
+[33ma321ea3[m ui: global background + responsive cards + readable titles
+[33me576227[m fix: login mobile layout (radio/checkbox aligned)
+[33mde4bd9b[m fix: mobile form layout override (force single-column grids)
+[33m4b3d616[m fix: mobile table layout + admin 401 by forcing credentials include
+[33m7f75e54[m fix: restore orders list on admin dashboard
+[33m1bc49a1[m fix: logout via /logout route (GET) to clear cookie and redirect
+[33mefee9e1[m fix: add /api/auth/logout to clear session cookie
+[33mf43c1db[m ui: restore logout on orders + restore admin dashboard link + mobile table fixes
+[33m0126419[m ui: wrap orders pages in white card layout
+[33m591e00f[m ui: unified readable cards + clean background + consistent admin nav
+[33m741bed0[m ui: readable overlay + auto readable headings + unified admin nav
+[33m9e47d7d[m fix: import globals.css in root layout
+[33m1186e5b[m ui: readable cards + blurred overlay + unified typography
+[33m4d3be48[m ui: global background + responsive cards + readable titles
+[33m9de1e66[m style: unify typography + readability + panels
+[33m4ac17e9[m ui: brand white card + readable text + mobile nav wrap + table fix
+[33ma3771cb[m ui: mobile topnav + brand logo card + readability
+[33m1521c80[m ui: global background + responsive cards + admin nav/logout
+[33m2607276[m ui fixed clean layout mobile background
+[33me2c90b4[m final login layout fix
+[33m00f8862[m final login layout fix
+[33ma37eb21[m restore global styles + centered login card
+[33mb642d17[m restore stock tab + outline text + admin bg
+[33m081ddb9[m restore login centered card UI
+[33m21163e8[m fix global background + admin navbar logout
+[33mb3ab6df[m fix build
+[33ma47e296[m ui: background + mobile fix + login polish
+[33mdb6f462[m restore login UI full
+[33m4e4dd50[m restore pretty login + pin + remember + base ui
+[33m6cfc165[m restore getSessionUser export (compat)
+[33ma02349f[m fix api me route
+[33m3bb88b3[m fix login route arg order
+[33m8bd21b7[m real deploy
+[33m200d101[m update
+[33mb475104[m fix login session
+[33md25ce76[m fix build
+[33mdfa90e3[m fix: postgres prisma + edge-safe session
+[33maabb57a[m postgres prisma fix
+[33m77a57eb[m postgres prisma fix
+[33mdf053bf[m final postgres prisma fix
