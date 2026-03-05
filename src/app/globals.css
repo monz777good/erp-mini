@@ -1,9 +1,4 @@
-/* src/app/globals.css */
-
-/* ✅ Tailwind v3 방식 */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --bg0: 8 10 18;
@@ -12,63 +7,37 @@
   --muted: 200 208 230;
 }
 
-html, body { height: 100%; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box; /* ✅ 삐져나옴 방지 핵심 */
+}
+
+html,
+body {
+  height: 100%;
+}
 
 body {
   margin: 0;
-  overflow-x: hidden;
+  overflow-x: hidden; /* ✅ 모바일 삐져나옴 방지 */
   color: rgb(var(--text));
   background:
-    radial-gradient(1200px 800px at 15% 20%, rgba(120, 105, 255, 0.30), transparent 55%),
-    radial-gradient(900px 700px at 85% 25%, rgba(0, 205, 255, 0.20), transparent 55%),
-    radial-gradient(900px 900px at 50% 85%, rgba(255, 105, 180, 0.16), transparent 60%),
+    radial-gradient(1200px 800px at 15% 20%, rgba(120, 105, 255, 0.35), transparent 60%),
+    radial-gradient(1200px 800px at 85% 20%, rgba(0, 180, 255, 0.25), transparent 60%),
+    radial-gradient(900px 700px at 50% 90%, rgba(255, 80, 180, 0.18), transparent 55%),
     linear-gradient(180deg, rgb(var(--bg0)) 0%, rgb(var(--bg1)) 100%);
 }
 
-/* ✅ 공통 카드/버튼(기존 스타일 유지용) */
-.glass-card {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-radius: 16px;
+/* ✅ 입력 글씨가 투명/안보이는 이슈 방지용 “기본값” */
+input,
+textarea,
+select {
+  color: #111;
+  caret-color: #111;
 }
 
-.btn {
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-weight: 700;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgb(var(--text));
-  transition: 160ms ease;
-}
-
-.btn:hover { background: rgba(255, 255, 255, 0.14); }
-.btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-/* ✅ 입력 글씨 안 보이는 문제 방지 (전역) */
-input, textarea, select {
-  color: rgb(var(--text));
-  caret-color: rgb(var(--text));
-}
-
-input::placeholder, textarea::placeholder {
-  color: rgba(245, 247, 255, 0.55);
-}
-
-/* 크롬 autofill */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
-textarea:-webkit-autofill,
-textarea:-webkit-autofill:hover,
-textarea:-webkit-autofill:focus,
-select:-webkit-autofill,
-select:-webkit-autofill:hover,
-select:-webkit-autofill:focus {
-  -webkit-text-fill-color: rgb(var(--text));
-  transition: background-color 9999s ease-in-out 0s;
-  box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.06) inset;
+/* 선택(드래그)했을 때만 보이는 느낌 방지 */
+::selection {
+  background: rgba(255, 255, 255, 0.25);
 }
