@@ -30,10 +30,12 @@ export async function POST(req: Request) {
     const pepper = process.env.PIN_PEPPER ?? "";
     const pinHash = sha256Hex(`${pin}:${pepper}`);
 
-    let user = await prisma.user.findFirst({
-      where: { phone, role: "SALES" as any },
+    // ✅ 핵심: role 조건 빼고 phone으로만 먼저 찾기
+    let user = await prisma.user.findUnique({
+      where: { phone },
     });
 
+    // 없으면 생성 (기본 SALES)
     if (!user) {
       if (!name) {
         return NextResponse.json({ ok: false, error: "NAME_REQUIRED" }, { status: 400 });
@@ -42,6 +44,7 @@ export async function POST(req: Request) {
         data: { name, phone, role: "SALES" as any, pin: pinHash },
       });
     } else {
+      // 있으면 핀 검증
       if (!user.pin || user.pin !== pinHash) {
         return NextResponse.json({ ok: false, error: "INVALID_PIN" }, { status: 401 });
       }
@@ -49,9 +52,8 @@ export async function POST(req: Request) {
 
     await setSessionUser({ id: user.id, name: user.name, role: user.role as any });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, role: user.role });
   } catch (e: any) {
-    // 👇 이 detail이 DevTools Network → login → Response에 그대로 찍힘
     return NextResponse.json(
       { ok: false, error: "SERVER_ERROR", detail: String(e?.message ?? e) },
       { status: 500 }
