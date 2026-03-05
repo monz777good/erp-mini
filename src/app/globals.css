@@ -1,43 +1,7 @@
 @import "tailwindcss";
 
-:root {
-  --bg0: 8 10 18;
-  --bg1: 16 20 36;
-  --text: 245 247 255;
-  --muted: 200 208 230;
-}
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box; /* ✅ 삐져나옴 방지 핵심 */
-}
-
+/* 전체 기본값 */
 html,
 body {
   height: 100%;
-}
-
-body {
-  margin: 0;
-  overflow-x: hidden; /* ✅ 모바일 삐져나옴 방지 */
-  color: rgb(var(--text));
-  background:
-    radial-gradient(1200px 800px at 15% 20%, rgba(120, 105, 255, 0.35), transparent 60%),
-    radial-gradient(1200px 800px at 85% 20%, rgba(0, 180, 255, 0.25), transparent 60%),
-    radial-gradient(900px 700px at 50% 90%, rgba(255, 80, 180, 0.18), transparent 55%),
-    linear-gradient(180deg, rgb(var(--bg0)) 0%, rgb(var(--bg1)) 100%);
-}
-
-/* ✅ 입력 글씨가 투명/안보이는 이슈 방지용 “기본값” */
-input,
-textarea,
-select {
-  color: #111;
-  caret-color: #111;
-}
-
-/* 선택(드래그)했을 때만 보이는 느낌 방지 */
-::selection {
-  background: rgba(255, 255, 255, 0.25);
 }

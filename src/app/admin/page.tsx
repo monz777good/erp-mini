@@ -1,7 +1,5 @@
-import AdminClient from "./AdminClient";
+import { redirect } from "next/navigation";
 
-export const dynamic = "force-dynamic";
-
-export default function AdminPage() {
-  return <AdminClient />;
+export default function AdminIndexPage() {
+  redirect("/admin/orders");
 }

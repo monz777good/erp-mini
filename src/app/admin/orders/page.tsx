@@ -1,6 +1,5 @@
 "use client";
 
-import AdminTopNav from "@/components/AdminTopNav";
 import { useEffect, useMemo, useState } from "react";
 
 type OrderRow = {
@@ -20,7 +19,7 @@ type OrderRow = {
   item: { id: string; name: string };
   client?: { id: string; name: string; bizRegNo?: string | null } | null;
 
-  user?: { name: string; phone: string } | null;
+  user?: { name: string; phone: string } | null; // ✅ 영업사원
 };
 
 function fmtDate(d: Date) {
@@ -49,6 +48,8 @@ export default function AdminOrdersPage() {
         `&q=${encodeURIComponent(q.trim())}`;
 
       const res = await fetch(url, { credentials: "include" });
+
+      // ✅ 401/403면 권한 문제 메시지 노출(에러는 안 나게)
       if (!res.ok) {
         setOrders([]);
         return;
@@ -84,170 +85,236 @@ export default function AdminOrdersPage() {
     await load();
   }
 
-  const tabLabel = tab === "REQUESTED" ? "대기" : tab === "APPROVED" ? "승인" : tab === "REJECTED" ? "거절" : "출고완료";
-  const countText = `현재 탭: ${tabLabel} / 건수: ${orders.length}건`;
+  const countText = `현재 탭: ${
+    tab === "REQUESTED" ? "대기" : tab === "APPROVED" ? "승인" : tab === "REJECTED" ? "거절" : "출고완료"
+  } / 건수: ${orders.length}건`;
 
   return (
-    <div className="min-h-screen bg-[#f7f8fb]">
-      <AdminTopNav />
+    <div style={wrap}>
+      <h1 style={{ margin: 0, fontSize: 22, fontWeight: 1000 }}>관리자 주문 목록</h1>
 
-      <div className="mx-auto max-w-6xl px-3 sm:px-6 py-5">
-        {/* 타이틀 */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
-          <div className="flex items-end justify-between gap-3 flex-wrap">
-            <div>
-              <h1 className="m-0 text-xl sm:text-2xl font-black text-black">관리자 주문 목록</h1>
-              <div className="mt-2 text-sm font-bold text-gray-700">{countText}</div>
-            </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+        <button style={tabBtn(tab === "REQUESTED")} onClick={() => setTab("REQUESTED")}>
+          대기
+        </button>
+        <button style={tabBtn(tab === "APPROVED")} onClick={() => setTab("APPROVED")}>
+          승인
+        </button>
+        <button style={tabBtn(tab === "REJECTED")} onClick={() => setTab("REJECTED")}>
+          거절
+        </button>
+        <button style={tabBtn(tab === "DONE")} onClick={() => setTab("DONE")}>
+          출고완료
+        </button>
+      </div>
 
-            {tab === "APPROVED" ? (
-              <a
-                href={`/api/admin/rozen-excel?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
-              >
-                <button className="h-10 rounded-xl bg-black px-4 text-sm font-black text-white">
-                  로젠 출력
-                </button>
-              </a>
-            ) : null}
-          </div>
+      <div style={filterBox}>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ fontWeight: 900 }}>기간</div>
+          <input style={input} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <div style={{ fontWeight: 900 }}>~</div>
+          <input style={input} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
 
-          {/* 탭 */}
-          <div className="mt-4 grid grid-cols-4 gap-2">
-            <button className={pill(tab === "REQUESTED")} onClick={() => setTab("REQUESTED")}>
-              대기
-            </button>
-            <button className={pill(tab === "APPROVED")} onClick={() => setTab("APPROVED")}>
-              승인
-            </button>
-            <button className={pill(tab === "REJECTED")} onClick={() => setTab("REJECTED")}>
-              거절
-            </button>
-            <button className={pill(tab === "DONE")} onClick={() => setTab("DONE")}>
-              출고완료
-            </button>
-          </div>
+          <div style={{ fontWeight: 900, marginLeft: 6 }}>검색</div>
+          <input
+            style={{ ...input, width: 320, maxWidth: "100%" }}
+            placeholder="품목명/수하인/거래처/요양기관번호/영업사원/전화 검색"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <button style={btn} onClick={load}>
+            조회
+          </button>
 
-          {/* 필터 */}
-          <div className="mt-4 rounded-2xl border border-gray-200 bg-white p-3 sm:p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="text-sm font-black text-black">기간</div>
-              <input className={inputCls} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-              <div className="text-sm font-black text-black">~</div>
-              <input className={inputCls} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-
-              <div className="text-sm font-black text-black sm:ml-2">검색</div>
-              <input
-                className={`${inputCls} w-full sm:w-[420px]`}
-                placeholder="품목명/수하인/거래처/요양기관번호/영업사원/전화 검색"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-
-              <button className="h-10 rounded-xl border border-gray-300 bg-white px-4 text-sm font-black text-black" onClick={load}>
-                {loading ? "조회중..." : "조회"}
-              </button>
-            </div>
-          </div>
+          {tab === "APPROVED" ? (
+            <a
+              href={`/api/admin/rozen-excel?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
+              style={{ marginLeft: "auto" }}
+            >
+              <button style={btnDark}>로젠 출력</button>
+            </a>
+          ) : (
+            <div style={{ marginLeft: "auto" }} />
+          )}
         </div>
+      </div>
 
-        {/* 테이블 */}
-        <div className="mt-4 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-x-auto">
-          <table className="w-full min-w-[980px] border-collapse">
-            <thead>
-              <tr className="bg-[#f3f4f6]">
-                <Th>품목</Th>
-                <ThCenter>수량</ThCenter>
+      <div style={{ marginTop: 14, fontWeight: 900, opacity: 0.8 }}>{countText}</div>
 
-                <Th>영업사원</Th>
-                <Th>전화번호</Th>
+      <div style={tableWrap}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
+          <thead>
+            <tr style={{ background: "#F4FBF6" }}>
+              <th style={th}>품목</th>
+              <th style={th}>수량</th>
 
-                <Th>수하인</Th>
-                <Th>주소</Th>
-                <Th>전화</Th>
-                <Th>핸드폰</Th>
+              <th style={th}>영업사원</th>
+              <th style={th}>전화번호</th>
 
-                <Th>거래처</Th>
-                <Th>요양기관번호</Th>
+              <th style={th}>수하인</th>
+              <th style={th}>주소</th>
+              <th style={th}>전화</th>
+              <th style={th}>핸드폰</th>
 
-                <Th>비고</Th>
-                <ThCenter>작업</ThCenter>
-              </tr>
-            </thead>
+              <th style={th}>거래처</th>
+              <th style={th}>요양기관번호</th>
 
-            <tbody>
-              {orders.map((o) => (
-                <tr key={o.id} className="border-t border-gray-200">
-                  <Td>{o.item?.name || "-"}</Td>
-                  <TdCenter>{o.quantity}</TdCenter>
+              <th style={th}>비고</th>
+              <th style={thCenter}>작업</th>
+            </tr>
+          </thead>
 
-                  <Td>{o.user?.name || "-"}</Td>
-                  <Td>{o.user?.phone || "-"}</Td>
+          <tbody>
+            {orders.map((o) => {
+              return (
+                <tr key={o.id} style={{ background: "#fff" }}>
+                  <td style={td}>{o.item?.name || "-"}</td>
+                  <td style={tdCenter}>{o.quantity}</td>
 
-                  <Td>{o.receiverName}</Td>
-                  <Td>{o.receiverAddr}</Td>
-                  <Td>{o.phone || ""}</Td>
-                  <Td>{o.mobile || ""}</Td>
+                  <td style={td}>{o.user?.name || "-"}</td>
+                  <td style={td}>{o.user?.phone || "-"}</td>
 
-                  <Td>{o.client?.name || ""}</Td>
-                  <Td>{o.client?.bizRegNo || ""}</Td>
+                  <td style={td}>{o.receiverName}</td>
+                  <td style={td}>{o.receiverAddr}</td>
+                  <td style={td}>{o.phone || ""}</td>
+                  <td style={td}>{o.mobile || ""}</td>
 
-                  <Td>{o.note || ""}</Td>
+                  <td style={td}>{o.client?.name || ""}</td>
+                  <td style={td}>{o.client?.bizRegNo || ""}</td>
 
-                  <TdCenter>
+                  <td style={td}>{o.note || ""}</td>
+
+                  <td style={tdCenter}>
                     {tab === "REQUESTED" ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <button className="h-9 rounded-xl bg-[#1B5E20] px-3 text-sm font-black text-white" onClick={() => updateStatus(o.id, "APPROVED")}>
+                      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                        <button style={actionBtn("#1B5E20")} onClick={() => updateStatus(o.id, "APPROVED")}>
                           승인
                         </button>
-                        <button className="h-9 rounded-xl bg-[#B71C1C] px-3 text-sm font-black text-white" onClick={() => updateStatus(o.id, "REJECTED")}>
+                        <button style={actionBtn("#B71C1C")} onClick={() => updateStatus(o.id, "REJECTED")}>
                           거절
                         </button>
                       </div>
                     ) : (
-                      <span className="text-sm font-black text-gray-400">-</span>
+                      <span style={{ opacity: 0.6, fontWeight: 900 }}>-</span>
                     )}
-                  </TdCenter>
-                </tr>
-              ))}
-
-              {!loading && orders.length === 0 && (
-                <tr>
-                  <td className="p-5 text-sm font-black text-gray-700" colSpan={12}>
-                    표시할 주문이 없습니다.
                   </td>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
 
-        <p className="mt-3 text-xs font-bold text-gray-700">
-          * 로젠 출력 버튼은 승인(승인 탭)에서만 동작하며, 출력 후 해당 건은 출고완료(DONE)로 이동하도록 서버에서 처리됩니다.
-        </p>
+            {!loading && orders.length === 0 && (
+              <tr>
+                <td style={{ ...td, padding: 18 }} colSpan={12}>
+                  표시할 주문이 없습니다.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
+
+      <p style={{ marginTop: 10, fontSize: 12, opacity: 0.7, fontWeight: 800 }}>
+        * 로젠 출력 버튼은 승인(승인 탭)에서만 동작하며, 출력 후 해당 건은 출고완료(DONE)로 이동하도록 서버에서 처리됩니다.
+      </p>
     </div>
   );
 }
 
-const inputCls =
-  "h-10 rounded-xl border border-gray-300 bg-white px-3 text-sm font-bold text-black outline-none focus:ring-2 focus:ring-black/10";
+/* =======================
+   ✅ 스타일(불투명 카드)
+   ======================= */
 
-function pill(active: boolean) {
-  return [
-    "h-10 rounded-xl border text-sm font-black",
-    active ? "bg-black text-white border-black" : "bg-white text-black border-gray-200",
-  ].join(" ");
-}
+const wrap: React.CSSProperties = {
+  maxWidth: 1100,
+  margin: "28px auto",
+  padding: "22px 22px 18px",
+  background: "rgba(255,255,255,0.97)",
+  border: "1px solid var(--line)",
+  borderRadius: 18,
+  boxShadow: "0 16px 50px rgba(0,0,0,0.08)",
+};
 
-function Th({ children }: { children: any }) {
-  return <th className="text-left p-3 text-xs font-black text-black whitespace-nowrap">{children}</th>;
-}
-function ThCenter({ children }: { children: any }) {
-  return <th className="text-center p-3 text-xs font-black text-black whitespace-nowrap">{children}</th>;
-}
-function Td({ children }: { children: any }) {
-  return <td className="p-3 text-sm font-bold text-black align-top">{children}</td>;
-}
-function TdCenter({ children }: { children: any }) {
-  return <td className="p-3 text-sm font-bold text-black text-center whitespace-nowrap align-top">{children}</td>;
+const tabBtn = (active: boolean): React.CSSProperties => ({
+  border: "1px solid var(--line)",
+  background: active ? "black" : "white",
+  color: active ? "white" : "black",
+  borderRadius: 10,
+  padding: "8px 12px",
+  fontWeight: 900,
+  cursor: "pointer",
+});
+
+const input: React.CSSProperties = {
+  height: 38,
+  borderRadius: 10,
+  border: "1px solid var(--line)",
+  padding: "0 12px",
+  outline: "none",
+  background: "white",
+};
+
+const btn: React.CSSProperties = {
+  height: 38,
+  borderRadius: 10,
+  border: "1px solid var(--line)",
+  padding: "0 14px",
+  fontWeight: 900,
+  cursor: "pointer",
+  background: "white",
+};
+
+const btnDark: React.CSSProperties = {
+  ...btn,
+  background: "black",
+  color: "white",
+  borderColor: "black",
+};
+
+const filterBox: React.CSSProperties = {
+  marginTop: 14,
+  padding: 12,
+  border: "1px solid var(--line)",
+  borderRadius: 14,
+  background: "#fff",
+};
+
+const tableWrap: React.CSSProperties = {
+  marginTop: 10,
+  overflowX: "auto",
+  borderRadius: 14,
+  border: "1px solid var(--line)",
+  background: "#fff",
+};
+
+const th: React.CSSProperties = {
+  textAlign: "left",
+  padding: "10px 10px",
+  borderBottom: "1px solid var(--line)",
+  fontSize: 13,
+  fontWeight: 1000,
+  whiteSpace: "nowrap",
+};
+
+const thCenter: React.CSSProperties = { ...th, textAlign: "center" };
+
+const td: React.CSSProperties = {
+  padding: "10px 10px",
+  borderBottom: "1px solid var(--line)",
+  fontSize: 13,
+  verticalAlign: "top",
+};
+
+const tdCenter: React.CSSProperties = { ...td, textAlign: "center", whiteSpace: "nowrap" };
+
+function actionBtn(bg: string): React.CSSProperties {
+  return {
+    border: "none",
+    background: bg,
+    color: "white",
+    borderRadius: 10,
+    height: 34,
+    padding: "0 12px",
+    fontWeight: 1000,
+    cursor: "pointer",
+  };
 }
