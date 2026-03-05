@@ -1,34 +1,28 @@
-// src/app/admin/orders/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 
 type Row = {
   id: string;
-  status: "REQUESTED" | "APPROVED" | "REJECTED" | "DONE";
-  quantity: number;
   createdAt: string;
 
-  itemName: string;
+  // ✅ 이미 너 프로젝트에서 “장바구니 묶음”으로 내려주는 값들
+  itemName: string;     // 예: "자하거 2ML (5V)\nx1\n자하거 2ML (30V)\nx3"
+  quantityText: string; // 예: "1\n3\n2"
+  status: "REQUESTED" | "APPROVED" | "REJECTED" | "DONE";
+
   salesName: string;
   salesPhone: string;
 
   receiverName: string;
   receiverAddr: string;
-  phone: string;
-  mobile: string;
+  phone?: string | null;
+  mobile?: string | null;
 
   clientName: string;
-  careInstitutionNo: string;
-
-  note: string;
+  careInstitutionNo?: string | null;
+  note?: string | null;
 };
-
-function ymdKST(d = new Date()) {
-  // 한국시간 기준 YYYY-MM-DD
-  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-  return kst.toISOString().slice(0, 10);
-}
 
 const STATUS_LABEL: Record<Row["status"], string> = {
   REQUESTED: "대기",
@@ -37,211 +31,134 @@ const STATUS_LABEL: Record<Row["status"], string> = {
   DONE: "출고완료",
 };
 
-export default function AdminOrdersPage() {
-  const today = ymdKST();
+function kstTodayYmd() {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date());
+}
+function addDaysYmd(ymd: string, delta: number) {
+  const [y, m, d] = ymd.split("-").map((n) => parseInt(n, 10));
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + delta);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
 
+export default function AdminOrdersPage() {
   const [tab, setTab] = useState<Row["status"]>("REQUESTED");
-  const [from, setFrom] = useState(today);
-  const [to, setTo] = useState(today);
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [q, setQ] = useState("");
 
-  const [rows, setRows] = useState<Row[]>([]);
-  const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
-  const [changing, setChanging] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [rows, setRows] = useState<Row[]>([]);
+
+  useEffect(() => {
+    const today = kstTodayYmd();
+    setTo(today);
+    setFrom(addDaysYmd(today, -1));
+  }, []);
+
+  const count = useMemo(() => rows.length, [rows]);
 
   async function load() {
-    setMsg("");
     setLoading(true);
+    setMsg(null);
     try {
-      const qs = new URLSearchParams();
-      qs.set("status", tab);
-      if (from) qs.set("from", from);
-      if (to) qs.set("to", to);
-      if (q.trim()) qs.set("q", q.trim());
+      const params = new URLSearchParams();
+      params.set("status", tab);
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
+      if (q.trim()) params.set("q", q.trim());
 
-      const res = await fetch(`/api/admin/orders?${qs.toString()}`, {
-        method: "GET",
+      const res = await fetch(`/api/admin/orders?${params.toString()}`, {
         credentials: "include",
         cache: "no-store",
       });
 
-      const data = await res.json().catch(() => null);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok === false) throw new Error(data?.message || data?.error || `HTTP_${res.status}`);
 
-      if (!res.ok || !data?.ok) {
-        setRows([]);
-        setMsg(data?.message || `조회 실패 (${res.status})`);
-        return;
-      }
-
-      setRows(Array.isArray(data.rows) ? data.rows : []);
+      setRows(data.rows || []);
+    } catch (e: any) {
+      setMsg(e?.message || "조회 실패");
+      setRows([]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function changeStatus(id: string, status: Row["status"]) {
-    setMsg("");
-    setChanging(id);
+  async function setStatus(id: string, next: Row["status"]) {
+    setMsg(null);
     try {
-      const res = await fetch(`/api/admin/orders/${encodeURIComponent(id)}/status`, {
-        method: "POST",
+      const res = await fetch(`/api/admin/orders/${id}`, {
+        method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: next }),
       });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok || !data?.ok) {
-        setMsg(data?.message || `상태변경 실패 (${res.status})`);
-        return;
-      }
-
-      // ✅ 즉시 반영: 해당 row 상태 갱신 + 현재 탭과 다르면 제거
-      setRows((prev) =>
-        prev
-          .map((r) => (r.id === id ? { ...r, status } : r))
-          .filter((r) => r.status === tab)
-      );
-    } finally {
-      setChanging(null);
-    }
-  }
-
-  // ✅ 로젠 출력 (승인 탭에서만)
-  async function downloadLozenExcel(fromYmd: string, toYmd: string) {
-    setMsg("");
-    if (!fromYmd || !toYmd) {
-      alert("기간(from/to)을 선택하세요.");
-      return;
-    }
-
-    const res = await fetch("/api/admin/orders/lozen-excel", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        status: "APPROVED",
-        from: fromYmd,
-        to: toYmd,
-        q: q.trim() || undefined,
-      }),
-    });
-
-    if (!res.ok) {
-      const t = await res.text().catch(() => "");
-      alert("로젠 출력 실패\n" + t);
-      return;
-    }
-
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `lozen_${fromYmd}_to_${toYmd}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    window.URL.revokeObjectURL(url);
-
-    // ✅ 서버에서 APPROVED -> DONE(출고완료) 처리했으니
-    // 출고완료 탭으로 이동 + 목록 갱신
-    setTimeout(async () => {
-      setTab("DONE");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok === false) throw new Error(data?.message || data?.error || `HTTP_${res.status}`);
       await load();
-    }, 300);
+    } catch (e: any) {
+      alert("상태변경 실패\n" + (e?.message || ""));
+    }
   }
 
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
-
-  const count = rows.length;
-
-  // ===== 스타일(다크 통일) =====
   const shell: React.CSSProperties = {
-    padding: 24,
+    minHeight: "100vh",
+    padding: 28,
+    background:
+      "radial-gradient(1200px 700px at 20% 20%, rgba(120,105,255,0.22), transparent 55%), radial-gradient(900px 600px at 80% 30%, rgba(0,180,255,0.18), transparent 55%), radial-gradient(900px 700px at 50% 90%, rgba(255,255,255,0.08), transparent 55%), linear-gradient(180deg, rgb(8,10,18), rgb(12,14,24))",
+    color: "rgba(255,255,255,0.95)",
   };
-
   const card: React.CSSProperties = {
-    borderRadius: 26,
-    padding: 22,
+    maxWidth: 1280,
+    margin: "0 auto",
+    borderRadius: 28,
+    border: "1px solid rgba(255,255,255,0.12)",
     background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-    backdropFilter: "blur(12px)",
-    color: "rgba(255,255,255,0.92)",
+    boxShadow: "0 35px 120px rgba(0,0,0,0.55)",
+    padding: 22,
+    backdropFilter: "blur(20px)",
   };
+  const title: React.CSSProperties = { fontSize: 30, fontWeight: 950, marginBottom: 6 };
+  const sub: React.CSSProperties = { opacity: 0.75, marginBottom: 16, fontWeight: 800 };
 
-  const title: React.CSSProperties = {
-    fontSize: 28,
-    fontWeight: 950,
-    marginBottom: 8,
-  };
-
-  const sub: React.CSSProperties = {
-    fontSize: 13,
-    fontWeight: 800,
-    opacity: 0.75,
-    marginBottom: 14,
-  };
-
-  const tabRow: React.CSSProperties = {
-    display: "flex",
-    gap: 10,
-    flexWrap: "wrap",
-    marginBottom: 14,
-  };
-
+  const tabRow: React.CSSProperties = { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 };
   const tabBtn = (active: boolean): React.CSSProperties => ({
     padding: "10px 14px",
     borderRadius: 999,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: active ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.06)",
-    color: active ? "#0b1220" : "rgba(255,255,255,0.92)",
+    border: "1px solid rgba(255,255,255,0.16)",
+    background: active ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.10)",
+    color: active ? "rgba(0,0,0,0.92)" : "rgba(255,255,255,0.92)",
     fontWeight: 950,
     cursor: "pointer",
   });
 
-  // ✅ 로젠 출력 버튼이 승인탭일 때만 추가되므로 6칸으로 늘림
   const controls: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: tab === "APPROVED" ? "140px 24px 140px 1fr 120px 140px" : "140px 24px 140px 1fr 120px",
+    gridTemplateColumns: "160px 30px 160px 1fr 110px",
     gap: 10,
     alignItems: "center",
     marginBottom: 14,
   };
-
   const input: React.CSSProperties = {
     width: "100%",
-    padding: "12px 12px",
-    borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(255,255,255,0.06)",
-    color: "rgba(255,255,255,0.92)",
-    fontWeight: 900,
-    outline: "none",
-  };
-
-  const btn: React.CSSProperties = {
-    padding: "12px 14px",
-    borderRadius: 14,
+    padding: "10px 12px",
+    borderRadius: 12,
     border: "1px solid rgba(255,255,255,0.14)",
     background: "rgba(255,255,255,0.10)",
     color: "rgba(255,255,255,0.92)",
-    fontWeight: 950,
-    cursor: "pointer",
+    outline: "none",
+    fontWeight: 900,
   };
-
-  const lozenBtn: React.CSSProperties = {
-    padding: "12px 14px",
-    borderRadius: 14,
+  const btn: React.CSSProperties = {
+    padding: "10px 14px",
+    borderRadius: 12,
     border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(59,130,246,0.18)", // 파란 느낌(고급)
+    background: "rgba(255,255,255,0.16)",
     color: "rgba(255,255,255,0.95)",
     fontWeight: 950,
     cursor: "pointer",
@@ -249,32 +166,34 @@ export default function AdminOrdersPage() {
   };
 
   const tableWrap: React.CSSProperties = {
-    borderRadius: 18,
-    overflowX: "auto",
-    border: "1px solid rgba(255,255,255,0.10)",
-    background: "rgba(0,0,0,0.18)",
+    borderRadius: 20,
+    border: "1px solid rgba(255,255,255,0.12)",
+    overflow: "auto",
+    background: "rgba(255,255,255,0.05)",
   };
-
   const th: React.CSSProperties = {
+    position: "sticky",
+    top: 0,
+    background: "rgba(20,24,40,0.85)",
+    backdropFilter: "blur(10px)",
     textAlign: "left",
-    padding: 12,
-    fontSize: 12,
+    padding: "12px 12px",
     fontWeight: 950,
-    color: "rgba(255,255,255,0.75)",
+    fontSize: 13,
     borderBottom: "1px solid rgba(255,255,255,0.10)",
     whiteSpace: "nowrap",
   };
-
   const td: React.CSSProperties = {
-    padding: 12,
-    fontSize: 13,
-    fontWeight: 850,
-    borderTop: "1px solid rgba(255,255,255,0.08)",
+    padding: "12px 12px",
+    borderBottom: "1px solid rgba(255,255,255,0.06)",
     verticalAlign: "top",
+    fontWeight: 850,
+    fontSize: 13,
+    color: "rgba(255,255,255,0.92)",
   };
 
-  const miniBtn = (tone: "ok" | "bad"): React.CSSProperties => ({
-    padding: "8px 12px",
+  const actionBtn = (tone: "ok" | "no"): React.CSSProperties => ({
+    padding: "10px 12px",
     borderRadius: 12,
     border: "1px solid rgba(255,255,255,0.14)",
     background: tone === "ok" ? "rgba(34,197,94,0.18)" : "rgba(239,68,68,0.18)",
@@ -289,7 +208,7 @@ export default function AdminOrdersPage() {
       <div style={card}>
         <div style={title}>관리자 주문 목록</div>
         <div style={sub}>
-          기간 조회는 <b>한국시간 기준</b>으로 처리됩니다. / 현재 탭: <b>{STATUS_LABEL[tab]}</b> / 건수: <b>{count}</b>
+          기간 조회는 <b>한국시간 기준</b> / 현재 탭: <b>{STATUS_LABEL[tab]}</b> / 건수: <b>{count}</b>
         </div>
 
         {msg ? (
@@ -310,36 +229,24 @@ export default function AdminOrdersPage() {
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={input} />
           <div style={{ textAlign: "center", opacity: 0.8, fontWeight: 950 }}>~</div>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={input} />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="검색 (품목명/수화인/거래처/요양기관번호/영업/전화/비고)"
-            style={input}
-          />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="검색 (품목/수하인/거래처/요양기관/영업/전화/비고)" style={input} />
           <button onClick={load} style={btn} disabled={loading}>
             {loading ? "조회중" : "조회"}
           </button>
-
-          {tab === "APPROVED" ? (
-            <button onClick={() => downloadLozenExcel(from, to)} style={lozenBtn} disabled={loading}>
-              로젠 출력
-            </button>
-          ) : null}
         </div>
 
         <div style={tableWrap}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1200 }}>
             <thead>
               <tr>
-                {["등록일", "품목", "수량", "영업사원", "전화번호", "수화인", "주소", "전화", "핸드폰", "거래처", "요양기관번호", "비고", "작업"].map(
-                  (h) => (
-                    <th key={h} style={th}>
-                      {h}
-                    </th>
-                  )
-                )}
+                {["등록일", "품목", "수량", "영업사원", "영업전화", "수하인", "주소", "전화", "핸드폰", "거래처", "요양기관번호", "비고", "작업"].map((h) => (
+                  <th key={h} style={th}>
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
+
             <tbody>
               {rows.length === 0 ? (
                 <tr>
@@ -350,30 +257,36 @@ export default function AdminOrdersPage() {
               ) : (
                 rows.map((r) => (
                   <tr key={r.id}>
-                    <td style={td}>{r.createdAt.slice(0, 10)}</td>
-                    <td style={{ ...td, fontWeight: 950 }}>{r.itemName || "-"}</td>
-                    <td style={td}>{r.quantity}</td>
-                    <td style={td}>{r.salesName || "-"}</td>
-                    <td style={td}>{r.salesPhone || "-"}</td>
+                    <td style={td}>{r.createdAt}</td>
+
+                    {/* ✅ 여기! 품목 여러줄 보여주기 */}
+                    <td style={{ ...td, whiteSpace: "pre-line" }}>{r.itemName}</td>
+
+                    {/* ✅ 여기! 수량 여러줄 보여주기 */}
+                    <td style={{ ...td, whiteSpace: "pre-line" }}>{r.quantityText}</td>
+
+                    <td style={td}>{r.salesName}</td>
+                    <td style={td}>{r.salesPhone}</td>
                     <td style={td}>{r.receiverName}</td>
-                    <td style={{ ...td, maxWidth: 260 }}>{r.receiverAddr}</td>
-                    <td style={td}>{r.phone || "-"}</td>
-                    <td style={td}>{r.mobile || "-"}</td>
-                    <td style={td}>{r.clientName || "-"}</td>
-                    <td style={td}>{r.careInstitutionNo || "-"}</td>
-                    <td style={{ ...td, maxWidth: 220 }}>{r.note || "-"}</td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    <td style={td}>{r.receiverAddr}</td>
+                    <td style={td}>{r.phone || ""}</td>
+                    <td style={td}>{r.mobile || ""}</td>
+                    <td style={td}>{r.clientName}</td>
+                    <td style={td}>{r.careInstitutionNo || ""}</td>
+                    <td style={td}>{r.note || ""}</td>
+
+                    <td style={{ ...td, width: 180 }}>
                       {tab === "REQUESTED" ? (
                         <div style={{ display: "flex", gap: 8 }}>
-                          <button style={miniBtn("ok")} disabled={changing === r.id} onClick={() => changeStatus(r.id, "APPROVED")}>
-                            {changing === r.id ? "처리중" : "승인"}
+                          <button style={actionBtn("ok")} onClick={() => setStatus(r.id, "APPROVED")}>
+                            승인
                           </button>
-                          <button style={miniBtn("bad")} disabled={changing === r.id} onClick={() => changeStatus(r.id, "REJECTED")}>
-                            {changing === r.id ? "처리중" : "거절"}
+                          <button style={actionBtn("no")} onClick={() => setStatus(r.id, "REJECTED")}>
+                            거절
                           </button>
                         </div>
                       ) : (
-                        <span style={{ opacity: 0.75, fontWeight: 900 }}>{STATUS_LABEL[r.status]}</span>
+                        <div style={{ opacity: 0.6, fontWeight: 900 }}>-</div>
                       )}
                     </td>
                   </tr>
@@ -383,8 +296,8 @@ export default function AdminOrdersPage() {
           </table>
         </div>
 
-        <div style={{ marginTop: 10, fontSize: 12, fontWeight: 850, opacity: 0.7 }}>
-          * 승인/거절은 “대기” 탭에서만 버튼이 보입니다. / 로젠 출력은 “승인” 탭에서만 가능합니다.
+        <div style={{ marginTop: 10, opacity: 0.55, fontWeight: 800, fontSize: 12 }}>
+          * “승인/거절”은 “대기” 탭에서만 버튼이 보입니다.
         </div>
       </div>
     </div>

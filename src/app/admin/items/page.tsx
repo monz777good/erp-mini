@@ -1,14 +1,23 @@
+// src/app/admin/items/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 
-type Item = { id: string; name: string; createdAt?: string };
+type Item = {
+  id: string;
+  name: string;
+  createdAt?: string;
+};
 
 export default function AdminItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [name, setName] = useState("");
   const [q, setQ] = useState("");
   const [msg, setMsg] = useState("");
+
+  // edit state
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
 
   async function load() {
     setMsg("");
@@ -18,9 +27,8 @@ export default function AdminItemsPage() {
       cache: "no-store",
     });
 
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok || !data?.ok) {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data?.ok === false) {
       setMsg(data?.message || `불러오기 실패 (${res.status})`);
       setItems([]);
       return;
@@ -31,16 +39,21 @@ export default function AdminItemsPage() {
 
   async function add() {
     setMsg("");
+    const n = name.trim();
+    if (!n) {
+      setMsg("품목명을 입력하세요.");
+      return;
+    }
+
     const res = await fetch("/api/admin/items", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name: n }),
     });
 
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok || !data?.ok) {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data?.ok === false) {
       setMsg(data?.message || `추가 실패 (${res.status})`);
       return;
     }
@@ -49,8 +62,45 @@ export default function AdminItemsPage() {
     await load();
   }
 
+  function startEdit(it: Item) {
+    setEditId(it.id);
+    setEditName(it.name);
+    setMsg("");
+  }
+
+  function cancelEdit() {
+    setEditId(null);
+    setEditName("");
+  }
+
+  async function saveEdit() {
+    if (!editId) return;
+    const n = editName.trim();
+    if (!n) {
+      setMsg("품목명을 입력하세요.");
+      return;
+    }
+
+    setMsg("");
+    const res = await fetch("/api/admin/items", {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: editId, name: n }),
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data?.ok === false) {
+      setMsg(data?.message || `수정 실패 (${res.status})`);
+      return;
+    }
+
+    cancelEdit();
+    await load();
+  }
+
   async function del(id: string) {
-    if (!confirm("삭제할까요?")) return;
+    if (!confirm("삭제할까요? (주문에 사용된 품목은 삭제 불가)")) return;
     setMsg("");
 
     const res = await fetch(`/api/admin/items?id=${encodeURIComponent(id)}`, {
@@ -58,9 +108,8 @@ export default function AdminItemsPage() {
       credentials: "include",
     });
 
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok || !data?.ok) {
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data?.ok === false) {
       setMsg(data?.message || `삭제 실패 (${res.status})`);
       return;
     }
@@ -75,7 +124,7 @@ export default function AdminItemsPage() {
   const filtered = useMemo(() => {
     const s = q.trim();
     if (!s) return items;
-    return items.filter((x) => x.name?.includes(s));
+    return items.filter((x) => (x.name || "").includes(s));
   }, [items, q]);
 
   return (
@@ -83,7 +132,7 @@ export default function AdminItemsPage() {
       <div className="erp-card">
         <h1 style={{ fontSize: 34, fontWeight: 900, marginBottom: 6 }}>품목 등록 (관리자)</h1>
         <div style={{ fontWeight: 700, opacity: 0.75, marginBottom: 14 }}>
-          품목 추가/삭제/수정은 관리자만 가능합니다.
+          품목 추가/삭제/수정은 관리자만 가능합니다. (주문에 사용된 품목은 삭제가 막혀서 <b>수정</b>으로 처리하세요.)
         </div>
 
         {msg ? <div style={{ color: "crimson", fontWeight: 900, marginBottom: 10 }}>{msg}</div> : null}
@@ -162,36 +211,109 @@ export default function AdminItemsPage() {
             {filtered.length === 0 ? (
               <div style={{ padding: 18, textAlign: "center", fontWeight: 800, opacity: 0.7 }}>목록이 없습니다.</div>
             ) : (
-              filtered.map((it) => (
-                <div
-                  key={it.id}
-                  style={{
-                    padding: 14,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    borderTop: "1px solid rgba(0,0,0,0.06)",
-                    gap: 10,
-                  }}
-                >
-                  <div style={{ fontWeight: 900 }}>{it.name}</div>
-                  <button
-                    onClick={() => del(it.id)}
+              filtered.map((it) => {
+                const editing = editId === it.id;
+                return (
+                  <div
+                    key={it.id}
                     style={{
-                      padding: "10px 14px",
-                      borderRadius: 12,
-                      border: "1px solid rgba(0,0,0,0.12)",
-                      background: "rgba(239, 68, 68, 0.1)",
-                      color: "#b91c1c",
-                      fontWeight: 900,
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
+                      padding: 14,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      borderTop: "1px solid rgba(0,0,0,0.06)",
+                      gap: 10,
+                      flexWrap: "wrap",
                     }}
                   >
-                    삭제
-                  </button>
-                </div>
-              ))
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 260 }}>
+                      {editing ? (
+                        <input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "10px 12px",
+                            borderRadius: 12,
+                            border: "1px solid rgba(0,0,0,0.12)",
+                            fontWeight: 900,
+                          }}
+                        />
+                      ) : (
+                        <div style={{ fontWeight: 900 }}>{it.name}</div>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      {editing ? (
+                        <>
+                          <button
+                            onClick={saveEdit}
+                            style={{
+                              padding: "10px 14px",
+                              borderRadius: 12,
+                              border: "1px solid rgba(0,0,0,0.12)",
+                              background: "rgba(34, 197, 94, 0.15)",
+                              color: "#166534",
+                              fontWeight: 900,
+                              cursor: "pointer",
+                            }}
+                          >
+                            저장
+                          </button>
+                          <button
+                            onClick={cancelEdit}
+                            style={{
+                              padding: "10px 14px",
+                              borderRadius: 12,
+                              border: "1px solid rgba(0,0,0,0.12)",
+                              background: "rgba(148, 163, 184, 0.2)",
+                              color: "#0f172a",
+                              fontWeight: 900,
+                              cursor: "pointer",
+                            }}
+                          >
+                            취소
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => startEdit(it)}
+                            style={{
+                              padding: "10px 14px",
+                              borderRadius: 12,
+                              border: "1px solid rgba(0,0,0,0.12)",
+                              background: "rgba(59, 130, 246, 0.12)",
+                              color: "#1d4ed8",
+                              fontWeight: 900,
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            수정
+                          </button>
+                          <button
+                            onClick={() => del(it.id)}
+                            style={{
+                              padding: "10px 14px",
+                              borderRadius: 12,
+                              border: "1px solid rgba(0,0,0,0.12)",
+                              background: "rgba(239, 68, 68, 0.1)",
+                              color: "#b91c1c",
+                              fontWeight: 900,
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            삭제
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

@@ -91,9 +91,6 @@ model Order {
   quantity  Int
   createdAt DateTime    @default(now())
 
-  // ✅ 장바구니 묶음용 (같은 장바구니 주문이면 같은 groupId)
-  groupId   String?
-
   receiverName String
   receiverAddr String
   phone       String?
@@ -113,7 +110,4 @@ model Order {
   @@index([clientId])
   @@index([itemId])
   @@index([createdAt])
-
-  // ✅ 추가
-  @@index([groupId])
 }
