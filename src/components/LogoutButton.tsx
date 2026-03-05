@@ -7,19 +7,10 @@ export default function LogoutButton() {
 
   async function logout() {
     if (loading) return;
-
     setLoading(true);
-
     try {
-      await fetch("/api/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch (e) {
-      console.error(e);
-    }
-
-    // ✅ localhost 같은거 절대 쓰지말고 상대경로
+      await fetch("/api/logout", { method: "POST", credentials: "include" });
+    } catch {}
     window.location.href = "/login";
   }
 
@@ -27,7 +18,7 @@ export default function LogoutButton() {
     <button
       onClick={logout}
       disabled={loading}
-      className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
+      className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20 disabled:opacity-60"
     >
       {loading ? "로그아웃..." : "로그아웃"}
     </button>
