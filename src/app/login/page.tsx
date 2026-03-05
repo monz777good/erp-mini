@@ -11,9 +11,7 @@ function cls(...arr: Array<string | false | null | undefined>) {
 export default function LoginPage() {
   const [role, setRole] = useState<Role>("SALES");
 
-  // ✅ 영업사원만 사용
-  const [name, setName] = useState("");
-
+  const [name, setName] = useState(""); // ✅ 영업사원만 사용
   const [phone, setPhone] = useState("01012341234");
   const [pin, setPin] = useState("");
 
@@ -31,7 +29,6 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const url = role === "ADMIN" ? "/api/admin-login" : "/api/sales-login";
-
       const payload =
         role === "ADMIN"
           ? { phone: phone.trim(), pin: pin.trim() }
@@ -45,15 +42,12 @@ export default function LoginPage() {
       });
 
       const data = await res.json().catch(() => ({}));
-
       if (!res.ok || data?.ok === false) {
         setErr(data?.error || `HTTP_${res.status}`);
         return;
       }
 
-      // ✅ 성공 이동
-      if (role === "ADMIN") window.location.href = "/admin";
-      else window.location.href = "/orders";
+      window.location.href = role === "ADMIN" ? "/admin" : "/orders";
     } finally {
       setLoading(false);
     }
@@ -68,19 +62,14 @@ export default function LoginPage() {
       }}
     >
       <div className="mx-auto w-full max-w-xl rounded-3xl border border-white/15 bg-white/10 backdrop-blur-xl shadow-[0_20px_60px_rgba(0,0,0,0.55)] p-6 md:p-8 text-white">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-sm font-bold text-white/70">ERP MINI</div>
-            <div className="mt-1 text-2xl font-extrabold">한의N원외탕전</div>
-            <div className="mt-2 text-white/60 text-sm">
-              {role === "SALES"
-                ? "이름 + 전화번호 + PIN 로그인 (영업사원: 최초 로그인 시 등록)"
-                : "전화번호 + PIN 로그인 (관리자)"}
-            </div>
-          </div>
+        <div className="text-sm font-bold text-white/70">ERP MINI</div>
+        <div className="mt-1 text-2xl font-extrabold">한의N원외탕전</div>
+        <div className="mt-2 text-white/60 text-sm">
+          {role === "SALES"
+            ? "이름 + 전화번호 + PIN 로그인 (영업사원: 최초 로그인 시 등록)"
+            : "전화번호 + PIN 로그인 (관리자)"}
         </div>
 
-        {/* 역할 토글 */}
         <div className="mt-6 flex rounded-2xl border border-white/15 bg-white/10 p-1">
           <button
             className={cls(
@@ -104,9 +93,7 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {/* 입력 */}
         <div className="mt-6 space-y-4">
-          {/* ✅ 영업사원만 이름 */}
           {role === "SALES" ? (
             <div>
               <div className="text-sm text-white/70">이름 (필수)</div>
@@ -157,9 +144,7 @@ export default function LoginPage() {
           </button>
 
           <div className="text-center text-white/55 text-sm mt-2">
-            {role === "ADMIN"
-              ? "관리자는 로그인 후 /admin 으로 이동합니다. (관리자도 /orders 접근 가능)"
-              : "영업사원은 로그인 후 /orders 로 이동합니다."}
+            관리자는 로그인 후 /admin 으로 이동합니다. (관리자도 /orders 접근 가능)
           </div>
         </div>
       </div>

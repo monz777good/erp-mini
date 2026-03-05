@@ -5,11 +5,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  clearSession();
-  return NextResponse.redirect("/login");
+  await clearSession();
+  return NextResponse.redirect(new URL("/login", process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8080"));
 }
 
 export async function POST() {
-  clearSession();
+  await clearSession();
   return NextResponse.json({ ok: true });
 }

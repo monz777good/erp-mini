@@ -42,7 +42,6 @@ function decode(v: string): SessionUser | null {
   }
 }
 
-/** ✅ Next16 타입 이슈: cookies()가 Promise로 잡히는 케이스 대응 */
 export async function getSession(): Promise<SessionUser | null> {
   const c = await cookies();
   const v = c.get(COOKIE_NAME)?.value;
@@ -56,8 +55,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 export async function setSessionUser(user: SessionUser) {
   const c = await cookies();
-  const v = encode(user);
-  c.set(COOKIE_NAME, v, {
+  c.set(COOKIE_NAME, encode(user), {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
