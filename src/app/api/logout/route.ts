@@ -4,13 +4,13 @@ import { clearSession } from "@/lib/session";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// ✅ 브라우저가 /api/logout 로 직접 들어오면(GET) → 그냥 /login 으로 보내기
-export async function GET() {
+// 브라우저가 직접 접근하면 로그인으로 이동
+export async function GET(req: Request) {
   await clearSession();
-  return NextResponse.redirect(new URL("/login", "http://localhost"));
+  return NextResponse.redirect(new URL("/login", req.url));
 }
 
-// ✅ 프론트는 무조건 POST로 호출
+// 프론트에서 로그아웃 호출
 export async function POST() {
   await clearSession();
   return NextResponse.json({ ok: true });
