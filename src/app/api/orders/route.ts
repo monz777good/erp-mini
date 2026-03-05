@@ -2,136 +2,100 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
-import { OrderStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function err(message: string, status = 400) {
-  return NextResponse.json({ ok: false, message }, { status });
+  return NextResponse.json({ ok: false, error: message }, { status });
 }
 
 function s(v: any) {
   return String(v ?? "").trim();
 }
 
-// ✅ KST 기준 YYYY-MM-DD → UTC Date 범위
+// ✅ KST(한국시간) 기준 날짜 문자열(YYYY-MM-DD)을 UTC Date 범위로 변환
 function kstRange(fromYmd: string, toYmd: string) {
   const from = new Date(`${fromYmd}T00:00:00+09:00`);
   const to = new Date(`${toYmd}T23:59:59.999+09:00`);
   return { from, to };
 }
 
-type BodyItem = { itemId: string; quantity?: number };
-
 export async function GET(req: NextRequest) {
-  const user = await requireUser();
-  if (user instanceof NextResponse) return user;
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
-  const url = new URL(req.url);
-  const from = s(url.searchParams.get("from"));
-  const to = s(url.searchParams.get("to"));
-  const status = s(url.searchParams.get("status"));
-  const q = s(url.searchParams.get("q"));
+  const { searchParams } = new URL(req.url);
 
-  let range = undefined as undefined | { gte: Date; lte: Date };
-  if (from && to) {
-    const r = kstRange(from, to);
-    range = { gte: r.from, lte: r.to };
-  }
+  const fromYmd = s(searchParams.get("from")) || "";
+  const toYmd = s(searchParams.get("to")) || "";
+  const q = s(searchParams.get("q")) || "";
 
-  const where: any = { userId: user.id };
-  if (range) where.createdAt = range;
-  if (status) where.status = status as OrderStatus;
+  if (!fromYmd || !toYmd) return err("DATE_REQUIRED", 400);
 
+  const { from, to } = kstRange(fromYmd, toYmd);
+
+  // ✅ SALES는 본인 주문만, ADMIN은 전체
+  const where: any = {
+    createdAt: { gte: from, lte: to },
+    ...(me.role === "ADMIN" ? {} : { userId: me.id }),
+  };
+
+  // ✅ 검색(거래처/수하인/주소/전화/비고/품목명)
   if (q) {
     where.OR = [
       { receiverName: { contains: q, mode: "insensitive" } },
       { receiverAddr: { contains: q, mode: "insensitive" } },
-      { phone: { contains: q } },
-      { mobile: { contains: q } },
+      { phone: { contains: q, mode: "insensitive" } },
+      { mobile: { contains: q, mode: "insensitive" } },
       { note: { contains: q, mode: "insensitive" } },
-      { client: { name: { contains: q, mode: "insensitive" } } },
-      { item: { name: { contains: q, mode: "insensitive" } } },
+      // 거래처명(관계가 있으면)
+      { client: { is: { name: { contains: q, mode: "insensitive" } } } },
+      // ✅ 품목명
+      { item: { is: { name: { contains: q, mode: "insensitive" } } } },
     ];
   }
 
   const rows = await prisma.order.findMany({
     where,
     orderBy: { createdAt: "desc" },
-    include: {
-      item: true,
-      client: true,
+    select: {
+      id: true,
+      status: true,
+      createdAt: true,
+
+      quantity: true, // ✅ 수량 내려줌
+
+      receiverName: true,
+      receiverAddr: true,
+      phone: true,
+      mobile: true,
+      note: true,
+
+      // 거래처명(있으면)
+      client: { select: { name: true } },
+
+      // ✅ 품목명 내려줌 (items ❌, item ✅)
+      item: { select: { name: true } },
     },
-    take: 500,
   });
 
-  // ✅ 호환: rows / orders 둘 다 내려줌 (프론트가 뭐를 읽든 정상)
-  return NextResponse.json({ ok: true, rows, orders: rows });
-}
+  // ✅ 프론트가 바로 쓰기 쉽게 평탄화해서 내려줌
+  const orders = rows.map((r) => ({
+    id: r.id,
+    status: r.status,
+    createdAt: r.createdAt,
+    quantity: r.quantity ?? 0,
 
-export async function POST(req: NextRequest) {
-  const user = await requireUser();
-  if (user instanceof NextResponse) return user;
+    clientName: r.client?.name ?? null,
+    itemName: r.item?.name ?? null,
 
-  let body: any = {};
-  try {
-    body = await req.json();
-  } catch {
-    return err("BAD_REQUEST");
-  }
+    receiverName: r.receiverName ?? null,
+    receiverAddr: r.receiverAddr ?? null,
+    phone: r.phone ?? null,
+    mobile: r.mobile ?? null,
+    note: r.note ?? null,
+  }));
 
-  const clientId = s(body.clientId);
-  const receiverName = s(body.receiverName);
-  const receiverAddr = s(body.receiverAddr);
-  const phone = s(body.phone) || null;
-  const mobile = s(body.mobile) || null;
-  const note = s(body.note) || null;
-
-  const itemsFromArray: BodyItem[] = Array.isArray(body.items) ? body.items : [];
-  const singleItemId = s(body.itemId);
-  const singleQty = Number(body.quantity ?? 1);
-
-  let items: { itemId: string; quantity: number }[] = [];
-
-  if (itemsFromArray.length > 0) {
-    items = itemsFromArray
-      .map((it) => ({
-        itemId: s(it.itemId),
-        quantity: Math.max(1, Number(it.quantity ?? 1) || 1),
-      }))
-      .filter((it) => !!it.itemId);
-  } else if (singleItemId) {
-    items = [
-      {
-        itemId: singleItemId,
-        quantity: Math.max(1, Number.isFinite(singleQty) ? singleQty : 1),
-      },
-    ];
-  }
-
-  if (!clientId) return err("CLIENT_REQUIRED");
-  if (!receiverName) return err("RECEIVER_NAME_REQUIRED");
-  if (!receiverAddr) return err("RECEIVER_ADDR_REQUIRED");
-  if (items.length === 0) return err("ITEM_REQUIRED");
-
-  const createdAt = new Date();
-
-  await prisma.order.createMany({
-    data: items.map((it) => ({
-      userId: user.id,
-      clientId,
-      itemId: it.itemId,
-      quantity: it.quantity,
-      receiverName,
-      receiverAddr,
-      phone,
-      mobile,
-      note,
-      status: OrderStatus.REQUESTED,
-      createdAt,
-    })),
-  });
-
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, orders });
 }
