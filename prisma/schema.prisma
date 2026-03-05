@@ -27,78 +27,82 @@ model User {
   pin       String?
   createdAt DateTime @default(now())
 
-  orders  Order[]
-  clients Client[]
+  orders    Order[]
+  clients   Client[]
 }
 
 model Item {
-  id   String @id @default(cuid())
-  name String @unique
-
-  bundleV Int @default(0)
-  stockV  Int @default(0)
-  extraV  Int @default(0)
-
+  id        String   @id @default(cuid())
+  name      String   @unique
   createdAt DateTime @default(now())
 
-  orders Order[]
+  bundleV   Int      @default(0)
+  stockV    Int      @default(0)
+  extraV    Int      @default(0)
+
+  orders    Order[]
 }
 
 model Client {
-  id String @id @default(cuid())
-
+  id        String   @id @default(cuid())
   name      String
-  ownerName String?
 
-  bizRegNo          String?
-  careInstitutionNo String?
+  // ✅ 기존에 DB에 있던 컬럼들(드랍 방지)
+  bizRegNo           String?
+  careInstitutionNo  String?
+  memo               String?
+  ownerName          String?
+  receiverTel        String?
+  receiverMobile     String?
+  updatedAt          DateTime? // DB에 있었다면 유지
 
-  receiverName   String?
-  receiverAddr   String?
-  receiverTel    String?
-  receiverMobile String?
+  // ✅ 기존 배송정보(이미 쓰고 있던 걸로 보임)
+  receiverName String?
+  receiverAddr String?
 
-  memo String?
+  // ✅ 이번 완전판 핵심: 거래처 연락처 저장(새 컬럼)
+  phone     String?
+  mobile    String?
 
+  // (있으면) 사업자등록증 메타
   bizFileUrl        String?
   bizFileName       String?
   bizFileUploadedAt DateTime?
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
-  orders Order[]
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  orders    Order[]
 
   @@index([userId])
   @@index([name])
 }
 
 model Order {
-  id     String      @id @default(cuid())
-  status OrderStatus @default(REQUESTED)
-
-  quantity Int @default(1)
+  id        String      @id @default(cuid())
+  status    OrderStatus @default(REQUESTED)
+  quantity  Int
+  createdAt DateTime    @default(now())
 
   receiverName String
   receiverAddr String
-  phone        String?
-  mobile       String?
-  note         String?
+  phone       String?
+  mobile      String?
+  note        String?
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
-
-  itemId String
-  item   Item   @relation(fields: [itemId], references: [id])
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   clientId String
-  client   Client @relation(fields: [clientId], references: [id])
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
 
-  createdAt DateTime @default(now())
+  itemId   String
+  item     Item   @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
-  @@index([status])
+  @@index([userId])
+  @@index([clientId])
+  @@index([itemId])
   @@index([createdAt])
 }
