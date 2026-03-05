@@ -7,124 +7,142 @@ import { OrderStatus } from "@prisma/client";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function toDateStart(v: string) {
-  const [y, m, d] = v.split("-").map((x) => parseInt(x, 10));
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d, 0, 0, 0, 0);
+function err(message: string, status = 400) {
+  return NextResponse.json({ ok: false, message }, { status });
 }
-function toDateEnd(v: string) {
-  const [y, m, d] = v.split("-").map((x) => parseInt(x, 10));
-  if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d, 23, 59, 59, 999);
+
+function s(v: any) {
+  return String(v ?? "").trim();
 }
+
+// ✅ KST 기준 YYYY-MM-DD → UTC Date 범위
+function kstRange(fromYmd: string, toYmd: string) {
+  const from = new Date(`${fromYmd}T00:00:00+09:00`);
+  const to = new Date(`${toYmd}T23:59:59.999+09:00`);
+  return { from, to };
+}
+
+type BodyItem = { itemId: string; quantity?: number };
 
 export async function GET(req: NextRequest) {
   const user = await requireUser();
   if (user instanceof NextResponse) return user;
 
   const url = new URL(req.url);
-  const from = url.searchParams.get("from") || "";
-  const to = url.searchParams.get("to") || "";
+  const from = s(url.searchParams.get("from"));
+  const to = s(url.searchParams.get("to"));
+  const status = s(url.searchParams.get("status")); // REQUESTED/APPROVED/REJECTED/DONE
+  const q = s(url.searchParams.get("q"));
 
-  const where: any = {};
-  if (user.role === "SALES") where.user = { id: user.id };
-
+  // 기본: 최근 7일
+  let range = undefined as undefined | { gte: Date; lte: Date };
   if (from && to) {
-    const ds = toDateStart(from);
-    const de = toDateEnd(to);
-    if (ds && de) where.createdAt = { gte: ds, lte: de };
+    const r = kstRange(from, to);
+    range = { gte: r.from, lte: r.to };
   }
 
-  const orders = await prisma.order.findMany({
+  const where: any = {
+    userId: user.id,
+  };
+
+  if (range) where.createdAt = range;
+  if (status) where.status = status as OrderStatus;
+
+  if (q) {
+    where.OR = [
+      { receiverName: { contains: q, mode: "insensitive" } },
+      { receiverAddr: { contains: q, mode: "insensitive" } },
+      { phone: { contains: q } },
+      { mobile: { contains: q } },
+      { note: { contains: q, mode: "insensitive" } },
+      { client: { name: { contains: q, mode: "insensitive" } } },
+      { item: { name: { contains: q, mode: "insensitive" } } },
+    ];
+  }
+
+  const rows = await prisma.order.findMany({
     where,
     orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      status: true,
-      quantity: true,
-      createdAt: true,
-      receiverName: true,
-      receiverAddr: true,
-      phone: true,
-      mobile: true,
-      note: true,
-      client: {
-        select: {
-          id: true,
-          name: true,
-          ownerName: true,
-          address: true,
-          receiverTel: true,
-          receiverMobile: true,
-        },
-      },
-      item: { select: { id: true, name: true } },
+    include: {
+      item: true,
+      client: true,
     },
+    take: 500,
   });
 
-  return NextResponse.json({ ok: true, orders });
+  return NextResponse.json({ ok: true, rows });
 }
 
 export async function POST(req: NextRequest) {
   const user = await requireUser();
   if (user instanceof NextResponse) return user;
 
-  const body = await req.json().catch(() => null);
-  if (!body) return NextResponse.json({ ok: false, error: "BAD_JSON" }, { status: 400 });
+  let body: any = {};
+  try {
+    body = await req.json();
+  } catch {
+    return err("BAD_REQUEST");
+  }
 
-  const clientId = String(body.clientId ?? "");
-  const itemId = String(body.itemId ?? "");
-  const quantity = Number(body.quantity ?? 0);
+  const clientId = s(body.clientId);
+  const receiverName = s(body.receiverName);
+  const receiverAddr = s(body.receiverAddr);
+  const phone = s(body.phone) || null;
+  const mobile = s(body.mobile) || null;
+  const note = s(body.note) || null;
 
-  const receiverName = String(body.receiverName ?? "").trim();
-  const receiverAddr = String(body.receiverAddr ?? "").trim();
-  const phone = String(body.phone ?? "").trim();
-  const mobile = String(body.mobile ?? "").trim();
-  const note = String(body.note ?? "").trim();
+  // ✅ 1) 장바구니 형태: items: [{itemId, quantity}]
+  const itemsFromArray: BodyItem[] = Array.isArray(body.items) ? body.items : [];
 
-  if (!clientId) return NextResponse.json({ ok: false, error: "CLIENT_REQUIRED" }, { status: 400 });
-  if (!itemId) return NextResponse.json({ ok: false, error: "ITEM_REQUIRED" }, { status: 400 });
-  if (!Number.isFinite(quantity) || quantity <= 0)
-    return NextResponse.json({ ok: false, error: "QUANTITY_INVALID" }, { status: 400 });
-  if (!receiverName) return NextResponse.json({ ok: false, error: "RECEIVER_NAME_REQUIRED" }, { status: 400 });
-  if (!receiverAddr) return NextResponse.json({ ok: false, error: "RECEIVER_ADDR_REQUIRED" }, { status: 400 });
+  // ✅ 2) 단일 형태(호환): itemId + quantity
+  const singleItemId = s(body.itemId);
+  const singleQty = Number(body.quantity ?? 1);
 
-  const created = await prisma.order.create({
-    data: {
-      status: OrderStatus.REQUESTED,
-      quantity,
+  let items: { itemId: string; quantity: number }[] = [];
+
+  if (itemsFromArray.length > 0) {
+    items = itemsFromArray
+      .map((it) => ({
+        itemId: s(it.itemId),
+        quantity: Math.max(1, Number(it.quantity ?? 1) || 1),
+      }))
+      .filter((it) => !!it.itemId);
+  } else if (singleItemId) {
+    items = [
+      {
+        itemId: singleItemId,
+        quantity: Math.max(1, Number.isFinite(singleQty) ? singleQty : 1),
+      },
+    ];
+  }
+
+  if (!clientId) return err("CLIENT_REQUIRED");
+  if (!receiverName) return err("RECEIVER_NAME_REQUIRED");
+  if (!receiverAddr) return err("RECEIVER_ADDR_REQUIRED");
+
+  // ✅ 여기서만 ITEM_REQUIRED (진짜 아이템이 없을 때)
+  if (items.length === 0) return err("ITEM_REQUIRED");
+
+  // ✅ 장바구니 “한 번 주문” 묶음을 위해 createdAt 동일하게 고정
+  const createdAt = new Date();
+
+  await prisma.order.createMany({
+    data: items.map((it) => ({
+      userId: user.id,
+      clientId,
+      itemId: it.itemId,
+      quantity: it.quantity,
+
       receiverName,
       receiverAddr,
-      phone: phone || null,
-      mobile: mobile || null,
-      note: note || null,
-      user: { connect: { id: user.id } },
-      client: { connect: { id: clientId } },
-      item: { connect: { id: itemId } },
-    },
-    select: {
-      id: true,
-      status: true,
-      quantity: true,
-      createdAt: true,
-      receiverName: true,
-      receiverAddr: true,
-      phone: true,
-      mobile: true,
-      note: true,
-      client: {
-        select: {
-          id: true,
-          name: true,
-          ownerName: true,
-          address: true,
-          receiverTel: true,
-          receiverMobile: true,
-        },
-      },
-      item: { select: { id: true, name: true } },
-    },
+      phone,
+      mobile,
+      note,
+
+      status: OrderStatus.REQUESTED,
+      createdAt,
+    })),
   });
 
-  return NextResponse.json({ ok: true, order: created });
+  return NextResponse.json({ ok: true });
 }
