@@ -47,24 +47,29 @@ model Client {
   id        String   @id @default(cuid())
   name      String
 
-  // ✅ 기존에 DB에 있던 컬럼들(드랍 방지)
-  bizRegNo           String?
-  careInstitutionNo  String?
-  memo               String?
-  ownerName          String?
-  receiverTel        String?
-  receiverMobile     String?
-  updatedAt          DateTime? // DB에 있었다면 유지
+  // ✅ 거래처 주소(별도)
+  address   String?
 
-  // ✅ 기존 배송정보(이미 쓰고 있던 걸로 보임)
+  // ✅ 대표자
+  ownerName String?
+
+  // ✅ 요양기관번호 / 사업자등록번호
+  careInstitutionNo String?
+  bizRegNo          String?
+
+  // ✅ 주문 자동채움용 배송 기본값
   receiverName String?
   receiverAddr String?
 
-  // ✅ 이번 완전판 핵심: 거래처 연락처 저장(새 컬럼)
-  phone     String?
-  mobile    String?
+  // ✅ 연락처(거래처 기본 연락처)
+  receiverTel    String?
+  receiverMobile String?
 
-  // (있으면) 사업자등록증 메타
+  // (구형/호환용으로 남겨둠)
+  memo      String?
+  updatedAt DateTime?
+
+  // ✅ 사업자등록증 파일 메타
   bizFileUrl        String?
   bizFileName       String?
   bizFileUploadedAt DateTime?

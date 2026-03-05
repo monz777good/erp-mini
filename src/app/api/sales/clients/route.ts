@@ -14,9 +14,7 @@ export async function GET() {
   if (user instanceof NextResponse) return user;
 
   const where: any = {};
-  if (user.role === "SALES") {
-    where.user = { id: user.id };
-  }
+  if (user.role === "SALES") where.user = { id: user.id };
 
   const clients = await prisma.client.findMany({
     where,
@@ -24,10 +22,17 @@ export async function GET() {
     select: {
       id: true,
       name: true,
+      address: true,
+      ownerName: true,
+      careInstitutionNo: true,
+      bizRegNo: true,
       receiverName: true,
       receiverAddr: true,
-      phone: true,
-      mobile: true,
+      receiverTel: true,
+      receiverMobile: true,
+      bizFileUrl: true,
+      bizFileName: true,
+      bizFileUploadedAt: true,
       createdAt: true,
     },
   });
@@ -43,29 +48,46 @@ export async function POST(req: NextRequest) {
   if (!body) return json(false, { error: "BAD_JSON" }, 400);
 
   const name = String(body.name ?? "").trim();
+  if (!name) return json(false, { error: "NAME_REQUIRED" }, 400);
+
+  const address = String(body.address ?? "").trim();
+  const ownerName = String(body.ownerName ?? "").trim();
+  const careInstitutionNo = String(body.careInstitutionNo ?? "").trim();
+  const bizRegNo = String(body.bizRegNo ?? "").trim();
+
   const receiverName = String(body.receiverName ?? "").trim();
   const receiverAddr = String(body.receiverAddr ?? "").trim();
-  const phone = String(body.phone ?? "").trim();
-  const mobile = String(body.mobile ?? "").trim();
-
-  if (!name) return json(false, { error: "NAME_REQUIRED" }, 400);
+  const receiverTel = String(body.receiverTel ?? "").trim();
+  const receiverMobile = String(body.receiverMobile ?? "").trim();
 
   const created = await prisma.client.create({
     data: {
       name,
+      address: address || null,
+      ownerName: ownerName || null,
+      careInstitutionNo: careInstitutionNo || null,
+      bizRegNo: bizRegNo || null,
       receiverName: receiverName || null,
       receiverAddr: receiverAddr || null,
-      phone: phone || null,
-      mobile: mobile || null,
+      receiverTel: receiverTel || null,
+      receiverMobile: receiverMobile || null,
       user: { connect: { id: user.id } }, // ✅ 필수
+      updatedAt: new Date(),
     },
     select: {
       id: true,
       name: true,
+      address: true,
+      ownerName: true,
+      careInstitutionNo: true,
+      bizRegNo: true,
       receiverName: true,
       receiverAddr: true,
-      phone: true,
-      mobile: true,
+      receiverTel: true,
+      receiverMobile: true,
+      bizFileUrl: true,
+      bizFileName: true,
+      bizFileUploadedAt: true,
       createdAt: true,
     },
   });

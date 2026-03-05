@@ -1,86 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSessionUser } from "@/lib/session";
-import { Role } from "@prisma/client";
+import { requireUser } from "@/lib/session";
+import { put } from "@vercel/blob";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> } | { params: { id: string } }
-) {
-  try {
-    const user = await getSessionUser();
-    if (!user) {
-      return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
-    }
+function json(ok: boolean, data: any, status = 200) {
+  return NextResponse.json({ ok, ...data }, { status });
+}
 
-    const p: any = (context as any).params;
-    const resolved = typeof p?.then === "function" ? await p : p;
-    const id = resolved?.id;
+type Ctx = { params: Promise<{ id: string }> };
 
-    if (!id) {
-      return NextResponse.json({ ok: false, error: "BAD_PARAMS" }, { status: 400 });
-    }
+export async function POST(req: NextRequest, ctx: Ctx) {
+  const user = await requireUser();
+  if (user instanceof NextResponse) return user;
 
-    // SALES는 본인 client만, ADMIN은 전체
-    const where: any = { id };
-    if (user.role !== Role.ADMIN) where.userId = user.id;
+  // ✅ Next 16 타입 이슈 대응: params가 Promise로 들어오는 케이스
+  const { id: clientId } = await ctx.params;
 
-    const client: any = await prisma.client.findFirst({
-      where,
-      select: { bizFileUrl: true, bizFileName: true },
-    });
+  if (!clientId) return json(false, { error: "CLIENT_ID_REQUIRED" }, 400);
 
-    if (!client) {
-      return NextResponse.json({ ok: false, error: "NOT_FOUND" }, { status: 404 });
-    }
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) return json(false, { error: "BLOB_TOKEN_MISSING" }, 400);
 
-    const url = client.bizFileUrl ?? null;
-    const name = client.bizFileName ?? "bizfile";
+  const form = await req.formData().catch(() => null);
+  if (!form) return json(false, { error: "BAD_FORMDATA" }, 400);
 
-    if (!url) {
-      return NextResponse.json({ ok: false, error: "NO_BIZFILE" }, { status: 404 });
-    }
+  const file = form.get("file");
+  if (!(file instanceof File)) return json(false, { error: "FILE_REQUIRED" }, 400);
 
-    // ✅ dataURL이면 "파일로 응답" (redirect X)
-    if (String(url).startsWith("data:")) {
-      const match = String(url).match(/^data:(.+?);base64,(.+)$/);
-      if (!match) {
-        return NextResponse.json({ ok: false, error: "BAD_DATAURL" }, { status: 400 });
-      }
-      const mime = match[1];
-      const b64 = match[2];
-      const buf = Buffer.from(b64, "base64");
+  // ✅ 권한 체크: SALES는 본인 거래처만 업로드 가능
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, userId: true },
+  });
+  if (!client) return json(false, { error: "CLIENT_NOT_FOUND" }, 404);
+  if (user.role === "SALES" && client.userId !== user.id) return json(false, { error: "FORBIDDEN" }, 403);
 
-      const q = new URL(req.url).searchParams;
-      const download = q.get("download") === "1";
+  const keySafe = file.name.replace(/[^\w.\-]+/g, "_");
+  const blob = await put(`bizfiles/${clientId}/${Date.now()}_${keySafe}`, file, {
+    access: "public",
+    token,
+  });
 
-      return new NextResponse(buf, {
-        headers: {
-          "Content-Type": mime,
-          "Content-Disposition": download
-            ? `attachment; filename="${encodeURIComponent(name)}"`
-            : `inline; filename="${encodeURIComponent(name)}"`,
-          "Cache-Control": "no-store",
-        },
-      });
-    }
+  const updated = await prisma.client.update({
+    where: { id: clientId },
+    data: {
+      bizFileUrl: blob.url,
+      bizFileName: file.name,
+      bizFileUploadedAt: new Date(),
+      updatedAt: new Date(),
+    },
+    select: {
+      id: true,
+      bizFileUrl: true,
+      bizFileName: true,
+      bizFileUploadedAt: true,
+    },
+  });
 
-    // ✅ url이 일반 URL이면:
-    // - download=1 => redirect
-    // - 아니면 JSON으로 url/name 반환
-    const q = new URL(req.url).searchParams;
-    if (q.get("download") === "1") {
-      return NextResponse.redirect(url);
-    }
-
-    return NextResponse.json({ ok: true, url, name });
-  } catch (e: any) {
-    return NextResponse.json(
-      { ok: false, error: "SERVER_ERROR", detail: String(e?.message ?? e) },
-      { status: 500 }
-    );
-  }
+  return json(true, { bizfile: updated });
 }

@@ -26,11 +26,7 @@ export async function GET(req: NextRequest) {
   const to = url.searchParams.get("to") || "";
 
   const where: any = {};
-
-  // ✅ SALES는 본인 주문만 / ADMIN은 전체
-  if (user.role === "SALES") {
-    where.user = { id: user.id };
-  }
+  if (user.role === "SALES") where.user = { id: user.id };
 
   if (from && to) {
     const ds = toDateStart(from);
@@ -51,7 +47,16 @@ export async function GET(req: NextRequest) {
       phone: true,
       mobile: true,
       note: true,
-      client: { select: { id: true, name: true } },
+      client: {
+        select: {
+          id: true,
+          name: true,
+          ownerName: true,
+          address: true,
+          receiverTel: true,
+          receiverMobile: true,
+        },
+      },
       item: { select: { id: true, name: true } },
     },
   });
@@ -83,7 +88,6 @@ export async function POST(req: NextRequest) {
   if (!receiverName) return NextResponse.json({ ok: false, error: "RECEIVER_NAME_REQUIRED" }, { status: 400 });
   if (!receiverAddr) return NextResponse.json({ ok: false, error: "RECEIVER_ADDR_REQUIRED" }, { status: 400 });
 
-  // ✅ FK 컬럼명이 뭐든 상관없이 "관계 connect"로만 저장
   const created = await prisma.order.create({
     data: {
       status: OrderStatus.REQUESTED,
@@ -107,7 +111,16 @@ export async function POST(req: NextRequest) {
       phone: true,
       mobile: true,
       note: true,
-      client: { select: { id: true, name: true } },
+      client: {
+        select: {
+          id: true,
+          name: true,
+          ownerName: true,
+          address: true,
+          receiverTel: true,
+          receiverMobile: true,
+        },
+      },
       item: { select: { id: true, name: true } },
     },
   });
