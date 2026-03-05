@@ -1,45 +1,14 @@
 import { NextResponse } from "next/server";
+import { clearSession } from "@/lib/session";
 
-function makeLogoutResponse(req: Request) {
-  const res = NextResponse.json({ ok: true });
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-  //        (  100% )
-  const cookieHeader = req.headers.get("cookie") || "";
-  const cookieNames = cookieHeader
-    .split(";")
-    .map((v) => v.trim())
-    .filter(Boolean)
-    .map((v) => v.split("=")[0]?.trim())
-    .filter(Boolean);
+export async function POST() {
+  clearSession();
 
-  //  
-  const unique = Array.from(new Set(cookieNames));
-
-  for (const name of unique) {
-    // path "/"   (  )
-    res.cookies.set({
-      name,
-      value: "",
-      path: "/",
-      maxAge: 0,
-    });
-
-    //   path    (Next  /api   )
-    res.cookies.set({
-      name,
-      value: "",
-      path: "/api",
-      maxAge: 0,
-    });
-  }
-
+  const res = NextResponse.redirect(new URL("/login", "http://localhost"));
+  // Next가 실제 호스트로 바꿔줌 (상대경로 리다이렉트 용)
+  res.headers.set("Location", "/login");
   return res;
-}
-
-export async function POST(req: Request) {
-  return makeLogoutResponse(req);
-}
-
-export async function GET(req: Request) {
-  return makeLogoutResponse(req);
 }
