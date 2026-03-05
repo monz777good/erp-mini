@@ -13,6 +13,11 @@ type ClientRow = {
   address?: string;
   phone?: string;
   note?: string;
+
+  // ✅ 사업자등록증 (API가 내려주면 표시)
+  bizFileUrl?: string | null;
+  bizFileName?: string | null;
+  bizFileUploadedAt?: string | null;
 };
 
 export default function AdminClientsPage() {
@@ -25,7 +30,7 @@ export default function AdminClientsPage() {
     const qs = keyword ? `?q=${encodeURIComponent(keyword)}` : "";
     const res = await fetch(`/api/admin/clients${qs}`, {
       method: "GET",
-      credentials: "include", // ✅ 쿠키 무조건 포함
+      credentials: "include",
       cache: "no-store",
     });
 
@@ -46,12 +51,18 @@ export default function AdminClientsPage() {
   return (
     <div className="erp-shell">
       <div className="erp-card">
-        <h1 style={{ fontSize: 34, fontWeight: 900, marginBottom: 6 }}>거래처 / 사업자등록증</h1>
+        <h1 style={{ fontSize: 34, fontWeight: 900, marginBottom: 6 }}>
+          거래처 / 사업자등록증
+        </h1>
         <div style={{ fontWeight: 700, opacity: 0.75, marginBottom: 14 }}>
           거래처 정보 및 사업자등록증 업로드 현황을 관리합니다.
         </div>
 
-        {msg ? <div style={{ color: "crimson", fontWeight: 900, marginBottom: 10 }}>{msg}</div> : null}
+        {msg ? (
+          <div style={{ color: "crimson", fontWeight: 900, marginBottom: 10 }}>
+            {msg}
+          </div>
+        ) : null}
 
         <input
           value={q}
@@ -85,37 +96,111 @@ export default function AdminClientsPage() {
         </button>
 
         <div style={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
             <thead>
               <tr style={{ background: "rgba(0,0,0,0.04)" }}>
-                {["등록일", "영업사원", "거래처명", "사업자번호", "요양기관번호", "이메일", "주소", "전화", "비고"].map((h) => (
-                  <th key={h} style={{ textAlign: "left", padding: 12, fontWeight: 900, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+                {[
+                  "등록일",
+                  "영업사원",
+                  "거래처명",
+                  "사업자번호",
+                  "요양기관번호",
+                  "이메일",
+                  "주소",
+                  "전화",
+                  "비고",
+                  "사업자등록증",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      textAlign: "left",
+                      padding: 12,
+                      fontWeight: 900,
+                      borderBottom: "1px solid rgba(0,0,0,0.08)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
+
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ padding: 18, textAlign: "center", fontWeight: 800, opacity: 0.7 }}>
+                  <td colSpan={10} style={{ padding: 18, textAlign: "center", fontWeight: 800, opacity: 0.7 }}>
                     데이터 없음
                   </td>
                 </tr>
               ) : (
-                rows.map((r) => (
-                  <tr key={r.id} style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
-                    <td style={{ padding: 12, fontWeight: 800 }}>{r.createdAt ? String(r.createdAt).slice(0, 10) : "-"}</td>
-                    <td style={{ padding: 12, fontWeight: 800 }}>{r.salesName ?? "-"}</td>
-                    <td style={{ padding: 12, fontWeight: 900 }}>{r.name ?? "-"}</td>
-                    <td style={{ padding: 12, fontWeight: 800 }}>{r.bizNo ?? "-"}</td>
-                    <td style={{ padding: 12, fontWeight: 800 }}>{r.instNo ?? "-"}</td>
-                    <td style={{ padding: 12, fontWeight: 800 }}>{r.email ?? "-"}</td>
-                    <td style={{ padding: 12, fontWeight: 800 }}>{r.address ?? "-"}</td>
-                    <td style={{ padding: 12, fontWeight: 800 }}>{r.phone ?? "-"}</td>
-                    <td style={{ padding: 12, fontWeight: 800 }}>{r.note ?? "-"}</td>
-                  </tr>
-                ))
+                rows.map((r) => {
+                  const url = r.bizFileUrl ?? "";
+                  const name = r.bizFileName ?? "bizfile";
+                  const hasFile = Boolean(url);
+
+                  return (
+                    <tr key={r.id} style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                      <td style={{ padding: 12, fontWeight: 800, whiteSpace: "nowrap" }}>
+                        {r.createdAt ? String(r.createdAt).slice(0, 10) : "-"}
+                      </td>
+                      <td style={{ padding: 12, fontWeight: 800, whiteSpace: "nowrap" }}>{r.salesName ?? "-"}</td>
+                      <td style={{ padding: 12, fontWeight: 900, whiteSpace: "nowrap" }}>{r.name ?? "-"}</td>
+                      <td style={{ padding: 12, fontWeight: 800, whiteSpace: "nowrap" }}>{r.bizNo ?? "-"}</td>
+                      <td style={{ padding: 12, fontWeight: 800, whiteSpace: "nowrap" }}>{r.instNo ?? "-"}</td>
+                      <td style={{ padding: 12, fontWeight: 800, whiteSpace: "nowrap" }}>{r.email ?? "-"}</td>
+                      <td style={{ padding: 12, fontWeight: 800, minWidth: 220 }}>{r.address ?? "-"}</td>
+                      <td style={{ padding: 12, fontWeight: 800, whiteSpace: "nowrap" }}>{r.phone ?? "-"}</td>
+                      <td style={{ padding: 12, fontWeight: 800, minWidth: 200 }}>{r.note ?? "-"}</td>
+
+                      {/* ✅ 사업자등록증 보기/다운 */}
+                      <td style={{ padding: 12, fontWeight: 800, whiteSpace: "nowrap" }}>
+                        {!hasFile ? (
+                          <span style={{ opacity: 0.6 }}>미첨부</span>
+                        ) : (
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                padding: "8px 10px",
+                                borderRadius: 10,
+                                border: "1px solid rgba(0,0,0,0.12)",
+                                fontWeight: 900,
+                                textDecoration: "none",
+                                background: "rgba(0,0,0,0.04)",
+                              }}
+                            >
+                              보기
+                            </a>
+                            <a
+                              href={url}
+                              download={name}
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                padding: "8px 10px",
+                                borderRadius: 10,
+                                border: "1px solid rgba(0,0,0,0.12)",
+                                fontWeight: 900,
+                                textDecoration: "none",
+                                background: "rgba(0,0,0,0.04)",
+                              }}
+                            >
+                              다운
+                            </a>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
