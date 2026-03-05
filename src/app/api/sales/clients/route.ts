@@ -1,81 +1,76 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/session";
+import { getSessionUser } from "@/lib/session";
+import { Role } from "@prisma/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const user = await requireUser();
-  if (user instanceof NextResponse) return user;
+/**
+ * ✅ 영업사원 거래처 목록
+ * - ADMIN: 전체
+ * - SALES: 본인(userId) 거래처만
+ * - q= 검색(거래처명/대표자/사업자번호/요양기관번호/수하인/주소/메모)
+ */
+export async function GET(req: Request) {
+  try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+    }
 
-  const clients = await prisma.client.findMany({
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      owner: true,
-      bizNo: true,
-      ykiho: true,
-      addr: true,
-      phone: true,
-      mobile: true,
-      note: true,
-      createdAt: true,
-      bizFileName: true,
-      bizFileMime: true,
-      // ⚠️ 목록에선 data는 안 보냄(무거움)
-    },
-  });
+    const url = new URL(req.url);
+    const q = (url.searchParams.get("q") ?? "").trim();
 
-  return NextResponse.json({ ok: true, clients });
-}
+    const where: any = {};
+    if (user.role !== Role.ADMIN) where.userId = user.id;
 
-export async function POST(req: Request) {
-  const user = await requireUser();
-  if (user instanceof NextResponse) return user;
+    if (q) {
+      where.OR = [
+        { name: { contains: q, mode: "insensitive" } },
+        { ownerName: { contains: q, mode: "insensitive" } },
+        { bizRegNo: { contains: q, mode: "insensitive" } },
+        { careInstitutionNo: { contains: q, mode: "insensitive" } },
+        { receiverName: { contains: q, mode: "insensitive" } },
+        { receiverAddr: { contains: q, mode: "insensitive" } },
+        { receiverTel: { contains: q, mode: "insensitive" } },
+        { receiverMobile: { contains: q, mode: "insensitive" } },
+        { memo: { contains: q, mode: "insensitive" } },
+      ];
+    }
 
-  const body = await req.json().catch(() => ({}));
+    const clients = await prisma.client.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        ownerName: true,
 
-  const name = String(body?.name ?? "").trim();
-  if (!name) {
+        bizRegNo: true,
+        careInstitutionNo: true,
+
+        receiverName: true,
+        receiverAddr: true,
+        receiverTel: true,
+        receiverMobile: true,
+
+        memo: true,
+
+        bizFileName: true,
+        bizFileUrl: true,
+        bizFileUploadedAt: true,
+
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return NextResponse.json({ ok: true, clients });
+  } catch (e: any) {
     return NextResponse.json(
-      { ok: false, error: "NAME_REQUIRED" },
-      { status: 400 }
+      { ok: false, error: "SERVER_ERROR", detail: String(e?.message ?? e) },
+      { status: 500 }
     );
   }
-
-  // ✅ 파일(사업자등록증) - base64 데이터(문자열)로 저장
-  // body.bizFileData 는 "data:application/pdf;base64,...." 형태로 들어옴
-  const bizFileName = body?.bizFileName ? String(body.bizFileName) : null;
-  const bizFileMime = body?.bizFileMime ? String(body.bizFileMime) : null;
-  const bizFileData = body?.bizFileData ? String(body.bizFileData) : null;
-
-  // (선택) 너무 큰 파일 방지 (대략 6MB 정도 제한)
-  if (bizFileData && bizFileData.length > 6_000_000) {
-    return NextResponse.json(
-      { ok: false, error: "FILE_TOO_LARGE" },
-      { status: 413 }
-    );
-  }
-
-  const created = await prisma.client.create({
-    data: {
-      name,
-      owner: body?.owner ? String(body.owner) : null,
-      bizNo: body?.bizNo ? String(body.bizNo) : null,
-      ykiho: body?.ykiho ? String(body.ykiho) : null,
-      addr: body?.addr ? String(body.addr) : null,
-      phone: body?.phone ? String(body.phone) : null,
-      mobile: body?.mobile ? String(body.mobile) : null,
-      note: body?.note ? String(body.note) : null,
-
-      bizFileName,
-      bizFileMime,
-      bizFileData,
-    },
-    select: { id: true },
-  });
-
-  return NextResponse.json({ ok: true, id: created.id });
 }

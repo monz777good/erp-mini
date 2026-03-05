@@ -1,8 +1,9 @@
-import { prisma } from "../src/lib/prisma";
-import { Role, OrderStatus } from "@prisma/client";
+import { PrismaClient, Role, OrderStatus } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 async function main() {
-  // ✅ 유저는 phone이 unique라 upsert OK
+  // ✅ 관리자/영업사원 샘플 (필요하면 전화번호만 바꿔)
   const admin = await prisma.user.upsert({
     where: { phone: "01023833691" },
     update: { name: "이현택", role: Role.ADMIN },
@@ -15,25 +16,34 @@ async function main() {
     create: { name: "영업사원", phone: "01012341234", role: Role.SALES },
   });
 
-  // ✅ Client.name이 unique가 아닐 수 있어서: 있으면 첫 번째 가져오고, 없으면 생성
-  let client = await prisma.client.findFirst({
-    where: { name: "샘플거래처" },
-  });
-
-  if (!client) {
-    client = await prisma.client.create({
-      data: { name: "샘플거래처" },
-    });
-  }
-
-  // ✅ Item.name은 네 스키마에서 unique라 upsert OK (너가 올린 schema에 name @unique 였음)
+  // ✅ 품목 샘플
   const item = await prisma.item.upsert({
-    where: { name: "샘플품목" },
+    where: { name: "쌍화탕" },
     update: {},
-    create: { name: "샘플품목" },
+    create: { name: "쌍화탕" },
   });
 
-  // ✅ 주문 샘플 1개
+  // ✅ 거래처 샘플 (새 필드명으로!)
+  const client = await prisma.client.upsert({
+    where: { id: "seed-client-1" },
+    update: {},
+    create: {
+      id: "seed-client-1",
+      userId: sales.id,
+      name: "한한한의원",
+      ownerName: "한한왕",
+      bizRegNo: "123123123",
+      careInstitutionNo: "113212213",
+      receiverName: "한한왕",
+      receiverAddr: "경기도 안산시 한한동",
+      receiverTel: "01000000000",
+      receiverMobile: "01111111111",
+      memo: "뽀",
+      // bizFileUrl / bizFileName 은 업로드 붙인 뒤에 채워짐
+    },
+  });
+
+  // ✅ 주문 샘플 (Order 필드도 현재 스키마와 맞춰서!)
   await prisma.order.create({
     data: {
       userId: sales.id,
@@ -41,26 +51,20 @@ async function main() {
       itemId: item.id,
       status: OrderStatus.REQUESTED,
       quantity: 1,
-
-      receiverName: "수령인",
-      receiverAddr: "주소",
-      phone: "01000000000",
-      mobile: "01000000000",
-      note: "seed 주문",
+      receiverName: client.receiverName ?? "수하인",
+      receiverAddr: client.receiverAddr ?? "주소",
+      phone: client.receiverTel,
+      mobile: client.receiverMobile,
+      note: "샘플주문",
     },
   });
 
-  console.log("✅ Seed complete:", {
-    admin: admin.phone,
-    sales: sales.phone,
-    client: client.name,
-    item: item.name,
-  });
+  console.log("✅ seed 완료");
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Seed failed:", e);
+    console.error(e);
     process.exit(1);
   })
   .finally(async () => {

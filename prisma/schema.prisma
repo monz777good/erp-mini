@@ -27,48 +27,60 @@ model User {
   pin       String?
   createdAt DateTime @default(now())
 
-  orders    Order[]
+  orders  Order[]
+  clients Client[]
 }
 
 model Item {
-  id        String   @id @default(cuid())
-  name      String   @unique
+  id   String @id @default(cuid())
+  name String @unique
+
+  bundleV Int @default(0)
+  stockV  Int @default(0)
+  extraV  Int @default(0)
+
   createdAt DateTime @default(now())
 
-  // 재고관리용
-  bundleV   Int      @default(0)
-  stockV    Int      @default(0)
-  extraV    Int      @default(0)
-
-  orders    Order[]
+  orders Order[]
 }
 
 model Client {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
+
   name      String
-  owner     String?
-  bizNo     String?
-  ykiho     String?
-  addr      String?
-  phone     String?
-  mobile    String?
-  note      String?
+  ownerName String?
+
+  bizRegNo          String?
+  careInstitutionNo String?
+
+  receiverName   String?
+  receiverAddr   String?
+  receiverTel    String?
+  receiverMobile String?
+
+  memo String?
+
+  bizFileUrl        String?
+  bizFileName       String?
+  bizFileUploadedAt DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // ✅ 사업자등록증 “DB 저장” (Railway에서도 안전)
-  // - 파일을 base64(data)로 저장. (큰 파일은 5MB 이하 권장)
-  bizFileName String?
-  bizFileMime String?
-  bizFileData String?   @db.Text
+  orders Order[]
 
-  orders    Order[]
+  @@index([userId])
+  @@index([name])
 }
 
 model Order {
-  id           String      @id @default(cuid())
-  status       OrderStatus @default(REQUESTED)
-  quantity     Int         @default(1)
-  createdAt    DateTime    @default(now())
+  id     String      @id @default(cuid())
+  status OrderStatus @default(REQUESTED)
+
+  quantity Int @default(1)
 
   receiverName String
   receiverAddr String
@@ -76,13 +88,17 @@ model Order {
   mobile       String?
   note         String?
 
-  // 관계
-  userId       String
-  user         User        @relation(fields: [userId], references: [id])
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
 
-  itemId       String
-  item         Item        @relation(fields: [itemId], references: [id])
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id])
 
-  clientId     String
-  client       Client      @relation(fields: [clientId], references: [id])
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([status])
+  @@index([createdAt])
 }
