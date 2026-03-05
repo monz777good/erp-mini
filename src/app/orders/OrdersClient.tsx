@@ -83,28 +83,23 @@ function addDaysYmd(ymd: string, delta: number) {
   return `${yy}-${mm}-${dd}`;
 }
 
-// ✅ 모바일 터치까지 바깥 클릭 닫기
 function useOutsideClose(open: boolean, onClose: () => void) {
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!open) return;
-
     const handler = (e: Event) => {
       const el = ref.current;
       if (!el) return;
       const target = e.target as Node | null;
       if (target && !el.contains(target)) onClose();
     };
-
     window.addEventListener("pointerdown", handler, { passive: true });
     window.addEventListener("touchstart", handler, { passive: true });
-
     return () => {
       window.removeEventListener("pointerdown", handler as any);
       window.removeEventListener("touchstart", handler as any);
     };
   }, [open, onClose]);
-
   return ref;
 }
 
@@ -206,11 +201,9 @@ export default function OrdersClient() {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
-  // 검색
   const [clientSearch, setClientSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
 
-  // 선택/주문
   const [clientId, setClientId] = useState("");
   const [itemId, setItemId] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -221,31 +214,15 @@ export default function OrdersClient() {
   const [mobile, setMobile] = useState("");
   const [note, setNote] = useState("");
 
-  // 거래처 등록 폼
-  const [newName, setNewName] = useState("");
-  const [newAddress, setNewAddress] = useState("");
-  const [newCareNo, setNewCareNo] = useState("");
-  const [newBizNo, setNewBizNo] = useState("");
-  const [newOwner, setNewOwner] = useState("");
-
-  const [newReceiverName, setNewReceiverName] = useState("");
-  const [newReceiverAddr, setNewReceiverAddr] = useState("");
-  const [newReceiverTel, setNewReceiverTel] = useState("");
-  const [newReceiverMobile, setNewReceiverMobile] = useState("");
-  const [newBizFile, setNewBizFile] = useState<File | null>(null);
-
-  // 조회 기간(KST)
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  const selectedClient = useMemo(
-    () => clients.find((c) => c.id === clientId) || null,
-    [clients, clientId]
-  );
+  // ✅ 로그아웃: GET 이동 고정
+  function logout() {
+    window.location.href = "/api/logout";
+  }
 
-  // ✅✅✅ 핵심: clientId가 바뀌는 “순간” 무조건 덮어쓴다.
-  // - 새 거래처 값이 null/undefined여도 빈칸으로 초기화
-  // - 기존 입력값이 남아있을 여지 없음
+  // ✅ 거래처 변경 시 자동채움 무조건 덮어쓰기 (없으면 빈칸)
   useEffect(() => {
     const c = clients.find((x) => x.id === clientId) || null;
 
@@ -303,11 +280,6 @@ export default function OrdersClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function logout() {
-    // /api/logout 은 GET 지원 버전으로 이미 바꿨다고 가정
-    window.location.href = "/api/logout";
-  }
-
   async function submitOrder() {
     setErrMsg(null);
     try {
@@ -327,56 +299,6 @@ export default function OrdersClient() {
       setNote("");
     } catch (e: any) {
       setErrMsg(e?.message || "FAILED_SUBMIT_ORDER");
-    }
-  }
-
-  async function uploadBizFile(clientId: string, file: File) {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch(`/api/sales/clients/${clientId}/bizfile`, {
-      method: "POST",
-      credentials: "include",
-      body: fd,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data?.ok === false) throw new Error(data?.error || `HTTP_${res.status}`);
-  }
-
-  async function createClient() {
-    setErrMsg(null);
-    try {
-      const r = await apiPOST<{ ok: true; client: ClientRow }>("/api/sales/clients", {
-        name: newName,
-        address: newAddress,
-        careInstitutionNo: newCareNo,
-        bizRegNo: newBizNo,
-        ownerName: newOwner,
-        receiverName: newReceiverName,
-        receiverAddr: newReceiverAddr,
-        receiverTel: newReceiverTel,
-        receiverMobile: newReceiverMobile,
-      });
-
-      if (newBizFile) {
-        await uploadBizFile(r.client.id, newBizFile);
-      }
-
-      await refreshBase();
-      setClientId(r.client.id);
-      setTab("request");
-
-      setNewName("");
-      setNewAddress("");
-      setNewCareNo("");
-      setNewBizNo("");
-      setNewOwner("");
-      setNewReceiverName("");
-      setNewReceiverAddr("");
-      setNewReceiverTel("");
-      setNewReceiverMobile("");
-      setNewBizFile(null);
-    } catch (e: any) {
-      setErrMsg(e?.message || "FAILED_CREATE_CLIENT");
     }
   }
 
@@ -425,27 +347,6 @@ export default function OrdersClient() {
             </button>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2">
-            <button className={tabBtn(tab === "request")} onClick={() => setTab("request")}>
-              주문요청
-            </button>
-            <button
-              className={tabBtn(tab === "list")}
-              onClick={async () => {
-                setTab("list");
-                await refreshOrders();
-              }}
-            >
-              조회
-            </button>
-            <button className={tabBtn(tab === "clients")} onClick={() => setTab("clients")}>
-              거래처 목록
-            </button>
-            <button className={tabBtn(tab === "clientsNew")} onClick={() => setTab("clientsNew")}>
-              거래처 등록
-            </button>
-          </div>
-
           {errMsg ? (
             <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-200">
               {errMsg}
@@ -456,374 +357,107 @@ export default function OrdersClient() {
             <div className="mt-6 text-white/70">불러오는 중...</div>
           ) : (
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5 md:p-6">
-              {/* 주문요청 */}
-              {tab === "request" && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  <div className="space-y-5">
-                    <ComboBox
-                      label="거래처 검색/선택"
-                      placeholder="거래처명을 입력하세요"
-                      items={clients.map((c) => ({ id: c.id, name: c.name }))}
-                      valueId={clientId}
-                      onChangeId={setClientId}
-                      search={clientSearch}
-                      onChangeSearch={setClientSearch}
-                    />
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div className="space-y-5">
+                  <ComboBox
+                    label="거래처 검색/선택"
+                    placeholder="거래처명을 입력하세요"
+                    items={clients.map((c) => ({ id: c.id, name: c.name }))}
+                    valueId={clientId}
+                    onChangeId={setClientId}
+                    search={clientSearch}
+                    onChangeSearch={setClientSearch}
+                  />
 
-                    {clients.length === 0 ? (
-                      <button className={cls(btn, "w-full")} onClick={() => setTab("clientsNew")}>
-                        거래처가 없습니다 → 거래처 등록하러 가기
+                  <div>
+                    <div className={label}>수량</div>
+                    <div className="mt-2 flex items-center gap-3">
+                      <button className={btn} onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
+                        -
                       </button>
-                    ) : null}
+                      <input
+                        className={input}
+                        style={{ width: 140, textAlign: "center" as const }}
+                        value={String(quantity)}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (!Number.isFinite(n)) return;
+                          setQuantity(Math.max(1, Math.floor(n)));
+                        }}
+                      />
+                      <button className={btn} onClick={() => setQuantity((q) => q + 1)}>
+                        +
+                      </button>
+                    </div>
+                  </div>
 
+                  <ComboBox
+                    label="품목 검색/선택"
+                    placeholder="품목명을 입력하세요"
+                    items={items}
+                    valueId={itemId}
+                    onChangeId={setItemId}
+                    search={itemSearch}
+                    onChangeSearch={setItemSearch}
+                  />
+                </div>
+
+                <div className={panel}>
+                  <div className="text-white font-bold">배송 정보</div>
+                  <div className="text-white/60 text-sm mt-1">
+                    거래처 선택 시 수하인/주소/연락처 자동 채움됩니다.
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <div className={label}>수량</div>
-                      <div className="mt-2 flex items-center gap-3">
-                        <button className={btn} onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
-                          -
-                        </button>
-                        <input
-                          className={input}
-                          style={{ width: 140, textAlign: "center" as const }}
-                          value={String(quantity)}
-                          onChange={(e) => {
-                            const n = Number(e.target.value);
-                            if (!Number.isFinite(n)) return;
-                            setQuantity(Math.max(1, Math.floor(n)));
-                          }}
-                        />
-                        <button className={btn} onClick={() => setQuantity((q) => q + 1)}>
-                          +
-                        </button>
-                      </div>
+                      <div className={label}>수하인 (필수)</div>
+                      <input className={input} value={receiverName} onChange={(e) => setReceiverName(e.target.value)} />
                     </div>
-
-                    <ComboBox
-                      label="품목 검색/선택"
-                      placeholder="품목명을 입력하세요"
-                      items={items}
-                      valueId={itemId}
-                      onChangeId={setItemId}
-                      search={itemSearch}
-                      onChangeSearch={setItemSearch}
-                    />
+                    <div>
+                      <div className={label}>주소 (필수)</div>
+                      <input className={input} value={receiverAddr} onChange={(e) => setReceiverAddr(e.target.value)} />
+                    </div>
+                    <div>
+                      <div className={label}>전화</div>
+                      <input className={input} value={phone} onChange={(e) => setPhone(e.target.value)} />
+                    </div>
+                    <div>
+                      <div className={label}>휴대폰</div>
+                      <input className={input} value={mobile} onChange={(e) => setMobile(e.target.value)} />
+                    </div>
                   </div>
 
-                  <div className={panel}>
-                    <div className="text-white font-bold">배송 정보</div>
-                    <div className="text-white/60 text-sm mt-1">
-                      거래처 선택 시 수하인/주소/연락처 자동 채움됩니다.
-                    </div>
+                  <div className="mt-4">
+                    <div className={label}>주문 요청(메모)</div>
+                    <textarea className={textarea} value={note} onChange={(e) => setNote(e.target.value)} />
+                  </div>
 
-                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <div className={label}>수하인 (필수)</div>
-                        <input className={input} value={receiverName} onChange={(e) => setReceiverName(e.target.value)} />
-                      </div>
-                      <div>
-                        <div className={label}>주소 (필수)</div>
-                        <input className={input} value={receiverAddr} onChange={(e) => setReceiverAddr(e.target.value)} />
-                      </div>
-                      <div>
-                        <div className={label}>전화</div>
-                        <input className={input} value={phone} onChange={(e) => setPhone(e.target.value)} />
-                      </div>
-                      <div>
-                        <div className={label}>휴대폰</div>
-                        <input className={input} value={mobile} onChange={(e) => setMobile(e.target.value)} />
-                      </div>
-                    </div>
-
-                    <div className="mt-4">
-                      <div className={label}>주문 요청(메모)</div>
-                      <textarea className={textarea} value={note} onChange={(e) => setNote(e.target.value)} />
-                    </div>
-
-                    <div className="mt-5 flex gap-3">
-                      <button className={btnPrimary} onClick={submitOrder} disabled={!clientId || !itemId}>
-                        주문 요청
-                      </button>
-                      <button
-                        className={btn}
-                        onClick={() => {
-                          setClientId("");
-                          setItemId("");
-                          setQuantity(1);
-                          setReceiverName("");
-                          setReceiverAddr("");
-                          setPhone("");
-                          setMobile("");
-                          setNote("");
-                        }}
-                      >
-                        초기화
-                      </button>
-                    </div>
+                  <div className="mt-5 flex gap-3">
+                    <button className={btnPrimary} onClick={submitOrder} disabled={!clientId || !itemId}>
+                      주문 요청
+                    </button>
+                    <button
+                      className={btn}
+                      onClick={() => {
+                        setClientId("");
+                        setItemId("");
+                        setQuantity(1);
+                        setReceiverName("");
+                        setReceiverAddr("");
+                        setPhone("");
+                        setMobile("");
+                        setNote("");
+                      }}
+                    >
+                      초기화
+                    </button>
                   </div>
                 </div>
-              )}
+              </div>
 
-              {/* 거래처 등록 */}
-              {tab === "clientsNew" && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  <div className={panel}>
-                    <div className="text-white font-bold">거래처 등록</div>
-
-                    <div className="mt-4 space-y-4">
-                      <div>
-                        <div className={label}>거래처명 (필수)</div>
-                        <input className={input} value={newName} onChange={(e) => setNewName(e.target.value)} />
-                      </div>
-
-                      <div>
-                        <div className={label}>거래처 주소</div>
-                        <input className={input} value={newAddress} onChange={(e) => setNewAddress(e.target.value)} />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <div className={label}>요양기관번호</div>
-                          <input className={input} value={newCareNo} onChange={(e) => setNewCareNo(e.target.value)} />
-                        </div>
-                        <div>
-                          <div className={label}>사업자등록번호</div>
-                          <input className={input} value={newBizNo} onChange={(e) => setNewBizNo(e.target.value)} />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className={label}>대표자</div>
-                        <input className={input} value={newOwner} onChange={(e) => setNewOwner(e.target.value)} />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <div className={label}>수하인</div>
-                          <input className={input} value={newReceiverName} onChange={(e) => setNewReceiverName(e.target.value)} />
-                        </div>
-                        <div>
-                          <div className={label}>배송지 주소</div>
-                          <input className={input} value={newReceiverAddr} onChange={(e) => setNewReceiverAddr(e.target.value)} />
-                        </div>
-                        <div>
-                          <div className={label}>전화</div>
-                          <input className={input} value={newReceiverTel} onChange={(e) => setNewReceiverTel(e.target.value)} />
-                        </div>
-                        <div>
-                          <div className={label}>휴대폰</div>
-                          <input className={input} value={newReceiverMobile} onChange={(e) => setNewReceiverMobile(e.target.value)} />
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className={label}>사업자등록증 첨부</div>
-                        <input
-                          className={cls(input, "py-2")}
-                          type="file"
-                          accept="image/*,application/pdf"
-                          onChange={(e) => setNewBizFile(e.target.files?.[0] || null)}
-                        />
-                        <div className="text-xs text-white/50 mt-1">
-                          업로드는 BLOB_READ_WRITE_TOKEN 설정 시 동작합니다.
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap gap-3 pt-1">
-                        <button className={btnPrimary} onClick={createClient} disabled={!newName.trim()}>
-                          거래처 등록
-                        </button>
-                        <button
-                          className={btn}
-                          onClick={() => {
-                            setNewName("");
-                            setNewAddress("");
-                            setNewCareNo("");
-                            setNewBizNo("");
-                            setNewOwner("");
-                            setNewReceiverName("");
-                            setNewReceiverAddr("");
-                            setNewReceiverTel("");
-                            setNewReceiverMobile("");
-                            setNewBizFile(null);
-                          }}
-                        >
-                          초기화
-                        </button>
-                        <button className={btn} onClick={() => setTab("clients")}>
-                          거래처 목록 보기
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={panel}>
-                    <div className="text-white font-bold">안내</div>
-                    <div className="mt-3 text-white/70 text-sm space-y-2">
-                      <div>• 등록 즉시 거래처 목록/주문요청 선택에 반영됩니다.</div>
-                      <div>• 주문요청에서 거래처 선택하면 수하인/주소/연락처가 자동 채움됩니다.</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 거래처 목록 */}
-              {tab === "clients" && (
-                <div>
-                  <div className="flex flex-col md:flex-row md:items-end gap-3 md:gap-5">
-                    <div className="flex-1">
-                      <div className={label}>거래처 검색</div>
-                      <input className={input} value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
-                    </div>
-                    <div className="flex gap-2">
-                      <button className={btn} onClick={refreshBase}>새로고침</button>
-                      <button className={btnPrimary} onClick={() => setTab("clientsNew")}>거래처 등록</button>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {clients
-                      .filter((c) => c.name.toLowerCase().includes(clientSearch.trim().toLowerCase()))
-                      .map((c) => (
-                        <div key={c.id} className={panel}>
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <div className="text-white font-bold text-lg">{c.name}</div>
-                              <div className="text-white/60 text-sm mt-1">
-                                대표: {c.ownerName || "-"} · 요양기관번호: {c.careInstitutionNo || "-"} · 사업자등록번호: {c.bizRegNo || "-"}
-                              </div>
-                            </div>
-                            <button
-                              className={btnPrimary}
-                              onClick={() => {
-                                setClientId(c.id);
-                                setTab("request");
-                              }}
-                            >
-                              주문요청에서 선택
-                            </button>
-                          </div>
-
-                          <div className="mt-4 text-white/75 text-sm space-y-1">
-                            <div>거래처 주소: {c.address || "-"}</div>
-                            <div>수하인: {c.receiverName || "-"}</div>
-                            <div>배송지: {c.receiverAddr || "-"}</div>
-                            <div>전화: {c.receiverTel || "-"}</div>
-                            <div>휴대폰: {c.receiverMobile || "-"}</div>
-
-                            {c.bizFileUrl ? (
-                              <div className="pt-2">
-                                <a className="inline-block text-white underline underline-offset-4" href={c.bizFileUrl} target="_blank" rel="noreferrer">
-                                  사업자등록증 보기: {c.bizFileName || "파일"}
-                                </a>
-                              </div>
-                            ) : (
-                              <div className="pt-2 text-white/50">사업자등록증: 없음</div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    {clients.length === 0 ? <div className="text-white/70">거래처가 없습니다.</div> : null}
-                  </div>
-                </div>
-              )}
-
-              {/* 조회 */}
-              {tab === "list" && (
-                <div>
-                  <div className="flex flex-col lg:flex-row lg:items-end gap-3 lg:gap-5">
-                    <div className="flex gap-3 flex-wrap">
-                      <div>
-                        <div className={label}>시작일 (KST)</div>
-                        <input type="date" className={input} value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-                      </div>
-                      <div>
-                        <div className={label}>종료일 (KST)</div>
-                        <input type="date" className={input} value={toDate} onChange={(e) => setToDate(e.target.value)} />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button className={btnPrimary} onClick={refreshOrders}>기간 조회</button>
-                      <button
-                        className={btn}
-                        onClick={() => {
-                          const today = kstTodayYmd();
-                          setToDate(today);
-                          setFromDate(addDaysYmd(today, -7));
-                        }}
-                      >
-                        오늘 기준 초기화
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-5">
-                    {loadingOrders ? (
-                      <div className="text-white/70">조회 중...</div>
-                    ) : orders.length === 0 ? (
-                      <div className="text-white/70">조회 결과가 없습니다.</div>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-1 gap-3 lg:hidden">
-                          {orders.map((o) => (
-                            <div key={o.id} className={panel}>
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <div className="text-white font-bold">
-                                    {o.client?.name || "-"} · {o.item?.name || "-"}
-                                  </div>
-                                  <div className="text-white/60 text-sm mt-1">
-                                    {new Date(o.createdAt).toLocaleDateString("ko-KR")} · {o.status}
-                                  </div>
-                                </div>
-                                <div className="text-white font-bold">x{o.quantity}</div>
-                              </div>
-                              <div className="mt-3 text-white/75 text-sm space-y-1">
-                                <div>대표: {o.client?.ownerName || "-"}</div>
-                                <div>거래처 주소: {o.client?.address || "-"}</div>
-                                <div>거래처 전화: {o.client?.receiverTel || "-"} / {o.client?.receiverMobile || "-"}</div>
-                                <div>배송 수하인: {o.receiverName}</div>
-                                <div>배송 주소: {o.receiverAddr}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="hidden lg:block rounded-2xl border border-white/10 overflow-hidden">
-                          <div className="grid grid-cols-12 bg-white/10 px-4 py-3 text-white/80 text-sm font-semibold">
-                            <div className="col-span-2">날짜</div>
-                            <div className="col-span-2">상태</div>
-                            <div className="col-span-2">거래처</div>
-                            <div className="col-span-2">대표/연락</div>
-                            <div className="col-span-2">주소</div>
-                            <div className="col-span-1 text-right">수량</div>
-                            <div className="col-span-1">품목</div>
-                          </div>
-
-                          {orders.map((o) => (
-                            <div key={o.id} className="grid grid-cols-12 px-4 py-3 border-t border-white/10 text-white/90 text-sm">
-                              <div className="col-span-2">{new Date(o.createdAt).toLocaleDateString("ko-KR")}</div>
-                              <div className="col-span-2">{o.status}</div>
-                              <div className="col-span-2">
-                                <div className="font-semibold">{o.client?.name || "-"}</div>
-                              </div>
-                              <div className="col-span-2 text-white/75">
-                                <div className="truncate">대표: {o.client?.ownerName || "-"}</div>
-                                <div className="truncate">☎ {o.client?.receiverTel || "-"} / 📱 {o.client?.receiverMobile || "-"}</div>
-                              </div>
-                              <div className="col-span-2 text-white/75">
-                                <div className="truncate">{o.client?.address || "-"}</div>
-                              </div>
-                              <div className="col-span-1 text-right">{o.quantity}</div>
-                              <div className="col-span-1">{o.item?.name || "-"}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
+              <div className="mt-6 text-white/50 text-sm">
+                ※ 이 파일은 로그아웃 GET 이동 고정 버전(OrdersClient.tsx)입니다.
+              </div>
             </div>
           )}
         </div>
