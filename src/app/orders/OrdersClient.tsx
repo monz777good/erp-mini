@@ -51,6 +51,8 @@ type OrderRow = {
   item?: { id: string; name: string } | null;
 };
 
+type CartLine = { itemId: string; name: string; quantity: number };
+
 function cls(...arr: Array<string | false | null | undefined>) {
   return arr.filter(Boolean).join(" ");
 }
@@ -58,7 +60,7 @@ function cls(...arr: Array<string | false | null | undefined>) {
 async function apiGET<T>(url: string): Promise<T> {
   const res = await fetch(url, { credentials: "include", cache: "no-store" });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || (data as any)?.ok === false) throw new Error((data as any)?.error || `HTTP_${res.status}`);
+  if (!res.ok || data?.ok === false) throw new Error(data?.error || `HTTP_${res.status}`);
   return data as T;
 }
 
@@ -70,7 +72,7 @@ async function apiPOST<T>(url: string, body: any): Promise<T> {
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || (data as any)?.ok === false) throw new Error((data as any)?.error || `HTTP_${res.status}`);
+  if (!res.ok || data?.ok === false) throw new Error(data?.error || `HTTP_${res.status}`);
   return data as T;
 }
 
@@ -225,6 +227,9 @@ export default function OrdersClient() {
   const [mobile, setMobile] = useState("");
   const [note, setNote] = useState("");
 
+  // ✅ 장바구니
+  const [cart, setCart] = useState<CartLine[]>([]);
+
   // 거래처 등록 폼
   const [newName, setNewName] = useState("");
   const [newAddress, setNewAddress] = useState("");
@@ -241,13 +246,9 @@ export default function OrdersClient() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  // ✅ 로그아웃: (변경된 유일한 부분) POST 호출 + /login 이동
-  async function logout() {
-    try {
-      await fetch("/api/logout", { method: "POST", credentials: "include" });
-    } finally {
-      window.location.href = "/login";
-    }
+  // ✅ 로그아웃: GET 이동 고정
+  function logout() {
+    window.location.href = "/api/logout";
   }
 
   // ✅ 거래처 선택 변경 시 배송정보 자동으로 무조건 덮어쓰기
@@ -274,8 +275,8 @@ export default function OrdersClient() {
     try {
       const c = await apiGET<{ ok: true; clients: ClientRow[] }>("/api/sales/clients");
       const i = await apiGET<{ ok: true; items: ItemRow[] }>("/api/items");
-      setClients((c as any).clients || []);
-      setItems((i as any).items || []);
+      setClients(c.clients || []);
+      setItems(i.items || []);
     } catch (e: any) {
       setErrMsg(e?.message || "FAILED_LOAD_BASE");
     } finally {
@@ -290,7 +291,7 @@ export default function OrdersClient() {
       const qs =
         fromDate && toDate ? `?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}` : "";
       const o = await apiGET<{ ok: true; orders: OrderRow[] }>(`/api/orders${qs}`);
-      setOrders((o as any).orders || []);
+      setOrders(o.orders || []);
     } catch (e: any) {
       setErrMsg(e?.message || "FAILED_LOAD_ORDERS");
     } finally {
@@ -306,19 +307,103 @@ export default function OrdersClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ✅ 장바구니 담기(같은 품목이면 수량 누적)
+  function addToCart() {
+    setErrMsg(null);
+
+    if (!clientId) {
+      setErrMsg("거래처를 먼저 선택하세요.");
+      return;
+    }
+    if (!itemId) {
+      setErrMsg("품목을 선택하세요.");
+      return;
+    }
+    const it = items.find((x) => x.id === itemId);
+    if (!it) {
+      setErrMsg("품목을 다시 선택하세요.");
+      return;
+    }
+    const q = Math.max(1, Math.floor(Number(quantity || 1)));
+
+    setCart((prev) => {
+      const idx = prev.findIndex((x) => x.itemId === itemId);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], quantity: next[idx].quantity + q };
+        return next;
+      }
+      return [...prev, { itemId, name: it.name, quantity: q }];
+    });
+
+    // 담은 뒤 입력 수량만 1로
+    setQuantity(1);
+  }
+
+  function removeFromCart(itemId: string) {
+    setCart((prev) => prev.filter((x) => x.itemId !== itemId));
+  }
+
+  function incCart(itemId: string) {
+    setCart((prev) => prev.map((x) => (x.itemId === itemId ? { ...x, quantity: x.quantity + 1 } : x)));
+  }
+
+  function decCart(itemId: string) {
+    setCart((prev) =>
+      prev.map((x) => (x.itemId === itemId ? { ...x, quantity: Math.max(1, x.quantity - 1) } : x))
+    );
+  }
+
+  function clearCart() {
+    setCart([]);
+  }
+
+  // ✅ 장바구니 주문요청 (cart 있으면 복수 생성, 없으면 기존 단품 주문요청)
   async function submitOrder() {
     setErrMsg(null);
     try {
-      await apiPOST("/api/orders", {
-        clientId,
-        itemId,
-        quantity,
-        receiverName,
-        receiverAddr,
-        phone,
-        mobile,
-        note,
-      });
+      if (!clientId) {
+        setErrMsg("거래처를 선택하세요.");
+        return;
+      }
+      if (!receiverName.trim()) {
+        setErrMsg("수하인(필수)을 입력하세요.");
+        return;
+      }
+      if (!receiverAddr.trim()) {
+        setErrMsg("주소(필수)를 입력하세요.");
+        return;
+      }
+
+      if (cart.length > 0) {
+        await apiPOST("/api/orders", {
+          clientId,
+          receiverName,
+          receiverAddr,
+          phone,
+          mobile,
+          note,
+          items: cart.map((x) => ({ itemId: x.itemId, quantity: x.quantity })),
+        });
+        clearCart();
+      } else {
+        // 기존 단품 주문요청 호환
+        if (!itemId) {
+          setErrMsg("품목을 선택하세요.");
+          return;
+        }
+        await apiPOST("/api/orders", {
+          clientId,
+          itemId,
+          quantity,
+          receiverName,
+          receiverAddr,
+          phone,
+          mobile,
+          note,
+        });
+      }
+
       setTab("list");
       await refreshOrders();
       setQuantity(1);
@@ -344,7 +429,7 @@ export default function OrdersClient() {
       });
 
       await refreshBase();
-      setClientId((r as any).client.id);
+      setClientId(r.client.id);
       setTab("request");
 
       setNewName("");
@@ -398,6 +483,8 @@ export default function OrdersClient() {
     if (!q) return clients;
     return clients.filter((c) => c.name.toLowerCase().includes(q));
   }, [clients, clientSearch]);
+
+  const cartTotal = useMemo(() => cart.reduce((sum, x) => sum + (x.quantity || 0), 0), [cart]);
 
   return (
     <div
@@ -463,7 +550,12 @@ export default function OrdersClient() {
                       placeholder="거래처명을 입력하세요"
                       items={clients.map((c) => ({ id: c.id, name: c.name }))}
                       valueId={clientId}
-                      onChangeId={setClientId}
+                      onChangeId={(id) => {
+                        setClientId(id);
+                        // ✅ 거래처 바꾸면 장바구니는 유지해도 되지만, 실수 방지로 비우는게 안전
+                        // 원하면 아래 1줄 주석처리하면 됨.
+                        setCart([]);
+                      }}
                       search={clientSearch}
                       onChangeSearch={setClientSearch}
                     />
@@ -487,6 +579,14 @@ export default function OrdersClient() {
                         <button className={btn} onClick={() => setQuantity((q) => q + 1)}>
                           +
                         </button>
+
+                        {/* ✅ 장바구니 담기 */}
+                        <button className={btnPrimary} onClick={addToCart} disabled={!clientId || !itemId}>
+                          담기
+                        </button>
+                      </div>
+                      <div className="text-white/45 text-xs mt-2">
+                        * “담기”를 누르면 장바구니에 누적됩니다 (같은 품목이면 수량 합산)
                       </div>
                     </div>
 
@@ -499,6 +599,50 @@ export default function OrdersClient() {
                       search={itemSearch}
                       onChangeSearch={setItemSearch}
                     />
+
+                    {/* ✅ 장바구니 표시 */}
+                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-white font-bold">장바구니</div>
+                        <div className="text-white/60 text-sm">총 {cartTotal}개</div>
+                      </div>
+
+                      {cart.length === 0 ? (
+                        <div className="text-white/55 text-sm mt-3">아직 담긴 품목이 없습니다.</div>
+                      ) : (
+                        <div className="mt-3 space-y-2">
+                          {cart.map((c) => (
+                            <div
+                              key={c.itemId}
+                              className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                            >
+                              <div className="min-w-0">
+                                <div className="text-white/90 font-semibold truncate">{c.name}</div>
+                                <div className="text-white/55 text-xs">수량: {c.quantity}</div>
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button className={btn} onClick={() => decCart(c.itemId)}>
+                                  -
+                                </button>
+                                <button className={btn} onClick={() => incCart(c.itemId)}>
+                                  +
+                                </button>
+                                <button className={btn} onClick={() => removeFromCart(c.itemId)}>
+                                  삭제
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+
+                          <div className="flex gap-2 pt-2">
+                            <button className={btn} onClick={clearCart}>
+                              장바구니 비우기
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className={panel}>
@@ -529,10 +673,17 @@ export default function OrdersClient() {
                       <textarea className={textarea} value={note} onChange={(e) => setNote(e.target.value)} />
                     </div>
 
-                    <div className="mt-5 flex gap-3">
-                      <button className={btnPrimary} onClick={submitOrder} disabled={!clientId || !itemId}>
-                        주문 요청
+                    <div className="mt-5 flex gap-3 flex-wrap">
+                      {/* ✅ cart 있으면 “장바구니 주문요청”, 없으면 기존 단품 주문요청 */}
+                      <button
+                        className={btnPrimary}
+                        onClick={submitOrder}
+                        disabled={!clientId || (!itemId && cart.length === 0)}
+                        title={cart.length > 0 ? "장바구니 품목들이 한 번에 주문요청됩니다" : "선택한 단일 품목이 주문요청됩니다"}
+                      >
+                        {cart.length > 0 ? "장바구니 주문 요청" : "주문 요청"}
                       </button>
+
                       <button
                         className={btn}
                         onClick={() => {
@@ -544,10 +695,15 @@ export default function OrdersClient() {
                           setPhone("");
                           setMobile("");
                           setNote("");
+                          setCart([]);
                         }}
                       >
                         초기화
                       </button>
+                    </div>
+
+                    <div className="text-white/45 text-xs mt-3">
+                      * 장바구니가 비어있으면 기존처럼 “단품 주문요청”으로 동작합니다.
                     </div>
                   </div>
                 </div>
@@ -775,6 +931,7 @@ export default function OrdersClient() {
                       <div>• 등록하면 거래처 목록/주문요청에 즉시 반영됩니다.</div>
                       <div>• 주문요청에서 거래처 변경하면 배송정보가 즉시 자동 채움됩니다.</div>
                       <div>• 조회 달력 기본값은 한국시간 기준(오늘, 최근 7일)입니다.</div>
+                      <div>• 장바구니는 “담기”로 누적 후 “장바구니 주문 요청” 한 번에 등록됩니다.</div>
                     </div>
                   </div>
                 </div>
