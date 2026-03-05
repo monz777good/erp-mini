@@ -1,64 +1,111 @@
+// src/app/admin/orders/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 
-type OrderRow = {
+type Row = {
   id: string;
-  status: string;
+  status: "REQUESTED" | "APPROVED" | "REJECTED" | "DONE";
   quantity: number;
   createdAt: string;
 
+  itemName: string;
+  salesName: string;
+  salesPhone: string;
+
   receiverName: string;
   receiverAddr: string;
-  phone?: string | null;
-  mobile?: string | null;
+  phone: string;
+  mobile: string;
 
-  note?: string | null;
-  message?: string | null;
+  clientName: string;
+  careInstitutionNo: string;
 
-  item: { id: string; name: string };
-  client?: { id: string; name: string; bizRegNo?: string | null } | null;
-
-  user?: { name: string; phone: string } | null; // ✅ 영업사원
+  note: string;
 };
 
-function fmtDate(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+function ymdKST(d = new Date()) {
+  // 한국시간 기준 YYYY-MM-DD
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
 }
 
+const STATUS_LABEL: Record<Row["status"], string> = {
+  REQUESTED: "대기",
+  APPROVED: "승인",
+  REJECTED: "거절",
+  DONE: "출고완료",
+};
+
 export default function AdminOrdersPage() {
-  const today = useMemo(() => fmtDate(new Date()), []);
-  const [tab, setTab] = useState<"REQUESTED" | "APPROVED" | "REJECTED" | "DONE">("REQUESTED");
+  const today = ymdKST();
+
+  const [tab, setTab] = useState<Row["status"]>("REQUESTED");
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [q, setQ] = useState("");
-  const [orders, setOrders] = useState<OrderRow[]>([]);
+
+  const [rows, setRows] = useState<Row[]>([]);
+  const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [changing, setChanging] = useState<string | null>(null);
 
   async function load() {
+    setMsg("");
     setLoading(true);
     try {
-      const url =
-        `/api/admin/orders?status=${tab}` +
-        `&from=${encodeURIComponent(from)}` +
-        `&to=${encodeURIComponent(to)}` +
-        `&q=${encodeURIComponent(q.trim())}`;
+      const qs = new URLSearchParams();
+      qs.set("status", tab);
+      if (from) qs.set("from", from);
+      if (to) qs.set("to", to);
+      if (q.trim()) qs.set("q", q.trim());
 
-      const res = await fetch(url, { credentials: "include" });
+      const res = await fetch(`/api/admin/orders?${qs.toString()}`, {
+        method: "GET",
+        credentials: "include",
+        cache: "no-store",
+      });
 
-      // ✅ 401/403면 권한 문제 메시지 노출(에러는 안 나게)
-      if (!res.ok) {
-        setOrders([]);
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setRows([]);
+        setMsg(data?.message || `조회 실패 (${res.status})`);
         return;
       }
 
-      const data = await res.json().catch(() => ({}));
-      setOrders(Array.isArray(data?.orders) ? data.orders : []);
+      setRows(Array.isArray(data.rows) ? data.rows : []);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function changeStatus(id: string, status: Row["status"]) {
+    setMsg("");
+    setChanging(id);
+    try {
+      const res = await fetch(`/api/admin/orders/${encodeURIComponent(id)}/status`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data?.ok) {
+        setMsg(data?.message || `상태변경 실패 (${res.status})`);
+        return;
+      }
+
+      // ✅ 즉시 반영: 해당 row 상태 갱신 + 현재 탭과 다르면 제거
+      setRows((prev) =>
+        prev
+          .map((r) => (r.id === id ? { ...r, status } : r))
+          .filter((r) => r.status === tab)
+      );
+    } finally {
+      setChanging(null);
     }
   }
 
@@ -67,254 +114,223 @@ export default function AdminOrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  async function updateStatus(id: string, next: "APPROVED" | "REJECTED") {
-    const label = next === "APPROVED" ? "승인" : "거절";
-    if (!confirm(`상태를 ${label}으로 변경할까요?`)) return;
+  const count = rows.length;
 
-    const res = await fetch("/api/admin/orders", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ id, status: next }),
-    });
+  // ===== 스타일(다크 통일) =====
+  const shell: React.CSSProperties = {
+    padding: 24,
+  };
 
-    if (!res.ok) {
-      alert("상태 변경 실패");
-      return;
-    }
-    await load();
-  }
+  const card: React.CSSProperties = {
+    borderRadius: 26,
+    padding: 22,
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
+    backdropFilter: "blur(12px)",
+    color: "rgba(255,255,255,0.92)",
+  };
 
-  const countText = `현재 탭: ${
-    tab === "REQUESTED" ? "대기" : tab === "APPROVED" ? "승인" : tab === "REJECTED" ? "거절" : "출고완료"
-  } / 건수: ${orders.length}건`;
+  const title: React.CSSProperties = {
+    fontSize: 28,
+    fontWeight: 950,
+    marginBottom: 8,
+  };
 
-  return (
-    <div style={wrap}>
-      <h1 style={{ margin: 0, fontSize: 22, fontWeight: 1000 }}>관리자 주문 목록</h1>
+  const sub: React.CSSProperties = {
+    fontSize: 13,
+    fontWeight: 800,
+    opacity: 0.75,
+    marginBottom: 14,
+  };
 
-      <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-        <button style={tabBtn(tab === "REQUESTED")} onClick={() => setTab("REQUESTED")}>
-          대기
-        </button>
-        <button style={tabBtn(tab === "APPROVED")} onClick={() => setTab("APPROVED")}>
-          승인
-        </button>
-        <button style={tabBtn(tab === "REJECTED")} onClick={() => setTab("REJECTED")}>
-          거절
-        </button>
-        <button style={tabBtn(tab === "DONE")} onClick={() => setTab("DONE")}>
-          출고완료
-        </button>
-      </div>
+  const tabRow: React.CSSProperties = {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+    marginBottom: 14,
+  };
 
-      <div style={filterBox}>
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ fontWeight: 900 }}>기간</div>
-          <input style={input} type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <div style={{ fontWeight: 900 }}>~</div>
-          <input style={input} type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+  const tabBtn = (active: boolean): React.CSSProperties => ({
+    padding: "10px 14px",
+    borderRadius: 999,
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: active ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.06)",
+    color: active ? "#0b1220" : "rgba(255,255,255,0.92)",
+    fontWeight: 950,
+    cursor: "pointer",
+  });
 
-          <div style={{ fontWeight: 900, marginLeft: 6 }}>검색</div>
-          <input
-            style={{ ...input, width: 320, maxWidth: "100%" }}
-            placeholder="품목명/수하인/거래처/요양기관번호/영업사원/전화 검색"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <button style={btn} onClick={load}>
-            조회
-          </button>
+  const controls: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "140px 24px 140px 1fr 120px",
+    gap: 10,
+    alignItems: "center",
+    marginBottom: 14,
+  };
 
-          {tab === "APPROVED" ? (
-            <a
-              href={`/api/admin/rozen-excel?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`}
-              style={{ marginLeft: "auto" }}
-            >
-              <button style={btnDark}>로젠 출력</button>
-            </a>
-          ) : (
-            <div style={{ marginLeft: "auto" }} />
-          )}
-        </div>
-      </div>
+  const input: React.CSSProperties = {
+    width: "100%",
+    padding: "12px 12px",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "rgba(255,255,255,0.06)",
+    color: "rgba(255,255,255,0.92)",
+    fontWeight: 900,
+    outline: "none",
+  };
 
-      <div style={{ marginTop: 14, fontWeight: 900, opacity: 0.8 }}>{countText}</div>
-
-      <div style={tableWrap}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
-          <thead>
-            <tr style={{ background: "#F4FBF6" }}>
-              <th style={th}>품목</th>
-              <th style={th}>수량</th>
-
-              <th style={th}>영업사원</th>
-              <th style={th}>전화번호</th>
-
-              <th style={th}>수하인</th>
-              <th style={th}>주소</th>
-              <th style={th}>전화</th>
-              <th style={th}>핸드폰</th>
-
-              <th style={th}>거래처</th>
-              <th style={th}>요양기관번호</th>
-
-              <th style={th}>비고</th>
-              <th style={thCenter}>작업</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {orders.map((o) => {
-              return (
-                <tr key={o.id} style={{ background: "#fff" }}>
-                  <td style={td}>{o.item?.name || "-"}</td>
-                  <td style={tdCenter}>{o.quantity}</td>
-
-                  <td style={td}>{o.user?.name || "-"}</td>
-                  <td style={td}>{o.user?.phone || "-"}</td>
-
-                  <td style={td}>{o.receiverName}</td>
-                  <td style={td}>{o.receiverAddr}</td>
-                  <td style={td}>{o.phone || ""}</td>
-                  <td style={td}>{o.mobile || ""}</td>
-
-                  <td style={td}>{o.client?.name || ""}</td>
-                  <td style={td}>{o.client?.bizRegNo || ""}</td>
-
-                  <td style={td}>{o.note || ""}</td>
-
-                  <td style={tdCenter}>
-                    {tab === "REQUESTED" ? (
-                      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                        <button style={actionBtn("#1B5E20")} onClick={() => updateStatus(o.id, "APPROVED")}>
-                          승인
-                        </button>
-                        <button style={actionBtn("#B71C1C")} onClick={() => updateStatus(o.id, "REJECTED")}>
-                          거절
-                        </button>
-                      </div>
-                    ) : (
-                      <span style={{ opacity: 0.6, fontWeight: 900 }}>-</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-
-            {!loading && orders.length === 0 && (
-              <tr>
-                <td style={{ ...td, padding: 18 }} colSpan={12}>
-                  표시할 주문이 없습니다.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <p style={{ marginTop: 10, fontSize: 12, opacity: 0.7, fontWeight: 800 }}>
-        * 로젠 출력 버튼은 승인(승인 탭)에서만 동작하며, 출력 후 해당 건은 출고완료(DONE)로 이동하도록 서버에서 처리됩니다.
-      </p>
-    </div>
-  );
-}
-
-/* =======================
-   ✅ 스타일(불투명 카드)
-   ======================= */
-
-const wrap: React.CSSProperties = {
-  maxWidth: 1100,
-  margin: "28px auto",
-  padding: "22px 22px 18px",
-  background: "rgba(255,255,255,0.97)",
-  border: "1px solid var(--line)",
-  borderRadius: 18,
-  boxShadow: "0 16px 50px rgba(0,0,0,0.08)",
-};
-
-const tabBtn = (active: boolean): React.CSSProperties => ({
-  border: "1px solid var(--line)",
-  background: active ? "black" : "white",
-  color: active ? "white" : "black",
-  borderRadius: 10,
-  padding: "8px 12px",
-  fontWeight: 900,
-  cursor: "pointer",
-});
-
-const input: React.CSSProperties = {
-  height: 38,
-  borderRadius: 10,
-  border: "1px solid var(--line)",
-  padding: "0 12px",
-  outline: "none",
-  background: "white",
-};
-
-const btn: React.CSSProperties = {
-  height: 38,
-  borderRadius: 10,
-  border: "1px solid var(--line)",
-  padding: "0 14px",
-  fontWeight: 900,
-  cursor: "pointer",
-  background: "white",
-};
-
-const btnDark: React.CSSProperties = {
-  ...btn,
-  background: "black",
-  color: "white",
-  borderColor: "black",
-};
-
-const filterBox: React.CSSProperties = {
-  marginTop: 14,
-  padding: 12,
-  border: "1px solid var(--line)",
-  borderRadius: 14,
-  background: "#fff",
-};
-
-const tableWrap: React.CSSProperties = {
-  marginTop: 10,
-  overflowX: "auto",
-  borderRadius: 14,
-  border: "1px solid var(--line)",
-  background: "#fff",
-};
-
-const th: React.CSSProperties = {
-  textAlign: "left",
-  padding: "10px 10px",
-  borderBottom: "1px solid var(--line)",
-  fontSize: 13,
-  fontWeight: 1000,
-  whiteSpace: "nowrap",
-};
-
-const thCenter: React.CSSProperties = { ...th, textAlign: "center" };
-
-const td: React.CSSProperties = {
-  padding: "10px 10px",
-  borderBottom: "1px solid var(--line)",
-  fontSize: 13,
-  verticalAlign: "top",
-};
-
-const tdCenter: React.CSSProperties = { ...td, textAlign: "center", whiteSpace: "nowrap" };
-
-function actionBtn(bg: string): React.CSSProperties {
-  return {
-    border: "none",
-    background: bg,
-    color: "white",
-    borderRadius: 10,
-    height: 34,
-    padding: "0 12px",
-    fontWeight: 1000,
+  const btn: React.CSSProperties = {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "rgba(255,255,255,0.10)",
+    color: "rgba(255,255,255,0.92)",
+    fontWeight: 950,
     cursor: "pointer",
   };
+
+  const tableWrap: React.CSSProperties = {
+    borderRadius: 18,
+    overflowX: "auto",
+    border: "1px solid rgba(255,255,255,0.10)",
+    background: "rgba(0,0,0,0.18)",
+  };
+
+  const th: React.CSSProperties = {
+    textAlign: "left",
+    padding: 12,
+    fontSize: 12,
+    fontWeight: 950,
+    color: "rgba(255,255,255,0.75)",
+    borderBottom: "1px solid rgba(255,255,255,0.10)",
+    whiteSpace: "nowrap",
+  };
+
+  const td: React.CSSProperties = {
+    padding: 12,
+    fontSize: 13,
+    fontWeight: 850,
+    borderTop: "1px solid rgba(255,255,255,0.08)",
+    verticalAlign: "top",
+  };
+
+  const miniBtn = (tone: "ok" | "bad"): React.CSSProperties => ({
+    padding: "8px 12px",
+    borderRadius: 12,
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: tone === "ok" ? "rgba(34,197,94,0.18)" : "rgba(239,68,68,0.18)",
+    color: "rgba(255,255,255,0.95)",
+    fontWeight: 950,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  });
+
+  return (
+    <div style={shell}>
+      <div style={card}>
+        <div style={title}>관리자 주문 목록</div>
+        <div style={sub}>
+          기간 조회는 <b>한국시간 기준</b>으로 처리됩니다. / 현재 탭: <b>{STATUS_LABEL[tab]}</b> / 건수: <b>{count}</b>
+        </div>
+
+        {msg ? (
+          <div style={{ marginBottom: 12, padding: 12, borderRadius: 14, background: "rgba(239,68,68,0.16)", fontWeight: 950 }}>
+            {msg}
+          </div>
+        ) : null}
+
+        <div style={tabRow}>
+          {(["REQUESTED", "APPROVED", "REJECTED", "DONE"] as Row["status"][]).map((s) => (
+            <button key={s} onClick={() => setTab(s)} style={tabBtn(tab === s)}>
+              {STATUS_LABEL[s]}
+            </button>
+          ))}
+        </div>
+
+        <div style={controls}>
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={input} />
+          <div style={{ textAlign: "center", opacity: 0.8, fontWeight: 950 }}>~</div>
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={input} />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="검색 (품목명/수화인/거래처/요양기관번호/영업/전화/비고)"
+            style={input}
+          />
+          <button onClick={load} style={btn} disabled={loading}>
+            {loading ? "조회중" : "조회"}
+          </button>
+        </div>
+
+        <div style={tableWrap}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
+            <thead>
+              <tr>
+                {["등록일", "품목", "수량", "영업사원", "전화번호", "수화인", "주소", "전화", "핸드폰", "거래처", "요양기관번호", "비고", "작업"].map(
+                  (h) => (
+                    <th key={h} style={th}>
+                      {h}
+                    </th>
+                  )
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={13} style={{ ...td, textAlign: "center", opacity: 0.7, padding: 18 }}>
+                    표시할 주문이 없습니다.
+                  </td>
+                </tr>
+              ) : (
+                rows.map((r) => (
+                  <tr key={r.id}>
+                    <td style={td}>{r.createdAt.slice(0, 10)}</td>
+                    <td style={{ ...td, fontWeight: 950 }}>{r.itemName || "-"}</td>
+                    <td style={td}>{r.quantity}</td>
+                    <td style={td}>{r.salesName || "-"}</td>
+                    <td style={td}>{r.salesPhone || "-"}</td>
+                    <td style={td}>{r.receiverName}</td>
+                    <td style={{ ...td, maxWidth: 260 }}>{r.receiverAddr}</td>
+                    <td style={td}>{r.phone || "-"}</td>
+                    <td style={td}>{r.mobile || "-"}</td>
+                    <td style={td}>{r.clientName || "-"}</td>
+                    <td style={td}>{r.careInstitutionNo || "-"}</td>
+                    <td style={{ ...td, maxWidth: 220 }}>{r.note || "-"}</td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {tab === "REQUESTED" ? (
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button
+                            style={miniBtn("ok")}
+                            disabled={changing === r.id}
+                            onClick={() => changeStatus(r.id, "APPROVED")}
+                          >
+                            {changing === r.id ? "처리중" : "승인"}
+                          </button>
+                          <button
+                            style={miniBtn("bad")}
+                            disabled={changing === r.id}
+                            onClick={() => changeStatus(r.id, "REJECTED")}
+                          >
+                            {changing === r.id ? "처리중" : "거절"}
+                          </button>
+                        </div>
+                      ) : (
+                        <span style={{ opacity: 0.75, fontWeight: 900 }}>{STATUS_LABEL[r.status]}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ marginTop: 10, fontSize: 12, fontWeight: 850, opacity: 0.7 }}>
+          * 승인/거절은 “대기” 탭에서만 버튼이 보입니다.
+        </div>
+      </div>
+    </div>
+  );
 }
