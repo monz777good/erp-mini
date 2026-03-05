@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const { from, to } = kstRange(fromYmd, toYmd);
 
-  // ✅ 1) 승인(APPROVED) 주문만 로젠 출력 대상으로 조회
+  // ✅ 승인(APPROVED) 주문만 로젠 출력 대상으로 조회
   const orders = await prisma.order.findMany({
     where: {
       status: "APPROVED",
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     orderBy: { createdAt: "asc" },
     include: {
       client: true,
-      item: { select: { id: true, name: true } },
+      item: { select: { id: true, name: true, bundleV: true, stockV: true } }, // ✅ bundleV/stockV 필요
       user: { select: { name: true, phone: true } },
     },
     take: 5000,
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, message: "출력할 승인 주문이 없습니다." }, { status: 400 });
   }
 
-  // ✅ 2) 엑셀 생성 (다운로드)
+  // ✅ 1) 엑셀 생성
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("lozen");
 
@@ -84,56 +84,60 @@ export async function POST(req: NextRequest) {
       note: o.note ?? "",
     });
   }
-
   ws.getRow(1).font = { bold: true };
 
-  // ✅ 3) 여기부터가 핵심:
-  //    로젠 출력 성공 시 → (A) 해당 주문들 DONE 처리
-  //                    → (B) 품목별 수량 합산해서 Item.bundleV 차감
-  //
-  // ⚠️ 재고 차감은 "묶음 수량" 기준이라고 했으니 bundleV만 차감.
-  //     (원하면 stockV도 같이 차감하는 옵션을 붙일 수 있음)
-
-  // 품목별 총 수량 합산
-  const qtyByItem = new Map<string, number>();
+  // ✅ 2) 로젠 출력 성공 시 처리:
+  //    - 주문: APPROVED -> DONE
+  //    - 재고: stockV 차감 (주문수량 × bundleV)
   const orderIds: string[] = [];
+  const qtyByItem = new Map<string, number>();
 
   for (const o of orders as any[]) {
     orderIds.push(o.id);
     const itemId = o.itemId || o.item?.id;
     if (!itemId) continue;
+
     const q = Math.max(1, Number(o.quantity ?? 1) || 1);
     qtyByItem.set(itemId, (qtyByItem.get(itemId) ?? 0) + q);
   }
 
-  // 트랜잭션: (1) 주문 DONE (2) 재고 차감
   await prisma.$transaction(async (tx) => {
-    // 1) 주문 상태 DONE
+    // (A) 주문 DONE 처리
     await tx.order.updateMany({
       where: { id: { in: orderIds }, status: "APPROVED" },
       data: { status: "DONE" },
     });
 
-    // 2) 재고 차감 (bundleV)
+    // (B) 재고 차감: stockV에서 (수량 * bundleV) 차감
     const itemIds = Array.from(qtyByItem.keys());
+
     const items = await tx.item.findMany({
       where: { id: { in: itemIds } },
-      select: { id: true, bundleV: true },
+      select: { id: true, bundleV: true, stockV: true },
     });
 
-    const currentMap = new Map(items.map((it) => [it.id, it.bundleV ?? 0]));
+    const itemMap = new Map(items.map((it) => [it.id, it]));
 
-    for (const [itemId, dec] of qtyByItem.entries()) {
-      const cur = currentMap.get(itemId) ?? 0;
-      const next = Math.max(0, cur - dec); // ✅ 음수 방지
+    for (const [itemId, orderQty] of qtyByItem.entries()) {
+      const it = itemMap.get(itemId);
+      if (!it) continue;
+
+      const bundleV = Math.max(0, Number(it.bundleV ?? 0) || 0);
+      const stockV = Math.max(0, Number(it.stockV ?? 0) || 0);
+
+      // ✅ 핵심: "상품 1개 주문 시 차감될 V" * 주문수량
+      const decV = orderQty * bundleV;
+
+      const nextStock = Math.max(0, stockV - decV);
+
       await tx.item.update({
         where: { id: itemId },
-        data: { bundleV: next },
+        data: { stockV: nextStock },
       });
     }
   });
 
-  // ✅ 4) 엑셀 응답 반환
+  // ✅ 3) 엑셀 응답 반환
   const buffer = await wb.xlsx.writeBuffer();
 
   return new NextResponse(Buffer.from(buffer), {
