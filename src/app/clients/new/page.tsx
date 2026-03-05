@@ -1,49 +1,98 @@
 "use client";
 
 import { useState } from "react";
-import AppShell from "@/components/AppShell";
+import { useRouter } from "next/navigation";
 
 export default function NewClientPage() {
+  const router = useRouter();
+
   const [name, setName] = useState("");
-  const [owner, setOwner] = useState("");
+  const [ownerName, setOwnerName] = useState("");
+  const [bizRegNo, setBizRegNo] = useState("");
+  const [careInstitutionNo, setCareInstitutionNo] = useState("");
+
+  const [receiverName, setReceiverName] = useState("");
+  const [receiverAddr, setReceiverAddr] = useState("");
+  const [receiverTel, setReceiverTel] = useState("");
+  const [receiverMobile, setReceiverMobile] = useState("");
+
+  const [memo, setMemo] = useState("");
+
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function submit() {
+    if (!name) {
+      alert("거래처 이름 입력");
+      return;
+    }
+
+    setLoading(true);
+
+    const form = new FormData();
+
+    form.append("name", name);
+    form.append("ownerName", ownerName);
+    form.append("bizRegNo", bizRegNo);
+    form.append("careInstitutionNo", careInstitutionNo);
+
+    form.append("receiverName", receiverName);
+    form.append("receiverAddr", receiverAddr);
+    form.append("receiverTel", receiverTel);
+    form.append("receiverMobile", receiverMobile);
+
+    form.append("memo", memo);
+
+    if (file) {
+      form.append("file", file);
+    }
+
+    const res = await fetch("/api/sales/clients", {
+      method: "POST",
+      credentials: "include",
+      body: form,
+    });
+
+    const data = await res.json();
+
+    setLoading(false);
+
+    if (!data.ok) {
+      alert("등록 실패");
+      return;
+    }
+
+    alert("거래처 등록 완료");
+
+    router.push("/clients");
+  }
 
   return (
-    <AppShell>
-      <div className="text-2xl font-black tracking-tight">거래처 등록</div>
-      <div className="mt-2 text-sm font-bold text-black/55">
-        (우선 UI/라우팅 안정화) 등록 API 연결은 다음 단계에서 붙이면 됨
+    <div style={{ maxWidth: 600 }}>
+      <h2>거래처 등록</h2>
+
+      <input placeholder="거래처명" value={name} onChange={(e)=>setName(e.target.value)} />
+      <input placeholder="대표자" value={ownerName} onChange={(e)=>setOwnerName(e.target.value)} />
+
+      <input placeholder="사업자번호" value={bizRegNo} onChange={(e)=>setBizRegNo(e.target.value)} />
+      <input placeholder="요양기관번호" value={careInstitutionNo} onChange={(e)=>setCareInstitutionNo(e.target.value)} />
+
+      <input placeholder="수하인" value={receiverName} onChange={(e)=>setReceiverName(e.target.value)} />
+      <input placeholder="주소" value={receiverAddr} onChange={(e)=>setReceiverAddr(e.target.value)} />
+
+      <input placeholder="전화" value={receiverTel} onChange={(e)=>setReceiverTel(e.target.value)} />
+      <input placeholder="휴대폰" value={receiverMobile} onChange={(e)=>setReceiverMobile(e.target.value)} />
+
+      <input placeholder="메모" value={memo} onChange={(e)=>setMemo(e.target.value)} />
+
+      <div>
+        <label>사업자등록증</label>
+        <input type="file" onChange={(e)=>setFile(e.target.files?.[0] ?? null)} />
       </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <div className="mb-2 text-sm font-black">거래처명</div>
-          <input
-            className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-black/20"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="예: OO한의원"
-          />
-        </div>
-
-        <div>
-          <div className="mb-2 text-sm font-black">대표자명</div>
-          <input
-            className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 font-bold outline-none focus:ring-2 focus:ring-black/20"
-            value={owner}
-            onChange={(e) => setOwner(e.target.value)}
-            placeholder="예: 홍길동"
-          />
-        </div>
-      </div>
-
-      <div className="mt-6 flex justify-end">
-        <button
-          className="rounded-2xl bg-black px-6 py-3 font-black text-white shadow-md"
-          onClick={() => alert("다음 단계에서 저장 API 붙이면 됨")}
-        >
-          등록
-        </button>
-      </div>
-    </AppShell>
+      <button onClick={submit} disabled={loading}>
+        {loading ? "저장중..." : "저장"}
+      </button>
+    </div>
   );
 }

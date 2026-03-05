@@ -1,76 +1,100 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
-import { Role } from "@prisma/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * ✅ 영업사원 거래처 목록
- * - ADMIN: 전체
- * - SALES: 본인(userId) 거래처만
- * - q= 검색(거래처명/대표자/사업자번호/요양기관번호/수하인/주소/메모)
- */
-export async function GET(req: Request) {
+export async function POST(req: Request) {
+
   try {
+
     const user = await getSessionUser();
+
     if (!user) {
-      return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
+      return NextResponse.json(
+        { ok: false },
+        { status: 401 }
+      );
     }
 
-    const url = new URL(req.url);
-    const q = (url.searchParams.get("q") ?? "").trim();
+    const form = await req.formData();
 
-    const where: any = {};
-    if (user.role !== Role.ADMIN) where.userId = user.id;
+    const name = String(form.get("name") ?? "");
+    const ownerName = String(form.get("ownerName") ?? "");
+    const bizRegNo = String(form.get("bizRegNo") ?? "");
+    const careInstitutionNo = String(form.get("careInstitutionNo") ?? "");
 
-    if (q) {
-      where.OR = [
-        { name: { contains: q, mode: "insensitive" } },
-        { ownerName: { contains: q, mode: "insensitive" } },
-        { bizRegNo: { contains: q, mode: "insensitive" } },
-        { careInstitutionNo: { contains: q, mode: "insensitive" } },
-        { receiverName: { contains: q, mode: "insensitive" } },
-        { receiverAddr: { contains: q, mode: "insensitive" } },
-        { receiverTel: { contains: q, mode: "insensitive" } },
-        { receiverMobile: { contains: q, mode: "insensitive" } },
-        { memo: { contains: q, mode: "insensitive" } },
-      ];
+    const receiverName = String(form.get("receiverName") ?? "");
+    const receiverAddr = String(form.get("receiverAddr") ?? "");
+    const receiverTel = String(form.get("receiverTel") ?? "");
+    const receiverMobile = String(form.get("receiverMobile") ?? "");
+
+    const memo = String(form.get("memo") ?? "");
+
+    const file = form.get("file") as File | null;
+
+    let bizFileUrl: string | null = null;
+    let bizFileName: string | null = null;
+
+    if (file) {
+
+      const bytes = await file.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+
+      const fs = require("fs");
+
+      const dir = "./public/uploads";
+
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      const path = `uploads/${Date.now()}_${file.name}`;
+      const full = `./public/${path}`;
+
+      fs.writeFileSync(full, buffer);
+
+      bizFileUrl = "/" + path;
+      bizFileName = file.name;
     }
 
-    const clients = await prisma.client.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        ownerName: true,
+    const client = await prisma.client.create({
+      data: {
+        name,
+        ownerName,
+        bizRegNo,
+        careInstitutionNo,
 
-        bizRegNo: true,
-        careInstitutionNo: true,
+        receiverName,
+        receiverAddr,
+        receiverTel,
+        receiverMobile,
 
-        receiverName: true,
-        receiverAddr: true,
-        receiverTel: true,
-        receiverMobile: true,
+        memo,
 
-        memo: true,
+        bizFileUrl,
+        bizFileName,
 
-        bizFileName: true,
-        bizFileUrl: true,
-        bizFileUploadedAt: true,
-
-        createdAt: true,
-        updatedAt: true,
-      },
+        userId: user.id
+      }
     });
 
-    return NextResponse.json({ ok: true, clients });
+    return NextResponse.json({
+      ok: true,
+      client
+    });
+
   } catch (e: any) {
+
     return NextResponse.json(
-      { ok: false, error: "SERVER_ERROR", detail: String(e?.message ?? e) },
+      {
+        ok: false,
+        error: String(e)
+      },
       { status: 500 }
     );
+
   }
+
 }
