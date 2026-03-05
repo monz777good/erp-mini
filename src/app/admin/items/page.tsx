@@ -14,7 +14,7 @@ export default function AdminItemsPage() {
     setMsg("");
     const res = await fetch("/api/admin/items", {
       method: "GET",
-      credentials: "include", // ✅ 쿠키 무조건 포함
+      credentials: "include",
       cache: "no-store",
     });
 
@@ -24,17 +24,22 @@ export default function AdminItemsPage() {
       return;
     }
 
-    const data = await res.json();
-    setItems(Array.isArray(data) ? data : []);
+    const data = await res.json().catch(() => null);
+
+    // ✅ API는 { ok:true, items:[...] } 형태
+    const list = Array.isArray(data?.items) ? data.items : [];
+    setItems(list);
   }
 
   async function add() {
     setMsg("");
+    const nm = name.trim();
+
     const res = await fetch("/api/admin/items", {
       method: "POST",
-      credentials: "include", // ✅ 쿠키 무조건 포함
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name: nm }),
     });
 
     if (!res.ok) {
@@ -42,6 +47,7 @@ export default function AdminItemsPage() {
       setMsg(t?.message || `추가 실패 (${res.status})`);
       return;
     }
+
     setName("");
     await load();
   }
@@ -51,10 +57,11 @@ export default function AdminItemsPage() {
     setMsg("");
     const res = await fetch(`/api/admin/items?id=${encodeURIComponent(id)}`, {
       method: "DELETE",
-      credentials: "include", // ✅ 쿠키 무조건 포함
+      credentials: "include",
     });
     if (!res.ok) {
-      setMsg(`삭제 실패 (${res.status})`);
+      const t = await res.json().catch(() => null);
+      setMsg(t?.message || `삭제 실패 (${res.status})`);
       return;
     }
     await load();
