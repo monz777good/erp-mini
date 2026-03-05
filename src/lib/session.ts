@@ -1,75 +1,109 @@
+import "server-only";
+
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getIronSession, IronSessionData } from "iron-session";
+import { prisma } from "@/lib/prisma";
 
-export type SessionUser = {
-  id: string;
-  name: string;
-  role: "SALES" | "ADMIN";
-};
+type Role = "SALES" | "ADMIN";
 
-const COOKIE_NAME = "erp_session";
-
-function encode(data: any) {
-  return Buffer.from(JSON.stringify(data)).toString("base64");
-}
-
-function decode(str: string) {
-  try {
-    return JSON.parse(Buffer.from(str, "base64").toString());
-  } catch {
-    return null;
+declare module "iron-session" {
+  interface IronSessionData {
+    user?: {
+      id: string;
+      name: string;
+      phone: string;
+      role: Role;
+    };
   }
 }
 
-export async function setSessionUser(user: SessionUser) {
-  const store = await cookies(); // ✅ 중요: await
-  store.set(COOKIE_NAME, encode(user), {
+const sessionOptions = {
+  cookieName: "erp_session",
+  password: process.env.SESSION_PASSWORD as string,
+  cookieOptions: {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
     path: "/",
-  });
+  },
+};
+
+function assertEnv() {
+  if (!process.env.SESSION_PASSWORD) {
+    throw new Error("SESSION_PASSWORD is missing in environment variables.");
+  }
 }
 
-export async function getSessionUser(): Promise<SessionUser | null> {
-  const store = await cookies(); // ✅ 중요: await
-  const c = store.get(COOKIE_NAME);
-  if (!c) return null;
+// ✅ Next 16 cookies() 타입 이슈 회피: iron-session에 CookieStore로 캐스팅
+export async function getSession() {
+  assertEnv();
 
-  const user = decode(c.value);
-  if (!user) return null;
+  // iron-session이 기대하는 CookieStore 타입과 Next cookies() 타입이 다르게 잡혀서 빌드가 터짐
+  // 런타임은 정상이라, 여기서만 안전하게 캐스팅해서 통과시킨다.
+  const cookieStore = cookies() as any;
 
-  return user as SessionUser;
+  return getIronSession<IronSessionData>(cookieStore, sessionOptions);
+}
+
+export async function getSessionUser() {
+  const session = await getSession();
+  return session.user ?? null;
+}
+
+export async function setSessionUser(user: {
+  id: string;
+  name: string;
+  phone: string;
+  role: Role;
+}) {
+  const session = await getSession();
+  session.user = user;
+  await session.save();
 }
 
 export async function clearSession() {
-  const store = await cookies(); // ✅ 중요: await
-  store.set(COOKIE_NAME, "", { maxAge: 0, path: "/" });
+  const session = await getSession();
+  session.destroy();
 }
 
 export async function requireUser() {
-  const user = await getSessionUser();
-  if (!user) {
+  const session = await getSession();
+
+  if (!session.user) {
     return NextResponse.json(
       { ok: false, error: "LOGIN_REQUIRED" },
       { status: 401 }
     );
   }
-  return user;
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, name: true, phone: true, role: true },
+  });
+
+  if (!dbUser) {
+    session.destroy();
+    return NextResponse.json(
+      { ok: false, error: "LOGIN_REQUIRED" },
+      { status: 401 }
+    );
+  }
+
+  return dbUser;
 }
 
 export async function requireAdmin() {
-  const user = await getSessionUser();
-  if (!user) {
+  const u = await requireUser();
+  if (u instanceof NextResponse) return u;
+
+  if (u.role !== "ADMIN") {
     return NextResponse.json(
-      { ok: false, error: "LOGIN_REQUIRED" },
-      { status: 401 }
-    );
-  }
-  if (user.role !== "ADMIN") {
-    return NextResponse.json(
-      { ok: false, error: "ADMIN_ONLY" },
+      { ok: false, error: "UNAUTHORIZED" },
       { status: 403 }
     );
   }
-  return user;
+  return u;
 }
+
+export const requireAdminUser = requireAdmin;

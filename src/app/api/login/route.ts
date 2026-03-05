@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { setSessionUser } from "@/lib/session";
 import crypto from "crypto";
@@ -6,53 +6,105 @@ import crypto from "crypto";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function digitsOnly(v: string) {
-  return String(v ?? "").replace(/\D/g, "");
-}
-function sha256Hex(s: string) {
-  return crypto.createHash("sha256").update(s).digest("hex");
+function hashPin(pin: string) {
+  const pepper = process.env.PIN_PEPPER ?? "";
+  return crypto.createHash("sha256").update(`${pin}:${pepper}`).digest("hex");
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({} as any));
-    const phone = digitsOnly(body.phone ?? "");
-    const pin = String(body.pin ?? "");
-    const name = String(body.name ?? "").trim();
+    const body = await req.json().catch(() => ({}));
 
-    if (!phone || phone.length < 10) {
-      return NextResponse.json({ ok: false, error: "PHONE_REQUIRED" }, { status: 400 });
+    const role = String(body?.role ?? "SALES").toUpperCase();
+    const phone = String(body?.phone ?? "").trim();
+    const pin = String(body?.pin ?? "").trim();
+    const name = String(body?.name ?? "").trim();
+
+    if (!phone || !pin) {
+      return NextResponse.json(
+        { ok: false, error: "PHONE_PIN_REQUIRED" },
+        { status: 400 }
+      );
     }
-    if (!pin || pin.length < 4) {
-      return NextResponse.json({ ok: false, error: "PIN_REQUIRED" }, { status: 400 });
-    }
 
-    const pepper = process.env.PIN_PEPPER ?? "";
-    const pinHash = sha256Hex(`${pin}:${pepper}`);
-
-    // ✅ 핵심: role 조건 빼고 phone으로만 먼저 찾기
-    let user = await prisma.user.findUnique({
+    // 1) 사용자 찾기
+    const user = await prisma.user.findUnique({
       where: { phone },
+      select: { id: true, name: true, phone: true, role: true, pin: true },
     });
 
-    // 없으면 생성 (기본 SALES)
+    const hashed = hashPin(pin);
+
+    // 2) 없으면: (영업사원만) 자동 생성
     if (!user) {
-      if (!name) {
-        return NextResponse.json({ ok: false, error: "NAME_REQUIRED" }, { status: 400 });
+      // 관리자 자동 생성 금지 (관리자는 따로 만들기로 했던 흐름)
+      if (role === "ADMIN") {
+        return NextResponse.json(
+          { ok: false, error: "ADMIN_NOT_FOUND" },
+          { status: 404 }
+        );
       }
-      user = await prisma.user.create({
-        data: { name, phone, role: "SALES" as any, pin: pinHash },
+
+      if (!name) {
+        return NextResponse.json(
+          { ok: false, error: "NAME_REQUIRED" },
+          { status: 400 }
+        );
+      }
+
+      const created = await prisma.user.create({
+        data: {
+          name,
+          phone,
+          role: "SALES" as any,
+          pin: hashed,
+        },
+        select: { id: true, name: true, phone: true, role: true },
+      });
+
+      // ✅ phone 포함해서 세션 저장 (타입에러 해결)
+      await setSessionUser({
+        id: created.id,
+        name: created.name,
+        phone: created.phone,
+        role: created.role as any,
+      });
+
+      return NextResponse.json({ ok: true, created: true });
+    }
+
+    // 3) 있으면: role 체크 (원하면 느슨하게 가능)
+    if (role === "ADMIN" && user.role !== "ADMIN") {
+      return NextResponse.json(
+        { ok: false, error: "NOT_ADMIN" },
+        { status: 403 }
+      );
+    }
+
+    // 4) PIN 검증 (없으면 첫 로그인 설정)
+    if (!user.pin) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { pin: hashed },
       });
     } else {
-      // 있으면 핀 검증
-      if (!user.pin || user.pin !== pinHash) {
-        return NextResponse.json({ ok: false, error: "INVALID_PIN" }, { status: 401 });
+      if (user.pin !== hashed) {
+        return NextResponse.json(
+          { ok: false, error: "INVALID_PIN" },
+          { status: 401 }
+        );
       }
     }
 
-    await setSessionUser({ id: user.id, name: user.name, role: user.role as any });
+    // ✅ phone 포함해서 세션 저장 (타입에러 해결)
+    await setSessionUser({
+      id: user.id,
+      name: user.name,
+      phone: user.phone,
+      role: user.role as any,
+    });
 
-    return NextResponse.json({ ok: true, role: user.role });
+    return NextResponse.json({ ok: true, created: false });
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: "SERVER_ERROR", detail: String(e?.message ?? e) },

@@ -1,22 +1,24 @@
-import type { ReactNode } from "react";
+import { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { requireAdminUser } from "@/lib/session";
 import AdminTopNav from "@/components/admin/AdminTopNav";
+import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const admin = await requireAdminUser();
-  if (!admin) redirect("/login?role=ADMIN");
+  const session = await getSession();
+
+  // 로그인 안 되어있으면 로그인으로
+  if (!session.user) redirect("/");
+
+  // 관리자 아니면 영업 화면으로
+  if (session.user.role !== "ADMIN") redirect("/orders");
 
   return (
-    <div className="admin-bg">
-      <div className="admin-wrap">
-        <AdminTopNav />
-        {/* ✅ 겉 큰 카드(erp-card) 제거: 각 페이지 내부 카드만 보이게 */}
-        {children}
-      </div>
+    <div className="min-h-dvh">
+      <AdminTopNav />
+      <main className="mx-auto w-full max-w-6xl px-4 py-6">{children}</main>
     </div>
   );
 }
