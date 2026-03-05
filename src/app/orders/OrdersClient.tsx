@@ -7,6 +7,7 @@ type TabKey = "request" | "list" | "clients" | "clientsNew";
 type ClientRow = {
   id: string;
   name: string;
+
   address?: string | null;
   ownerName?: string | null;
   careInstitutionNo?: string | null;
@@ -70,7 +71,6 @@ async function apiPOST<T>(url: string, body: any): Promise<T> {
 }
 
 function kstTodayYmd() {
-  // YYYY-MM-DD in Asia/Seoul
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date());
 }
 function addDaysYmd(ymd: string, delta: number) {
@@ -83,7 +83,7 @@ function addDaysYmd(ymd: string, delta: number) {
   return `${yy}-${mm}-${dd}`;
 }
 
-// ✅ 모바일(터치)까지 바깥 클릭 닫기 제대로
+// ✅ 모바일 터치까지 바깥 클릭 닫기
 function useOutsideClose(open: boolean, onClose: () => void) {
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -243,14 +243,25 @@ export default function OrdersClient() {
     [clients, clientId]
   );
 
-  // ✅ 거래처 선택 시 자동 채움
+  // ✅✅✅ 핵심: clientId가 바뀌는 “순간” 무조건 덮어쓴다.
+  // - 새 거래처 값이 null/undefined여도 빈칸으로 초기화
+  // - 기존 입력값이 남아있을 여지 없음
   useEffect(() => {
-    if (!selectedClient) return;
-    setReceiverName(selectedClient.receiverName ?? "");
-    setReceiverAddr(selectedClient.receiverAddr ?? "");
-    setPhone(selectedClient.receiverTel ?? "");
-    setMobile(selectedClient.receiverMobile ?? "");
-  }, [selectedClient?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    const c = clients.find((x) => x.id === clientId) || null;
+
+    if (!clientId || !c) {
+      setReceiverName("");
+      setReceiverAddr("");
+      setPhone("");
+      setMobile("");
+      return;
+    }
+
+    setReceiverName(c.receiverName ?? "");
+    setReceiverAddr(c.receiverAddr ?? "");
+    setPhone(c.receiverTel ?? "");
+    setMobile(c.receiverMobile ?? "");
+  }, [clientId, clients]);
 
   async function refreshBase() {
     setErrMsg(null);
@@ -292,8 +303,8 @@ export default function OrdersClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ✅ 로그아웃은 서버가 /login으로 리다이렉트하게(깜빡임 방지)
   function logout() {
+    // /api/logout 은 GET 지원 버전으로 이미 바꿨다고 가정
     window.location.href = "/api/logout";
   }
 
@@ -414,7 +425,6 @@ export default function OrdersClient() {
             </button>
           </div>
 
-          {/* ✅ 탭 4개 복구 */}
           <div className="mt-5 flex flex-wrap gap-2">
             <button className={tabBtn(tab === "request")} onClick={() => setTab("request")}>
               주문요청
@@ -754,7 +764,6 @@ export default function OrdersClient() {
                       <div className="text-white/70">조회 결과가 없습니다.</div>
                     ) : (
                       <>
-                        {/* ✅ 모바일: 카드형 */}
                         <div className="grid grid-cols-1 gap-3 lg:hidden">
                           {orders.map((o) => (
                             <div key={o.id} className={panel}>
@@ -780,7 +789,6 @@ export default function OrdersClient() {
                           ))}
                         </div>
 
-                        {/* ✅ PC: 표형 */}
                         <div className="hidden lg:block rounded-2xl border border-white/10 overflow-hidden">
                           <div className="grid grid-cols-12 bg-white/10 px-4 py-3 text-white/80 text-sm font-semibold">
                             <div className="col-span-2">날짜</div>
