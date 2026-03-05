@@ -242,6 +242,10 @@ export default function OrdersClient() {
   const [newReceiverTel, setNewReceiverTel] = useState("");
   const [newReceiverMobile, setNewReceiverMobile] = useState("");
 
+  // ✅ 사업자등록증 첨부(거래처 등록 탭)
+  const [newBizFile, setNewBizFile] = useState<File | null>(null);
+  const [uploadingBiz, setUploadingBiz] = useState(false);
+
   // 조회 기간 (KST)
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -413,9 +417,40 @@ export default function OrdersClient() {
     }
   }
 
+  // ✅ 사업자등록증 업로드
+  async function uploadBizFile(file: File) {
+    const fd = new FormData();
+    fd.append("file", file);
+
+    const res = await fetch("/api/sales/clients/bizfile", {
+      method: "POST",
+      credentials: "include",
+      body: fd,
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data?.ok === false) {
+      throw new Error(data?.error || `UPLOAD_HTTP_${res.status}`);
+    }
+    return data as { ok: true; url: string; name: string };
+  }
+
   async function createClient() {
     setErrMsg(null);
     try {
+      setUploadingBiz(true);
+
+      // ✅ 1) 파일 있으면 먼저 업로드
+      let bizFileUrl: string | null = null;
+      let bizFileName: string | null = null;
+
+      if (newBizFile) {
+        const up = await uploadBizFile(newBizFile);
+        bizFileUrl = up.url;
+        bizFileName = up.name;
+      }
+
+      // ✅ 2) 거래처 저장 (업로드 결과 포함)
       const r = await apiPOST<{ ok: true; client: ClientRow }>("/api/sales/clients", {
         name: newName,
         address: newAddress,
@@ -426,6 +461,9 @@ export default function OrdersClient() {
         receiverAddr: newReceiverAddr,
         receiverTel: newReceiverTel,
         receiverMobile: newReceiverMobile,
+
+        bizFileUrl,
+        bizFileName,
       });
 
       await refreshBase();
@@ -441,8 +479,11 @@ export default function OrdersClient() {
       setNewReceiverAddr("");
       setNewReceiverTel("");
       setNewReceiverMobile("");
+      setNewBizFile(null);
     } catch (e: any) {
       setErrMsg(e?.message || "FAILED_CREATE_CLIENT");
+    } finally {
+      setUploadingBiz(false);
     }
   }
 
@@ -552,8 +593,6 @@ export default function OrdersClient() {
                       valueId={clientId}
                       onChangeId={(id) => {
                         setClientId(id);
-                        // ✅ 거래처 바꾸면 장바구니는 유지해도 되지만, 실수 방지로 비우는게 안전
-                        // 원하면 아래 1줄 주석처리하면 됨.
                         setCart([]);
                       }}
                       search={clientSearch}
@@ -580,7 +619,6 @@ export default function OrdersClient() {
                           +
                         </button>
 
-                        {/* ✅ 장바구니 담기 */}
                         <button className={btnPrimary} onClick={addToCart} disabled={!clientId || !itemId}>
                           담기
                         </button>
@@ -600,7 +638,6 @@ export default function OrdersClient() {
                       onChangeSearch={setItemSearch}
                     />
 
-                    {/* ✅ 장바구니 표시 */}
                     <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-white font-bold">장바구니</div>
@@ -674,7 +711,6 @@ export default function OrdersClient() {
                     </div>
 
                     <div className="mt-5 flex gap-3 flex-wrap">
-                      {/* ✅ cart 있으면 “장바구니 주문요청”, 없으면 기존 단품 주문요청 */}
                       <button
                         className={btnPrimary}
                         onClick={submitOrder}
@@ -759,7 +795,6 @@ export default function OrdersClient() {
 
                         {orders.map((o) => (
                           <div key={o.id} className="border-t border-white/10 px-4 py-4">
-                            {/* 모바일 */}
                             <div className="md:hidden space-y-1 text-white/85">
                               <div className="font-bold">
                                 {o.client?.name || "-"} · {o.item?.name || "-"} x{o.quantity}
@@ -773,7 +808,6 @@ export default function OrdersClient() {
                               <div className="text-white/70 text-sm">주소: {o.client?.address || "-"}</div>
                             </div>
 
-                            {/* PC */}
                             <div className="hidden md:grid md:grid-cols-12 text-white/85">
                               <div className="col-span-2">{new Date(o.createdAt).toLocaleDateString("ko-KR")}</div>
                               <div className="col-span-1">{statusKo(o.status)}</div>
@@ -819,6 +853,18 @@ export default function OrdersClient() {
                               {c.bizRegNo || "-"}
                             </div>
                             <div className="text-white/60 text-sm mt-1">거래처 주소: {c.address || "-"}</div>
+
+                            {/* ✅ 첨부 표시 */}
+                            <div className="text-white/60 text-sm mt-1">
+                              사업자등록증:{" "}
+                              {c.bizFileUrl ? (
+                                <a className="underline text-white" href={c.bizFileUrl} target="_blank" rel="noreferrer">
+                                  {c.bizFileName || "첨부 보기"}
+                                </a>
+                              ) : (
+                                "-"
+                              )}
+                            </div>
                           </div>
                           <button
                             className={btnPrimary}
@@ -878,6 +924,20 @@ export default function OrdersClient() {
                         <input className={input} value={newOwner} onChange={(e) => setNewOwner(e.target.value)} />
                       </div>
 
+                      {/* ✅ 사업자등록증 첨부 */}
+                      <div>
+                        <div className={label}>사업자등록증 첨부(선택)</div>
+                        <input
+                          className={cls(input, "py-2")}
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={(e) => setNewBizFile(e.target.files?.[0] ?? null)}
+                        />
+                        <div className="text-white/50 text-xs mt-2">
+                          {newBizFile ? `선택됨: ${newBizFile.name}` : "선택된 파일 없음"}
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <div className={label}>수하인</div>
@@ -902,8 +962,8 @@ export default function OrdersClient() {
                       </div>
 
                       <div className="flex gap-3 pt-2">
-                        <button className={btnPrimary} onClick={createClient} disabled={!newName.trim()}>
-                          거래처 등록
+                        <button className={btnPrimary} onClick={createClient} disabled={!newName.trim() || uploadingBiz}>
+                          {uploadingBiz ? "처리 중..." : "거래처 등록"}
                         </button>
                         <button
                           className={btn}
@@ -917,7 +977,9 @@ export default function OrdersClient() {
                             setNewReceiverAddr("");
                             setNewReceiverTel("");
                             setNewReceiverMobile("");
+                            setNewBizFile(null);
                           }}
+                          disabled={uploadingBiz}
                         >
                           초기화
                         </button>
@@ -929,6 +991,7 @@ export default function OrdersClient() {
                     <div className="text-white font-bold">안내</div>
                     <div className="mt-3 text-white/70 text-sm space-y-2">
                       <div>• 등록하면 거래처 목록/주문요청에 즉시 반영됩니다.</div>
+                      <div>• 사업자등록증은 업로드 후 URL로 저장됩니다.</div>
                       <div>• 주문요청에서 거래처 변경하면 배송정보가 즉시 자동 채움됩니다.</div>
                       <div>• 조회 달력 기본값은 한국시간 기준(오늘, 최근 7일)입니다.</div>
                       <div>• 장바구니는 “담기”로 누적 후 “장바구니 주문 요청” 한 번에 등록됩니다.</div>
