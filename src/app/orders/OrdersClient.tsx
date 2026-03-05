@@ -1,507 +1,405 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import AppShell from "@/components/AppShell";
+import { useRouter, useSearchParams } from "next/navigation";
 
-type Item = { id: string; name: string };
-type Client = { id: string; name: string };
-type Me = { id: string; name: string; phone: string; role: "SALES" | "ADMIN" };
+type Tab = "request" | "list" | "clients-list" | "clients-new";
 
-function onlyDigits(v: string) {
-  return String(v ?? "").replace(/\D/g, "");
-}
+type ClientRow = {
+  id: string;
+  name: string;
+  owner?: string | null;
+  bizNo?: string | null;
+  ykiho?: string | null;
+  addr?: string | null;
+};
 
-function cx(...a: (string | false | null | undefined)[]) {
-  return a.filter(Boolean).join(" ");
-}
-
-export default function OrdersClient() {
-  const sp = useSearchParams();
+export default function OrdersClient({ initialTab }: { initialTab: string }) {
   const router = useRouter();
-  const tab = sp.get("tab") ?? "order";
+  const sp = useSearchParams();
 
-  const [me, setMe] = useState<Me | null>(null);
+  const [tab, setTab] = useState<Tab>(
+    (initialTab as Tab) || "request"
+  );
 
-  const [items, setItems] = useState<Item[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [err, setErr] = useState<string | null>(null);
+  // ✅ URL(tab=...) 동기화
+  useEffect(() => {
+    const t = (sp.get("tab") ?? initialTab ?? "request") as Tab;
+    setTab(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sp]);
 
-  const [loading, setLoading] = useState(false);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-
-  const [clientQ, setClientQ] = useState("");
-  const [itemQ, setItemQ] = useState("");
-  const [clientId, setClientId] = useState("");
-  const [itemId, setItemId] = useState("");
-  const [qty, setQty] = useState(1);
-
-  const [receiverName, setReceiverName] = useState("");
-  const [receiverPhone, setReceiverPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [memo, setMemo] = useState("");
-
-  // 조회(히스토리)
-  const [history, setHistory] = useState<any[]>([]);
-  const [historyQ, setHistoryQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-
-  // ---------- 공통 스타일 ----------
-  const sectionTitle = "text-2xl font-black tracking-tight text-white";
-  const subTitle = "mt-2 text-sm font-bold text-white/60";
-
-  const card = "rounded-3xl border border-white/10 bg-white/10 backdrop-blur-xl shadow-2xl";
-  const cardInner = "p-6 md:p-8";
-  const label = "mb-2 text-sm font-black text-white/85";
-  const input =
-    "w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 font-bold text-white placeholder:text-white/40 outline-none focus:ring-2 focus:ring-white/20";
-  const select =
-    "w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 font-bold text-white outline-none focus:ring-2 focus:ring-white/20";
-  const btn =
-    "rounded-2xl bg-white px-5 py-3 font-black text-black shadow-md hover:opacity-95 active:opacity-90 disabled:opacity-50";
-  const btnGhost =
-    "rounded-2xl border border-white/15 bg-white/5 px-5 py-3 font-black text-white hover:bg-white/10 active:bg-white/15";
-
-  // ---------- 탭 이동 ----------
-  function goTab(next: string) {
+  function goto(next: Tab) {
     router.replace(`/orders?tab=${next}`);
   }
 
-  // ---------- 로그아웃 ----------
   async function logout() {
-    setErr(null);
-    try {
-      // 우선 /api/auth/logout (너 라우트 목록에 있음)
-      let r = await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
-
-      // 혹시 GET만 되는 구현이면 한번 더
-      if (!r.ok) r = await fetch("/api/auth/logout", { method: "GET", credentials: "include" });
-
-      // fallback: /api/logout 도 있음
-      if (!r.ok) {
-        r = await fetch("/api/logout", { method: "POST", credentials: "include" });
-        if (!r.ok) r = await fetch("/api/logout", { method: "GET", credentials: "include" });
-      }
-    } catch {}
+    await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
     router.replace("/login");
   }
 
-  // ---------- 로그인 세션 확인 ----------
+  return (
+    <div className="min-h-[calc(100dvh-64px)]">
+      {/* 상단 바 */}
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-white">주문</h1>
+          <p className="mt-1 text-sm text-white/60">
+            거래처/품목 선택 + 배송정보 입력 후 주문요청
+          </p>
+        </div>
+
+        <button
+          onClick={logout}
+          className="rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/15"
+        >
+          로그아웃
+        </button>
+      </div>
+
+      {/* 탭 카드 */}
+      <div className="rounded-3xl border border-white/15 bg-white/10 p-4 shadow-[0_30px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+        <div className="flex flex-wrap items-center gap-2">
+          <TabBtn active={tab === "request"} onClick={() => goto("request")}>
+            주문요청
+          </TabBtn>
+          <TabBtn active={tab === "list"} onClick={() => goto("list")}>
+            조회
+          </TabBtn>
+          <TabBtn
+            active={tab === "clients-list"}
+            onClick={() => goto("clients-list")}
+          >
+            거래처 목록
+          </TabBtn>
+          <TabBtn
+            active={tab === "clients-new"}
+            onClick={() => goto("clients-new")}
+          >
+            거래처 등록
+          </TabBtn>
+        </div>
+
+        <div className="mt-4">
+          {tab === "request" && <RequestPanel />}
+          {tab === "list" && <ListPanel />}
+          {tab === "clients-list" && <ClientsListPanel onGotoNew={() => goto("clients-new")} />}
+          {tab === "clients-new" && <ClientsNewPanel onGotoList={() => goto("clients-list")} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: any;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={[
+        "rounded-2xl px-4 py-2 text-sm font-bold transition",
+        "border border-white/15",
+        active ? "bg-white text-black" : "bg-white/10 text-white/80 hover:bg-white/15",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** =====================
+ *  주문요청(일단 UI만)
+ *  ===================== */
+function RequestPanel() {
+  return (
+    <Section title="주문요청">
+      <div className="text-sm text-white/70">
+        여기 “주문요청 폼(거래처/품목/수량/배송정보)” 붙이면 됨.
+        <div className="mt-2 text-white/45">
+          (지금은 UI 복구 먼저라서 빈 패널로 둠)
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+/** =====================
+ *  조회(일단 UI만)
+ *  ===================== */
+function ListPanel() {
+  return (
+    <Section title="조회">
+      <div className="text-sm text-white/70">
+        여기 “주문 조회 테이블” 붙이면 됨.
+      </div>
+    </Section>
+  );
+}
+
+/** =====================
+ *  거래처 목록
+ *  ===================== */
+function ClientsListPanel({ onGotoNew }: { onGotoNew: () => void }) {
+  const [q, setQ] = useState("");
+  const [rows, setRows] = useState<ClientRow[]>([]);
+  const [sel, setSel] = useState<ClientRow | null>(null);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
+    let mounted = true;
     (async () => {
-      setErr(null);
+      setLoading(true);
       try {
-        const res = await fetch("/api/me", { credentials: "include" });
-        if (!res.ok) {
-          router.replace("/login");
-          return;
+        // ✅ 네 프로젝트에 이미 있는 /api/sales/clients 를 기대
+        const r = await fetch("/api/sales/clients", { credentials: "include" });
+        const d = await r.json().catch(() => ({}));
+
+        const list: ClientRow[] =
+          d?.clients ??
+          d?.rows ??
+          d?.data ??
+          (Array.isArray(d) ? d : []);
+
+        if (mounted) {
+          setRows(Array.isArray(list) ? list : []);
+          setSel(Array.isArray(list) && list.length ? list[0] : null);
         }
-        const json = await res.json().catch(() => ({}));
-        // 형태: { ok: true, user } / { user } 등 다 방어
-        const u = (json?.user ?? json?.me ?? json) as Me | null;
-        if (!u?.id) {
-          router.replace("/login");
-          return;
-        }
-        setMe(u);
       } catch {
-        router.replace("/login");
+        if (mounted) setRows([]);
+      } finally {
+        if (mounted) setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // ---------- 품목/거래처 로딩 ----------
-  useEffect(() => {
-    if (!me) return;
+  const filtered = useMemo(() => {
+    const s = q.trim();
+    if (!s) return rows;
+    return rows.filter((c) => {
+      const t = `${c.name ?? ""} ${c.owner ?? ""} ${c.addr ?? ""} ${c.bizNo ?? ""} ${c.ykiho ?? ""}`;
+      return t.includes(s);
+    });
+  }, [q, rows]);
 
-    (async () => {
-      setErr(null);
-      try {
-        const [itRes, clRes] = await Promise.all([
-          fetch("/api/items", { credentials: "include" }),
-          fetch("/api/sales/clients", { credentials: "include" }),
-        ]);
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Section title={`거래처 목록 ${loading ? "" : `(${filtered.length})`}`}>
+        <div className="mb-3 flex gap-2">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="거래처명/수하인/주소/대표자/사업자번호/요양기관번호"
+            className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10"
+          />
+          <button
+            onClick={onGotoNew}
+            className="whitespace-nowrap rounded-2xl border border-white/15 bg-white text-black px-4 py-3 text-sm font-bold hover:bg-white/90"
+          >
+            등록
+          </button>
+        </div>
 
-        // items
-        if (itRes.ok) {
-          const itJson = await itRes.json().catch(() => []);
-          setItems(Array.isArray(itJson) ? itJson : itJson?.items ?? []);
-        } else {
-          setItems([]);
-        }
+        <div className="rounded-2xl border border-white/10 overflow-hidden">
+          {filtered.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setSel(c)}
+              className={[
+                "w-full text-left px-4 py-3 border-b border-white/10 transition",
+                "hover:bg-white/10",
+                sel?.id === c.id ? "bg-white/10" : "bg-transparent",
+              ].join(" ")}
+            >
+              <div className="font-bold text-white">{c.name}</div>
+              <div className="mt-0.5 text-xs text-white/55">
+                {c.addr || c.owner || ""}
+              </div>
+            </button>
+          ))}
+          {!loading && filtered.length === 0 && (
+            <div className="px-4 py-8 text-sm text-white/60">거래처가 없습니다.</div>
+          )}
+          {loading && (
+            <div className="px-4 py-8 text-sm text-white/60">불러오는 중...</div>
+          )}
+        </div>
+      </Section>
 
-        // clients
-        if (clRes.ok) {
-          const clJson = await clRes.json().catch(() => []);
-          setClients(Array.isArray(clJson) ? clJson : clJson?.clients ?? []);
-        } else {
-          setClients([]);
-          // 관리자면 이 API가 막혀있을 수 있어서 에러 문구는 약하게
-          setErr(me.role === "ADMIN" ? "거래처 목록은 ‘거래처’ 메뉴에서 확인하세요." : "거래처를 불러오지 못했습니다. (권한/세션 확인)");
-        }
-      } catch {
-        setErr("서버 오류");
-      }
-    })();
-  }, [me]);
+      <Section title="상세">
+        {!sel ? (
+          <div className="text-sm text-white/60">왼쪽에서 거래처를 선택하세요.</div>
+        ) : (
+          <div className="space-y-3">
+            <div>
+              <div className="text-2xl font-bold text-white">{sel.name}</div>
+              <div className="mt-1 text-sm text-white/60">{sel.addr ?? ""}</div>
+            </div>
 
-  const filteredClients = useMemo(() => {
-    const q = clientQ.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter((c) => c.name.toLowerCase().includes(q));
-  }, [clients, clientQ]);
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Info label="사업자번호" value={sel.bizNo ?? "-"} />
+              <Info label="요양기관번호" value={sel.ykiho ?? "-"} />
+            </div>
 
-  const filteredItems = useMemo(() => {
-    const q = itemQ.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) => i.name.toLowerCase().includes(q));
-  }, [items, itemQ]);
+            <button className="mt-2 w-full rounded-2xl border border-white/15 bg-white text-black px-4 py-3 text-sm font-bold hover:bg-white/90">
+              이 거래처로 주문하기
+            </button>
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}
 
-  // ---------- 주문 요청 ----------
-  async function submitOrder() {
-    setErr(null);
-    if (!me?.id) return setErr("세션이 없습니다. 다시 로그인 해주세요.");
-    if (!itemId) return setErr("품목을 선택해주세요.");
-    if (!receiverName.trim()) return setErr("수하인명을 입력해주세요.");
-    if (!address.trim()) return setErr("주소를 입력해주세요.");
+/** =====================
+ *  거래처 등록
+ *  ===================== */
+function ClientsNewPanel({ onGotoList }: { onGotoList: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
 
+  const [name, setName] = useState("");
+  const [bizNo, setBizNo] = useState("");
+  const [ykiho, setYkiho] = useState("");
+  const [owner, setOwner] = useState("");
+  const [addr, setAddr] = useState("");
+  const [phone, setPhone] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [note, setNote] = useState("");
+
+  async function save() {
     setLoading(true);
+    setMsg(null);
     try {
-      const res = await fetch("/api/orders", {
+      const r = await fetch("/api/sales/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          // ✅ 서버 구현이 userId를 요구하는 버전/세션에서 읽는 버전 둘 다 대응
-          userId: me.id,
-          itemId,
-          quantity: qty,
-          clientId: clientId || null,
-          receiverName,
-          receiverAddr: address,
-          receiverPhone: onlyDigits(receiverPhone),
-          note: memo || null,
+          name,
+          bizNo,
+          ykiho,
+          owner,
+          addr,
+          phone,
+          mobile,
+          note,
         }),
       });
 
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setErr(json?.error || json?.message || "주문 요청 실패");
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d?.ok) {
+        setMsg(d?.error ?? "저장 실패");
+        setLoading(false);
         return;
       }
 
-      setMemo("");
-      setQty(1);
-      setReceiverName("");
-      setReceiverPhone("");
-      setAddress("");
-      alert("주문 요청 완료!");
-      router.replace("/orders?tab=order");
+      onGotoList();
     } catch {
-      setErr("서버 오류");
+      setMsg("서버 오류");
     } finally {
       setLoading(false);
     }
   }
 
-  // ---------- 조회(내 주문 리스트) ----------
-  async function loadHistory() {
-    if (!me) return;
-    setErr(null);
-    setLoadingHistory(true);
-
-    try {
-      // SALES: /api/sales/orders (너 라우트 목록에 있음)
-      // ADMIN: 일단 sales API 막혀있으면 에러 띄우고, 나중에 admin 전용 조회는 /admin 에서 처리
-      const url =
-        me.role === "SALES"
-          ? "/api/sales/orders"
-          : "/api/sales/orders"; // 관리자도 가능하면 보여주고, 막히면 에러 표시
-
-      const res = await fetch(url, { credentials: "include" });
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setHistory([]);
-        setErr(json?.error || json?.message || "조회 권한이 없거나 서버 오류입니다.");
-        return;
-      }
-
-      // 형태 방어: {orders} / {ok, orders} / 배열
-      const list = Array.isArray(json) ? json : json?.orders ?? json?.data ?? [];
-      setHistory(Array.isArray(list) ? list : []);
-    } catch {
-      setErr("서버 오류");
-    } finally {
-      setLoadingHistory(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!me) return;
-    if (tab !== "history") return;
-    loadHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me, tab]);
-
-  const filteredHistory = useMemo(() => {
-    let list = history;
-
-    if (statusFilter) {
-      list = list.filter((o: any) => String(o?.status ?? "") === statusFilter);
-    }
-
-    const q = historyQ.trim().toLowerCase();
-    if (!q) return list;
-
-    return list.filter((o: any) => {
-      const itemName = String(o?.item?.name ?? o?.itemName ?? "").toLowerCase();
-      const recv = String(o?.receiverName ?? "").toLowerCase();
-      const addr = String(o?.receiverAddr ?? "").toLowerCase();
-      return itemName.includes(q) || recv.includes(q) || addr.includes(q);
-    });
-  }, [history, historyQ, statusFilter]);
-
-  // ---------- 화면 ----------
   return (
-    <AppShell>
-      {/* 상단바 (로그아웃/탭) */}
-      <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className={sectionTitle}>주문</div>
-          <div className={subTitle}>
-            {me ? (
-              <>
-                <span className="font-black text-white/80">{me.name}</span>
-                <span className="text-white/40"> · </span>
-                <span className="font-black text-white/60">{me.role === "ADMIN" ? "관리자" : "영업사원"}</span>
-              </>
-            ) : (
-              "세션 확인 중..."
-            )}
-          </div>
+    <Section title="거래처 등록">
+      <div className="space-y-4">
+        <Input label="거래처명(필수)" value={name} onChange={setName} placeholder="예: 한한한의원" />
+        <div className="grid gap-4 md:grid-cols-2">
+          <Input label="사업자번호" value={bizNo} onChange={setBizNo} />
+          <Input label="요양기관번호" value={ykiho} onChange={setYkiho} />
         </div>
+        <Input label="수하인명" value={owner} onChange={setOwner} />
+        <Input label="수하인 주소" value={addr} onChange={setAddr} />
+        <div className="grid gap-4 md:grid-cols-2">
+          <Input label="수하인 전화" value={phone} onChange={setPhone} />
+          <Input label="수하인 핸드폰" value={mobile} onChange={setMobile} />
+        </div>
+        <Input label="메모" value={note} onChange={setNote} />
 
-        <div className="flex flex-wrap gap-2">
-          <button className={cx(btnGhost, tab === "order" && "bg-white/15")} onClick={() => goTab("order")}>
-            주문요청
+        {msg && (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {msg}
+          </div>
+        )}
+
+        <div className="flex gap-2">
+          <button
+            onClick={save}
+            disabled={loading || !name.trim()}
+            className={[
+              "rounded-2xl px-5 py-3 text-sm font-bold transition",
+              "border border-white/15",
+              loading || !name.trim()
+                ? "bg-white/20 text-white/60"
+                : "bg-white text-black hover:bg-white/90",
+            ].join(" ")}
+          >
+            {loading ? "저장 중..." : "거래처 저장"}
           </button>
-          <button className={cx(btnGhost, tab === "history" && "bg-white/15")} onClick={() => goTab("history")}>
-            조회
-          </button>
-          <button className={btnGhost} onClick={() => router.push("/clients/new")}>
-            거래처 등록
-          </button>
-          <button className={btn} onClick={logout}>
-            로그아웃
+
+          <button
+            onClick={onGotoList}
+            className="rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-bold text-white/80 hover:bg-white/15"
+          >
+            목록으로
           </button>
         </div>
       </div>
+    </Section>
+  );
+}
 
-      {/* 에러 */}
-      {err ? (
-        <div className="mb-5 rounded-2xl border border-red-200/40 bg-red-500/15 px-4 py-3 font-extrabold text-red-200">
-          {err}
-        </div>
-      ) : null}
+function Section({ title, children }: { title: string; children: any }) {
+  return (
+    <div className="rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur-xl">
+      <div className="mb-3 text-lg font-bold text-white">{title}</div>
+      {children}
+    </div>
+  );
+}
 
-      {/* 조회 탭 */}
-      {tab === "history" ? (
-        <div className={card}>
-          <div className={cardInner}>
-            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-              <div>
-                <div className="text-xl font-black text-white">조회</div>
-                <div className="mt-1 text-sm font-bold text-white/60">내 주문 요청 내역을 확인합니다.</div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button className={btnGhost} onClick={loadHistory} disabled={loadingHistory}>
-                  {loadingHistory ? "불러오는 중..." : "새로고침"}
-                </button>
-              </div>
-            </div>
+function Input({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <div className="mb-1.5 text-xs font-semibold tracking-wide text-white/70">
+        {label}
+      </div>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10"
+      />
+    </label>
+  );
+}
 
-            <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-3">
-              <div className="md:col-span-2">
-                <div className={label}>검색</div>
-                <input
-                  className={input}
-                  value={historyQ}
-                  onChange={(e) => setHistoryQ(e.target.value)}
-                  placeholder="품목/수하인/주소 검색"
-                />
-              </div>
-              <div>
-                <div className={label}>상태</div>
-                <select className={select} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                  <option value="">전체</option>
-                  <option value="REQUESTED">대기</option>
-                  <option value="APPROVED">승인</option>
-                  <option value="REJECTED">거절</option>
-                  <option value="DONE">출고완료</option>
-                  <option value="SHIPPED">배송완료</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-6 overflow-x-auto rounded-2xl border border-white/10">
-              <table className="w-full min-w-[820px] text-left">
-                <thead className="bg-white/5">
-                  <tr className="text-xs font-black text-white/70">
-                    <th className="px-4 py-3">일자</th>
-                    <th className="px-4 py-3">품목</th>
-                    <th className="px-4 py-3">수량</th>
-                    <th className="px-4 py-3">수하인</th>
-                    <th className="px-4 py-3">주소</th>
-                    <th className="px-4 py-3">상태</th>
-                  </tr>
-                </thead>
-                <tbody className="text-sm font-bold text-white/85">
-                  {filteredHistory.length === 0 ? (
-                    <tr>
-                      <td className="px-4 py-6 text-white/50" colSpan={6}>
-                        {loadingHistory ? "불러오는 중..." : "데이터가 없습니다."}
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredHistory.map((o: any) => {
-                      const dt = o?.createdAt ? new Date(o.createdAt) : null;
-                      const dateStr = dt ? `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}` : "-";
-                      const itemName = o?.item?.name ?? o?.itemName ?? "-";
-                      const status = String(o?.status ?? "-");
-                      const statusKo =
-                        status === "REQUESTED"
-                          ? "대기"
-                          : status === "APPROVED"
-                          ? "승인"
-                          : status === "REJECTED"
-                          ? "거절"
-                          : status === "DONE"
-                          ? "출고완료"
-                          : status === "SHIPPED"
-                          ? "배송완료"
-                          : status;
-
-                      return (
-                        <tr key={o?.id} className="border-t border-white/10">
-                          <td className="px-4 py-3 text-white/70">{dateStr}</td>
-                          <td className="px-4 py-3">{itemName}</td>
-                          <td className="px-4 py-3">{o?.quantity ?? 1}</td>
-                          <td className="px-4 py-3">{o?.receiverName ?? "-"}</td>
-                          <td className="px-4 py-3 text-white/70">{o?.receiverAddr ?? "-"}</td>
-                          <td className="px-4 py-3">{statusKo}</td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* 안내 */}
-            <div className="mt-4 text-xs font-bold text-white/50">
-              ※ 조회 API가 막혀있다면 “권한/세션” 문제라서, 그건 API 쪽에서 SALES/ADMIN 허용을 같이 맞춰야 합니다.
-            </div>
-          </div>
-        </div>
-      ) : (
-        // 주문요청 탭
-        <div className={card}>
-          <div className={cardInner}>
-            <div className="text-xl font-black text-white">주문요청</div>
-            <div className="mt-1 text-sm font-bold text-white/60">거래처/품목 선택 + 배송정보 입력 후 주문요청</div>
-
-            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <div className={label}>거래처 검색</div>
-                <input
-                  className={input}
-                  value={clientQ}
-                  onChange={(e) => setClientQ(e.target.value)}
-                  placeholder="거래처 검색 (이름/대표자)"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <div className={label}>거래처(선택)</div>
-                <select className={select} value={clientId} onChange={(e) => setClientId(e.target.value)}>
-                  <option value="">(선택안함)</option>
-                  {filteredClients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="md:col-span-2">
-                <div className={label}>품목 검색</div>
-                <input className={input} value={itemQ} onChange={(e) => setItemQ(e.target.value)} placeholder="품목 검색" />
-              </div>
-
-              <div className="md:col-span-2">
-                <div className={label}>품목</div>
-                <select className={select} value={itemId} onChange={(e) => setItemId(e.target.value)}>
-                  <option value="">(선택)</option>
-                  {filteredItems.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <div className={label}>수량</div>
-                <input
-                  className={input}
-                  type="number"
-                  min={1}
-                  value={qty}
-                  onChange={(e) => setQty(Math.max(1, Number(e.target.value || 1)))}
-                />
-              </div>
-
-              <div>
-                <div className={label}>수하인명</div>
-                <input className={input} value={receiverName} onChange={(e) => setReceiverName(e.target.value)} placeholder="예: 홍길동" />
-              </div>
-
-              <div>
-                <div className={label}>전화번호</div>
-                <input
-                  className={input}
-                  value={receiverPhone}
-                  onChange={(e) => setReceiverPhone(onlyDigits(e.target.value))}
-                  placeholder="숫자만"
-                  inputMode="numeric"
-                />
-              </div>
-
-              <div>
-                <div className={label}>주소 전체</div>
-                <input className={input} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="예: 경기도 시흥시 ..." />
-              </div>
-
-              <div className="md:col-span-2">
-                <div className={label}>배송메세지(선택)</div>
-                <input className={input} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="예: 취급주의" />
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <button className={btnGhost} onClick={() => router.push("/clients")} title="거래처 목록 보기">
-                거래처 목록
-              </button>
-
-              <button disabled={loading} onClick={submitOrder} className={btn}>
-                {loading ? "요청 중..." : "주문 요청"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </AppShell>
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+      <div className="text-xs font-semibold text-white/60">{label}</div>
+      <div className="mt-1 text-sm font-bold text-white">{value}</div>
+    </div>
   );
 }

@@ -1,12 +1,12 @@
-import { Suspense } from "react";
 import OrdersClient from "./OrdersClient";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default function OrdersPage() {
-  return (
-    <Suspense fallback={<div className="p-6 font-black">로딩중...</div>}>
-      <OrdersClient />
-    </Suspense>
-  );
+export default function OrdersPage({
+  searchParams,
+}: {
+  searchParams: { tab?: string };
+}) {
+  return <OrdersClient initialTab={searchParams?.tab ?? "request"} />;
 }
