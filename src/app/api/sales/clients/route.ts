@@ -1,3 +1,4 @@
+// src/app/api/sales/clients/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
@@ -5,15 +6,25 @@ import { requireUser } from "@/lib/session";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const user = await requireUser();
-  if (user instanceof NextResponse) return user;
+function err(message: string, status = 400) {
+  return NextResponse.json({ ok: false, error: message }, { status });
+}
 
+function s(v: any) {
+  return String(v ?? "").trim();
+}
+
+export async function GET() {
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
+
+  // ✅ Client 모델에 user 연결이 있으므로, "본인 것만" 필터
+  // (ADMIN이면 전체 보여주고 싶으면 여기서 조건 분기 가능)
   const where =
-    user.role === "ADMIN"
+    me.role === "ADMIN"
       ? {}
       : {
-          userId: user.id,
+          userId: me.id, // ✅ 너 스키마에서 user 관계 FK가 userId인 구조일 확률이 높음
         };
 
   const clients = await prisma.client.findMany({
@@ -22,20 +33,16 @@ export async function GET() {
     select: {
       id: true,
       name: true,
-
-      // 거래처 기본정보
       address: true,
       ownerName: true,
       careInstitutionNo: true,
       bizRegNo: true,
 
-      // ✅ 주문요청 자동채움 핵심 4개
       receiverName: true,
       receiverAddr: true,
       receiverTel: true,
       receiverMobile: true,
 
-      // 사업자등록증
       bizFileUrl: true,
       bizFileName: true,
       bizFileUploadedAt: true,
@@ -47,31 +54,37 @@ export async function GET() {
   return NextResponse.json({ ok: true, clients });
 }
 
-export async function POST(req: Request) {
-  const user = await requireUser();
-  if (user instanceof NextResponse) return user;
+export async function POST(request: Request) {
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
 
-  const body = await req.json().catch(() => ({}));
-  const name = String(body?.name ?? "").trim();
-  if (!name) {
-    return NextResponse.json({ ok: false, error: "NAME_REQUIRED" }, { status: 400 });
+  let body: any = {};
+  try {
+    body = await request.json();
+  } catch {
+    body = {};
   }
 
-  const created = await prisma.client.create({
-    data: {
-      userId: user.id,
-      name,
+  const data = {
+    // ✅ 핵심: Client는 user 관계가 필수라서 connect 필요
+    user: { connect: { id: me.id } },
 
-      address: body?.address ?? null,
-      ownerName: body?.ownerName ?? null,
-      careInstitutionNo: body?.careInstitutionNo ?? null,
-      bizRegNo: body?.bizRegNo ?? null,
+    name: s(body.name),
+    address: s(body.address) || null,
+    ownerName: s(body.ownerName) || null,
+    careInstitutionNo: s(body.careInstitutionNo) || null,
+    bizRegNo: s(body.bizRegNo) || null,
 
-      receiverName: body?.receiverName ?? null,
-      receiverAddr: body?.receiverAddr ?? null,
-      receiverTel: body?.receiverTel ?? null,
-      receiverMobile: body?.receiverMobile ?? null,
-    },
+    receiverName: s(body.receiverName) || null,
+    receiverAddr: s(body.receiverAddr) || null,
+    receiverTel: s(body.receiverTel) || null,
+    receiverMobile: s(body.receiverMobile) || null,
+  };
+
+  if (!data.name) return err("NAME_REQUIRED", 400);
+
+  const client = await prisma.client.create({
+    data,
     select: {
       id: true,
       name: true,
@@ -90,5 +103,5 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json({ ok: true, client: created });
+  return NextResponse.json({ ok: true, client });
 }
