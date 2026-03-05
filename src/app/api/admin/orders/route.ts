@@ -39,19 +39,20 @@ type GroupRow = {
   clientName: string;
   clientId: string;
 
+  // (있으면 보여주고, 없으면 "-" 처리) → Prisma에 없는 필드 select 절대 금지
   hospitalNo?: string | null;
+
   note?: string | null;
 
   items: ItemLine[];
   orderIds: string[];
 
-  // ✅ 구버전 호환(테이블이 이걸 쓰면 그래도 보이게)
-  itemName: string;    // 줄바꿈 문자열
-  quantity: string;    // "x1\nx3" 줄바꿈 문자열
+  // ✅ 구버전 호환 (테이블이 이걸 쓰는 경우 대비)
+  itemName: string; // 줄바꿈 문자열
+  quantity: string; // "x1\nx3" 줄바꿈 문자열
 };
 
 function makeGroupKey(o: any) {
-  // groupId 없으니 createdAt + 동일 수령/거래처/유저 정보로 묶음
   return [
     o.createdAt?.toISOString?.() ?? String(o.createdAt),
     o.userId,
@@ -103,7 +104,7 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
     include: {
       user: { select: { name: true, phone: true } },
-      client: { select: { id: true, name: true, hospitalNo: true } as any }, // hospitalNo 있을 수도
+      client: true, // ✅ 안전: Client 모델 전체 include (없는 필드 select로 500 나는 것 방지)
       item: { select: { id: true, name: true } },
     },
     take: 3000,
@@ -115,6 +116,8 @@ export async function GET(req: NextRequest) {
     const key = makeGroupKey(o);
 
     if (!map.has(key)) {
+      const clientAny = o.client as any;
+
       map.set(key, {
         id: o.id,
         createdAt: o.createdAt.toISOString(),
@@ -128,9 +131,12 @@ export async function GET(req: NextRequest) {
         phone: o.phone ?? null,
         mobile: o.mobile ?? null,
 
-        clientName: o.client?.name ?? "",
-        clientId: o.client?.id ?? "",
-        hospitalNo: (o.client?.hospitalNo ?? o.hospitalNo ?? null) as any,
+        clientName: clientAny?.name ?? "",
+        clientId: clientAny?.id ?? "",
+
+        // ✅ 있으면 담고 없으면 null (필드 없다고 500 나지 않음)
+        hospitalNo: clientAny?.hospitalNo ?? null,
+
         note: o.note ?? null,
 
         items: [],
@@ -144,12 +150,10 @@ export async function GET(req: NextRequest) {
     const g = map.get(key)!;
     g.orderIds.push(o.id);
 
-    // ✅ itemName 최대한 살려서 가져오기 (관계 없을 때도 대비)
     const itemId = s(o.itemId || o.item?.id || o.item_id);
     const itemName = s(o.item?.name || o.itemName || o.item_name || "-") || "-";
     const qty = Math.max(1, Number(o.quantity ?? o.qty ?? 1) || 1);
 
-    // ✅ 같은 품목이면 합산
     const found = g.items.find((it) => it.itemId === itemId && itemId);
     if (found) found.quantity += qty;
     else {
@@ -161,15 +165,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ✅ 구버전 호환 문자열도 생성
+  // ✅ 구버전 호환 문자열 생성
   for (const g of map.values()) {
     g.itemName = g.items.map((it) => it.itemName).join("\n");
     g.quantity = g.items.map((it) => `x${it.quantity}`).join("\n");
   }
 
   const rows = Array.from(map.values());
-
   return NextResponse.json({ ok: true, rows });
 }
-
-// (필요하면 여기 PATCH도 유지 가능하지만, 지금은 [id] 라우트로 처리 중)

@@ -30,9 +30,8 @@ type Row = {
 
   items?: ItemLine[];
 
-  // 구버전 호환
-  itemName?: string;   // "\n" 포함 가능
-  quantity?: any;      // "\n" 포함 가능 (string일 수도)
+  itemName?: string; // "\n" 포함 가능
+  quantity?: any; // "\n" 포함 가능
 };
 
 function ymdKST(d: Date) {
@@ -54,6 +53,7 @@ function fmtKST(iso: string) {
 }
 
 export default function OrdersClient() {
+  // ✅ 탭은 내부적으로만 쓰고, API status는 그대로 REQUESTED/APPROVED/REJECTED/DONE
   const [tab, setTab] = useState<"REQUESTED" | "APPROVED" | "REJECTED" | "DONE">(
     "REQUESTED"
   );
@@ -79,13 +79,14 @@ export default function OrdersClient() {
         credentials: "include",
         cache: "no-store",
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data?.ok) {
-        alert(data?.message || `조회 실패 (HTTP_${res.status})`);
+        alert(data?.message || `HTTP_${res.status}`);
         setRows([]);
         return;
       }
+
       setRows(Array.isArray(data.rows) ? data.rows : []);
     } catch {
       alert("NETWORK_ERROR");
@@ -109,10 +110,9 @@ export default function OrdersClient() {
         </div>
       );
     }
-    // 구버전: itemName이 "\n" 포함 문자열로 내려올 수 있음
     return (
       <div className="whitespace-pre-line leading-snug">
-        {(r.itemName ?? "-") as any}
+        {String(r.itemName ?? "-")}
       </div>
     );
   }
@@ -126,9 +126,7 @@ export default function OrdersClient() {
         </div>
       );
     }
-    const v = r.quantity;
-    // 구버전: "x1\nx3" 형태일 수 있음
-    return <div className="whitespace-pre-line leading-snug">{String(v ?? "-")}</div>;
+    return <div className="whitespace-pre-line leading-snug">{String(r.quantity ?? "-")}</div>;
   }
 
   async function changeStatus(r: Row, status: "APPROVED" | "REJECTED" | "DONE") {
@@ -150,15 +148,14 @@ export default function OrdersClient() {
     }
   }
 
-  // ✅ 로젠 출력: 승인 탭에서 버튼은 무조건 보여주고, API는 너 기존 엔드포인트에 맞추면 됨
+  // ✅ 로젠 출력 버튼은 승인 탭에서 무조건 노출
   async function exportLozen() {
     try {
       const params = new URLSearchParams();
       params.set("from", from);
       params.set("to", to);
 
-      // ⚠️ 여기 URL은 네 프로젝트 실제 로젠 API로 맞춰야 함.
-      // 일단 버튼이 안 보이는 문제부터 해결하려고 기본값 넣어둠.
+      // ⚠️ 네 실제 로젠 API가 다르면 여기만 바꾸면 됨
       const res = await fetch(`/api/admin/lozen/export?${params.toString()}`, {
         method: "POST",
         credentials: "include",
@@ -240,7 +237,7 @@ export default function OrdersClient() {
           조회
         </button>
 
-        {/* ✅ 승인 탭이면 무조건 로젠 버튼 보이게 */}
+        {/* ✅ 여기: 승인 탭이면 무조건 버튼 렌더 */}
         {tab === "APPROVED" ? (
           <button
             onClick={exportLozen}
@@ -278,7 +275,7 @@ export default function OrdersClient() {
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td className="px-4 py-4 text-white/70" colSpan={13}>데이터 없음</td>
+                <td className="px-4 py-4 text-white/70" colSpan={13}>표시할 주문이 없습니다.</td>
               </tr>
             ) : (
               rows.map((r) => (
@@ -295,7 +292,6 @@ export default function OrdersClient() {
                   <td className="px-4 py-3 whitespace-nowrap">{r.clientName ?? "-"}</td>
                   <td className="px-4 py-3 whitespace-nowrap">{r.hospitalNo ?? "-"}</td>
                   <td className="px-4 py-3 min-w-[180px]">{r.note ?? "-"}</td>
-
                   <td className="px-4 py-3 whitespace-nowrap">
                     {tab === "REQUESTED" ? (
                       <div className="flex gap-2">

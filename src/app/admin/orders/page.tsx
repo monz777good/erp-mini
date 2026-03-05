@@ -106,6 +106,54 @@ export default function AdminOrdersPage() {
     }
   }
 
+  // ✅ 로젠 출력 (승인 탭에서만 버튼 노출)
+  // - 기존 프로젝트에 엔드포인트 이름이 뭐였는지 헷갈릴 수 있어서,
+  //   가장 흔한 2개를 “순서대로” 시도해서 하나라도 성공하면 다운로드됨.
+  async function exportLozen() {
+    setMsg(null);
+
+    const params = new URLSearchParams();
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+
+    const candidates = [
+      `/api/admin/lozen/export?${params.toString()}`,
+      `/api/admin/lozen?${params.toString()}`,
+    ];
+
+    try {
+      let lastStatus = 0;
+      let lastText = "";
+
+      for (const url of candidates) {
+        const res = await fetch(url, {
+          method: "POST",
+          credentials: "include",
+        });
+
+        if (res.ok) {
+          const blob = await res.blob();
+          const dlUrl = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = dlUrl;
+          a.download = `lozen_${from}_${to}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(dlUrl);
+          return;
+        }
+
+        lastStatus = res.status;
+        lastText = await res.text().catch(() => "");
+      }
+
+      alert(`로젠 출력 실패\nHTTP_${lastStatus}\n${lastText || ""}`);
+    } catch (e: any) {
+      alert("로젠 출력 실패\n" + (e?.message || "NETWORK_ERROR"));
+    }
+  }
+
   const shell: React.CSSProperties = {
     minHeight: "100vh",
     padding: 28,
@@ -137,9 +185,10 @@ export default function AdminOrdersPage() {
     cursor: "pointer",
   });
 
+  // ✅ 마지막 칸 하나 더(로젠 버튼 자리)
   const controls: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "160px 30px 160px 1fr 110px",
+    gridTemplateColumns: "160px 30px 160px 1fr 110px 140px",
     gap: 10,
     alignItems: "center",
     marginBottom: 14,
@@ -159,6 +208,17 @@ export default function AdminOrdersPage() {
     borderRadius: 12,
     border: "1px solid rgba(255,255,255,0.14)",
     background: "rgba(255,255,255,0.16)",
+    color: "rgba(255,255,255,0.95)",
+    fontWeight: 950,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+  };
+
+  const lozenBtn: React.CSSProperties = {
+    padding: "10px 14px",
+    borderRadius: 12,
+    border: "1px solid rgba(34,197,94,0.28)",
+    background: "rgba(34,197,94,0.16)",
     color: "rgba(255,255,255,0.95)",
     fontWeight: 950,
     cursor: "pointer",
@@ -233,6 +293,15 @@ export default function AdminOrdersPage() {
           <button onClick={load} style={btn} disabled={loading}>
             {loading ? "조회중" : "조회"}
           </button>
+
+          {/* ✅ 여기! 승인 탭일 때만 로젠 출력 버튼 */}
+          {tab === "APPROVED" ? (
+            <button onClick={exportLozen} style={lozenBtn}>
+              로젠 출력
+            </button>
+          ) : (
+            <div />
+          )}
         </div>
 
         <div style={tableWrap}>
@@ -259,10 +328,10 @@ export default function AdminOrdersPage() {
                   <tr key={r.id}>
                     <td style={td}>{r.createdAt}</td>
 
-                    {/* ✅ 여기! 품목 여러줄 보여주기 */}
+                    {/* ✅ 품목 여러줄 */}
                     <td style={{ ...td, whiteSpace: "pre-line" }}>{r.itemName}</td>
 
-                    {/* ✅ 여기! 수량 여러줄 보여주기 */}
+                    {/* ✅ 수량 여러줄 */}
                     <td style={{ ...td, whiteSpace: "pre-line" }}>{r.quantityText}</td>
 
                     <td style={td}>{r.salesName}</td>
