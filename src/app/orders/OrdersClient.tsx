@@ -58,7 +58,7 @@ function cls(...arr: Array<string | false | null | undefined>) {
 async function apiGET<T>(url: string): Promise<T> {
   const res = await fetch(url, { credentials: "include", cache: "no-store" });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data?.ok === false) throw new Error(data?.error || `HTTP_${res.status}`);
+  if (!res.ok || (data as any)?.ok === false) throw new Error((data as any)?.error || `HTTP_${res.status}`);
   return data as T;
 }
 
@@ -70,11 +70,12 @@ async function apiPOST<T>(url: string, body: any): Promise<T> {
     body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data?.ok === false) throw new Error(data?.error || `HTTP_${res.status}`);
+  if (!res.ok || (data as any)?.ok === false) throw new Error((data as any)?.error || `HTTP_${res.status}`);
   return data as T;
 }
 
 function kstTodayYmd() {
+  // ✅ 한국시간 기준 "YYYY-MM-DD"
   return new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" }).format(new Date());
 }
 function addDaysYmd(ymd: string, delta: number) {
@@ -236,17 +237,17 @@ export default function OrdersClient() {
   const [newReceiverTel, setNewReceiverTel] = useState("");
   const [newReceiverMobile, setNewReceiverMobile] = useState("");
 
-  // ✅ 사업자등록증 첨부(영업사원)
-  const [bizFile, setBizFile] = useState<File | null>(null);
-  const [bizUploading, setBizUploading] = useState(false);
-
   // 조회 기간 (KST)
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  // ✅ 로그아웃: GET 이동 고정
-  function logout() {
-    window.location.href = "/api/logout";
+  // ✅ 로그아웃: (변경된 유일한 부분) POST 호출 + /login 이동
+  async function logout() {
+    try {
+      await fetch("/api/logout", { method: "POST", credentials: "include" });
+    } finally {
+      window.location.href = "/login";
+    }
   }
 
   // ✅ 거래처 선택 변경 시 배송정보 자동으로 무조건 덮어쓰기
@@ -273,8 +274,8 @@ export default function OrdersClient() {
     try {
       const c = await apiGET<{ ok: true; clients: ClientRow[] }>("/api/sales/clients");
       const i = await apiGET<{ ok: true; items: ItemRow[] }>("/api/items");
-      setClients(c.clients || []);
-      setItems(i.items || []);
+      setClients((c as any).clients || []);
+      setItems((i as any).items || []);
     } catch (e: any) {
       setErrMsg(e?.message || "FAILED_LOAD_BASE");
     } finally {
@@ -287,11 +288,9 @@ export default function OrdersClient() {
     setLoadingOrders(true);
     try {
       const qs =
-        fromDate && toDate
-          ? `?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}`
-          : "";
+        fromDate && toDate ? `?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}` : "";
       const o = await apiGET<{ ok: true; orders: OrderRow[] }>(`/api/orders${qs}`);
-      setOrders(o.orders || []);
+      setOrders((o as any).orders || []);
     } catch (e: any) {
       setErrMsg(e?.message || "FAILED_LOAD_ORDERS");
     } finally {
@@ -329,31 +328,9 @@ export default function OrdersClient() {
     }
   }
 
-  async function uploadBizFile(clientId: string, file: File) {
-    setBizUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-
-      const res = await fetch(`/api/sales/clients/${clientId}/bizfile`, {
-        method: "POST",
-        credentials: "include",
-        body: fd,
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.ok === false) {
-        throw new Error(data?.error || `UPLOAD_HTTP_${res.status}`);
-      }
-    } finally {
-      setBizUploading(false);
-    }
-  }
-
   async function createClient() {
     setErrMsg(null);
     try {
-      // 1) 거래처 생성
       const r = await apiPOST<{ ok: true; client: ClientRow }>("/api/sales/clients", {
         name: newName,
         address: newAddress,
@@ -366,17 +343,10 @@ export default function OrdersClient() {
         receiverMobile: newReceiverMobile,
       });
 
-      // 2) 사업자등록증 첨부 있으면 업로드
-      if (bizFile) {
-        await uploadBizFile(r.client.id, bizFile);
-      }
-
-      // 3) 새로고침 + 주문요청 탭으로
       await refreshBase();
-      setClientId(r.client.id);
+      setClientId((r as any).client.id);
       setTab("request");
 
-      // 4) 폼 초기화
       setNewName("");
       setNewAddress("");
       setNewCareNo("");
@@ -386,7 +356,6 @@ export default function OrdersClient() {
       setNewReceiverAddr("");
       setNewReceiverTel("");
       setNewReceiverMobile("");
-      setBizFile(null);
     } catch (e: any) {
       setErrMsg(e?.message || "FAILED_CREATE_CLIENT");
     }
@@ -410,9 +379,7 @@ export default function OrdersClient() {
   const tabBtn = (active: boolean) =>
     cls(
       "px-4 py-2 rounded-full text-sm font-semibold transition border",
-      active
-        ? "bg-white text-black border-white"
-        : "bg-white/10 text-white border-white/15 hover:bg-white/15"
+      active ? "bg-white text-black border-white" : "bg-white/10 text-white border-white/15 hover:bg-white/15"
     );
 
   // 조회 출력용 (상태 한글)
@@ -425,6 +392,7 @@ export default function OrdersClient() {
     return s;
   }
 
+  // clients 목록 필터 (거래처 탭에서도 사용)
   const filteredClients = useMemo(() => {
     const q = clientSearch.trim().toLowerCase();
     if (!q) return clients;
@@ -445,9 +413,7 @@ export default function OrdersClient() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-2xl font-extrabold text-white">주문</div>
-              <div className="text-white/60 text-sm mt-1">
-                거래처/품목 선택 + 배송정보 입력 후 주문요청
-              </div>
+              <div className="text-white/60 text-sm mt-1">거래처/품목 선택 + 배송정보 입력 후 주문요청</div>
             </div>
             <button className={cls(btn, "h-[44px]")} onClick={logout}>
               로그아웃
@@ -488,7 +454,7 @@ export default function OrdersClient() {
             <div className="mt-6 text-white/70">불러오는 중...</div>
           ) : (
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5 md:p-6">
-              {/* 주문요청 */}
+              {/* ------------------- 주문요청 ------------------- */}
               {tab === "request" && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   <div className="space-y-5">
@@ -537,9 +503,7 @@ export default function OrdersClient() {
 
                   <div className={panel}>
                     <div className="text-white font-bold">배송 정보</div>
-                    <div className="text-white/60 text-sm mt-1">
-                      거래처 선택 시 수하인/주소/연락처 자동 채움됩니다.
-                    </div>
+                    <div className="text-white/60 text-sm mt-1">거래처 선택 시 수하인/주소/연락처 자동 채움됩니다.</div>
 
                     <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
@@ -589,7 +553,7 @@ export default function OrdersClient() {
                 </div>
               )}
 
-              {/* 조회 */}
+              {/* ------------------- 조회 ------------------- */}
               {tab === "list" && (
                 <div>
                   <div className="flex flex-col lg:flex-row lg:items-end gap-3 lg:gap-5">
@@ -639,6 +603,7 @@ export default function OrdersClient() {
 
                         {orders.map((o) => (
                           <div key={o.id} className="border-t border-white/10 px-4 py-4">
+                            {/* 모바일 */}
                             <div className="md:hidden space-y-1 text-white/85">
                               <div className="font-bold">
                                 {o.client?.name || "-"} · {o.item?.name || "-"} x{o.quantity}
@@ -652,19 +617,16 @@ export default function OrdersClient() {
                               <div className="text-white/70 text-sm">주소: {o.client?.address || "-"}</div>
                             </div>
 
+                            {/* PC */}
                             <div className="hidden md:grid md:grid-cols-12 text-white/85">
-                              <div className="col-span-2">
-                                {new Date(o.createdAt).toLocaleDateString("ko-KR")}
-                              </div>
+                              <div className="col-span-2">{new Date(o.createdAt).toLocaleDateString("ko-KR")}</div>
                               <div className="col-span-1">{statusKo(o.status)}</div>
                               <div className="col-span-2 font-semibold">{o.client?.name || "-"}</div>
                               <div className="col-span-2 text-white/75 text-sm">
                                 {o.client?.ownerName || "-"}
                                 <div className="text-white/60">{o.client?.receiverTel || "-"}</div>
                               </div>
-                              <div className="col-span-3 text-white/75 text-sm">
-                                {o.client?.address || "-"}
-                              </div>
+                              <div className="col-span-3 text-white/75 text-sm">{o.client?.address || "-"}</div>
                               <div className="col-span-2 font-semibold">
                                 {o.item?.name || "-"} x{o.quantity}
                               </div>
@@ -677,7 +639,7 @@ export default function OrdersClient() {
                 </div>
               )}
 
-              {/* 거래처 목록 */}
+              {/* ------------------- 거래처 목록 ------------------- */}
               {tab === "clients" && (
                 <div>
                   <div className="flex items-end justify-between gap-3">
@@ -701,19 +663,7 @@ export default function OrdersClient() {
                               {c.bizRegNo || "-"}
                             </div>
                             <div className="text-white/60 text-sm mt-1">거래처 주소: {c.address || "-"}</div>
-
-                            <div className="text-white/60 text-sm mt-2">
-                              사업자등록증:{" "}
-                              {c.bizFileUrl ? (
-                                <a className="underline text-white" href={c.bizFileUrl} target="_blank" rel="noreferrer">
-                                  {c.bizFileName || "열기"}
-                                </a>
-                              ) : (
-                                "-"
-                              )}
-                            </div>
                           </div>
-
                           <button
                             className={btnPrimary}
                             onClick={() => {
@@ -739,7 +689,7 @@ export default function OrdersClient() {
                 </div>
               )}
 
-              {/* 거래처 등록 + ✅ 첨부칸 포함 */}
+              {/* ------------------- 거래처 등록 ------------------- */}
               {tab === "clientsNew" && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   <div className={panel}>
@@ -772,21 +722,6 @@ export default function OrdersClient() {
                         <input className={input} value={newOwner} onChange={(e) => setNewOwner(e.target.value)} />
                       </div>
 
-                      {/* ✅✅✅ 여기: 사업자등록증 첨부칸 (사라지면 안됨) */}
-                      <div>
-                        <div className={label}>사업자등록증 첨부 (이미지/PDF)</div>
-                        <input
-                          type="file"
-                          accept="image/*,.pdf"
-                          className="mt-2 block w-full text-white/80"
-                          onChange={(e) => setBizFile(e.target.files?.[0] || null)}
-                        />
-                        <div className="mt-2 text-white/60 text-sm">
-                          {bizFile ? `선택된 파일: ${bizFile.name}` : "선택된 파일 없음"}
-                          {bizUploading ? " · 업로드 중..." : ""}
-                        </div>
-                      </div>
-
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <div className={label}>수하인</div>
@@ -802,17 +737,17 @@ export default function OrdersClient() {
                         </div>
                         <div>
                           <div className={label}>휴대폰</div>
-                          <input className={input} value={newReceiverMobile} onChange={(e) => setNewReceiverMobile(e.target.value)} />
+                          <input
+                            className={input}
+                            value={newReceiverMobile}
+                            onChange={(e) => setNewReceiverMobile(e.target.value)}
+                          />
                         </div>
                       </div>
 
                       <div className="flex gap-3 pt-2">
-                        <button
-                          className={btnPrimary}
-                          onClick={createClient}
-                          disabled={!newName.trim() || bizUploading}
-                        >
-                          {bizUploading ? "업로드 중..." : "거래처 등록"}
+                        <button className={btnPrimary} onClick={createClient} disabled={!newName.trim()}>
+                          거래처 등록
                         </button>
                         <button
                           className={btn}
@@ -826,9 +761,7 @@ export default function OrdersClient() {
                             setNewReceiverAddr("");
                             setNewReceiverTel("");
                             setNewReceiverMobile("");
-                            setBizFile(null);
                           }}
-                          disabled={bizUploading}
                         >
                           초기화
                         </button>
@@ -842,7 +775,6 @@ export default function OrdersClient() {
                       <div>• 등록하면 거래처 목록/주문요청에 즉시 반영됩니다.</div>
                       <div>• 주문요청에서 거래처 변경하면 배송정보가 즉시 자동 채움됩니다.</div>
                       <div>• 조회 달력 기본값은 한국시간 기준(오늘, 최근 7일)입니다.</div>
-                      <div>• 사업자등록증 첨부는 등록 후 자동 업로드됩니다.</div>
                     </div>
                   </div>
                 </div>
