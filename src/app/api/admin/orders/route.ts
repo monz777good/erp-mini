@@ -23,13 +23,14 @@ function kstRange(fromYmd: string, toYmd: string) {
 
 type ItemLine = { itemId: string; itemName: string; quantity: number };
 
-type GroupRow = {
-  id: string; // 대표 주문 id
+type RowOut = {
+  id: string;
   createdAt: string;
-  status: string;
+  status: OrderStatus;
 
-  userName: string;
-  userPhone: string;
+  // ✅ page.tsx가 쓰는 이름
+  salesName: string;
+  salesPhone: string;
 
   receiverName: string;
   receiverAddr: string;
@@ -37,22 +38,21 @@ type GroupRow = {
   mobile?: string | null;
 
   clientName: string;
-  clientId: string;
-
-  // (있으면 보여주고, 없으면 "-" 처리) → Prisma에 없는 필드 select 절대 금지
-  hospitalNo?: string | null;
+  careInstitutionNo?: string | null;
 
   note?: string | null;
 
+  // ✅ page.tsx가 줄바꿈으로 보여줄 값
+  itemName: string;       // "품목A\n품목B"
+  quantityText: string;   // "x1\nx3"
+
+  // (참고용) 실제 합산 목록
   items: ItemLine[];
   orderIds: string[];
-
-  // ✅ 구버전 호환 (테이블이 이걸 쓰는 경우 대비)
-  itemName: string; // 줄바꿈 문자열
-  quantity: string; // "x1\nx3" 줄바꿈 문자열
 };
 
 function makeGroupKey(o: any) {
+  // ✅ 장바구니 묶음 그룹 키 (기존 groupId 없이도 안정적으로 묶음)
   return [
     o.createdAt?.toISOString?.() ?? String(o.createdAt),
     o.userId,
@@ -104,27 +104,32 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
     include: {
       user: { select: { name: true, phone: true } },
-      client: true, // ✅ 안전: Client 모델 전체 include (없는 필드 select로 500 나는 것 방지)
+      client: true, // ✅ 안전: Client 전체
       item: { select: { id: true, name: true } },
     },
     take: 3000,
   });
 
-  const map = new Map<string, GroupRow>();
+  const map = new Map<string, RowOut>();
 
   for (const o of orders as any[]) {
     const key = makeGroupKey(o);
 
     if (!map.has(key)) {
       const clientAny = o.client as any;
+      const careNo =
+        clientAny?.careInstitutionNo ??
+        clientAny?.hospitalNo ??
+        clientAny?.institutionNo ??
+        null;
 
       map.set(key, {
         id: o.id,
         createdAt: o.createdAt.toISOString(),
         status: o.status,
 
-        userName: o.user?.name ?? "",
-        userPhone: o.user?.phone ?? "",
+        salesName: o.user?.name ?? "",
+        salesPhone: o.user?.phone ?? "",
 
         receiverName: o.receiverName ?? "",
         receiverAddr: o.receiverAddr ?? "",
@@ -132,25 +137,22 @@ export async function GET(req: NextRequest) {
         mobile: o.mobile ?? null,
 
         clientName: clientAny?.name ?? "",
-        clientId: clientAny?.id ?? "",
-
-        // ✅ 있으면 담고 없으면 null (필드 없다고 500 나지 않음)
-        hospitalNo: clientAny?.hospitalNo ?? null,
+        careInstitutionNo: careNo,
 
         note: o.note ?? null,
 
+        itemName: "",
+        quantityText: "",
+
         items: [],
         orderIds: [],
-
-        itemName: "",
-        quantity: "",
       });
     }
 
     const g = map.get(key)!;
     g.orderIds.push(o.id);
 
-    const itemId = s(o.itemId || o.item?.id || o.item_id);
+    const itemId = s(o.itemId || o.item?.id || "");
     const itemName = s(o.item?.name || o.itemName || o.item_name || "-") || "-";
     const qty = Math.max(1, Number(o.quantity ?? o.qty ?? 1) || 1);
 
@@ -165,12 +167,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ✅ 구버전 호환 문자열 생성
+  // ✅ 줄바꿈 문자열 생성
   for (const g of map.values()) {
     g.itemName = g.items.map((it) => it.itemName).join("\n");
-    g.quantity = g.items.map((it) => `x${it.quantity}`).join("\n");
+    g.quantityText = g.items.map((it) => `x${it.quantity}`).join("\n");
   }
 
-  const rows = Array.from(map.values());
-  return NextResponse.json({ ok: true, rows });
+  return NextResponse.json({ ok: true, rows: Array.from(map.values()) });
 }
