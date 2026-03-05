@@ -1,88 +1,53 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 
-function cx(...v: (string | false | null | undefined)[]) {
-  return v.filter(Boolean).join(" ");
-}
+export default function AppShell({
+  title,
+  subtitle,
+  children,
+}: {
+  title?: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
+  const [loading, setLoading] = useState(false);
 
-export default function AppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const sp = useSearchParams();
-  const tab = sp.get("tab") ?? "order";
-
-  // ✅ 탭 링크 (Sales)
-  const salesTabs = [
-    { key: "order", label: "주문", href: "/orders?tab=order" },
-    { key: "history", label: "조회", href: "/orders?tab=history" },
-    { key: "clients", label: "거래처 등록", href: "/clients/new" },
-  ];
+  async function onLogout() {
+    if (loading) return;
+    setLoading(true);
+    try {
+      await fetch("/api/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // 네트워크 에러여도 일단 로그인으로 보냄(세션은 서버에서 지워지는게 베스트지만 UX는 이게 안전)
+    } finally {
+      // ✅ 절대 localhost 하드코딩 금지, 상대경로로 이동
+      window.location.href = "/login";
+    }
+  }
 
   return (
-    <div className="min-h-screen w-full bg-[url('/bg.jpg')] bg-cover bg-center">
-      {/* 어두운 오버레이 */}
-      <div className="min-h-screen w-full bg-black/35">
-        <div className="mx-auto max-w-6xl px-4 py-10">
-          {/* 카드(글래스) */}
-          <div className="rounded-[28px] border border-white/35 bg-white/80 shadow-[0_24px_70px_rgba(0,0,0,0.35)] backdrop-blur-xl">
-            {/* 상단바 */}
-            <div className="flex flex-col gap-4 border-b border-black/10 px-6 py-5 md:flex-row md:items-center md:justify-between">
-              <div className="text-xl font-black tracking-tight text-black/90">
-                한의N원외탕전 ERP
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                {pathname.startsWith("/orders") &&
-                  salesTabs.map((t) => {
-                    const active =
-                      (t.key === "order" && tab === "order") ||
-                      (t.key === "history" && tab === "history") ||
-                      (t.key === "clients" && pathname.startsWith("/clients"));
-
-                    return (
-                      <Link
-                        key={t.key}
-                        href={t.href}
-                        className={cx(
-                          "rounded-full px-4 py-2 text-sm font-extrabold transition",
-                          active
-                            ? "bg-black text-white shadow"
-                            : "bg-white/70 text-black/80 hover:bg-white"
-                        )}
-                      >
-                        {t.label}
-                      </Link>
-                    );
-                  })}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  className="rounded-full bg-white/70 px-4 py-2 text-sm font-extrabold text-black/80 hover:bg-white"
-                  onClick={() => window.location.reload()}
-                >
-                  새로고침
-                </button>
-
-                <Link
-                  className="rounded-full bg-white/70 px-4 py-2 text-sm font-extrabold text-black/80 hover:bg-white"
-                  href="/logout"
-                >
-                  로그아웃
-                </Link>
-              </div>
-            </div>
-
-            {/* 본문 */}
-            <div className="px-6 py-6">{children}</div>
+    <div className="min-h-[100svh] w-full overflow-x-hidden">
+      <div className="mx-auto w-full max-w-6xl px-4 py-10">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            {title ? <h1 className="text-3xl font-extrabold text-white">{title}</h1> : null}
+            {subtitle ? <p className="mt-1 text-sm text-white/65">{subtitle}</p> : null}
           </div>
 
-          <div className="mt-6 text-center text-xs font-bold text-white/75">
-            © 한의N원외탕전
-          </div>
+          <button
+            onClick={onLogout}
+            disabled={loading}
+            className="rounded-xl border border-white/15 bg-white/10 px-5 py-3 font-extrabold text-white hover:bg-white/15 disabled:opacity-60"
+          >
+            {loading ? "로그아웃..." : "로그아웃"}
+          </button>
         </div>
+
+        <div className="mt-6">{children}</div>
       </div>
     </div>
   );

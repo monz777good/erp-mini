@@ -1,26 +1,35 @@
 "use client";
 
+import { useState } from "react";
+
 export default function LogoutButton() {
-  const onLogout = async () => {
+  const [loading, setLoading] = useState(false);
+
+  async function logout() {
+    if (loading) return;
+
+    setLoading(true);
+
     try {
-      await fetch("/api/auth/logout", {
+      await fetch("/api/logout", {
         method: "POST",
         credentials: "include",
       });
     } catch (e) {
-      // 무시하고 이동 (세션 제거 시도는 했음)
-    } finally {
-      window.location.href = "/login";
+      console.error(e);
     }
-  };
+
+    // ✅ localhost 같은거 절대 쓰지말고 상대경로
+    window.location.href = "/login";
+  }
 
   return (
     <button
-      type="button"
-      onClick={onLogout}
-      className="rounded-lg border px-3 py-1.5 text-sm font-medium hover:bg-gray-50"
+      onClick={logout}
+      disabled={loading}
+      className="rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
     >
-      로그아웃
+      {loading ? "로그아웃..." : "로그아웃"}
     </button>
   );
 }
