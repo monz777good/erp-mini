@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
   const { from, to } = kstRange(fromYmd, toYmd);
 
-  // ✅ 승인(APPROVED) 주문만 로젠 출력 대상으로
+  // ✅ 1) 승인(APPROVED) 주문만 로젠 출력 대상으로 조회
   const orders = await prisma.order.findMany({
     where: {
       status: "APPROVED",
@@ -41,13 +41,17 @@ export async function POST(req: NextRequest) {
     orderBy: { createdAt: "asc" },
     include: {
       client: true,
-      item: { select: { name: true } },
+      item: { select: { id: true, name: true } },
       user: { select: { name: true, phone: true } },
     },
     take: 5000,
   });
 
-  // ✅ 간단 엑셀 생성 (다운로드 확인용 + 운영 가능)
+  if (orders.length === 0) {
+    return NextResponse.json({ ok: false, message: "출력할 승인 주문이 없습니다." }, { status: 400 });
+  }
+
+  // ✅ 2) 엑셀 생성 (다운로드)
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("lozen");
 
@@ -83,6 +87,53 @@ export async function POST(req: NextRequest) {
 
   ws.getRow(1).font = { bold: true };
 
+  // ✅ 3) 여기부터가 핵심:
+  //    로젠 출력 성공 시 → (A) 해당 주문들 DONE 처리
+  //                    → (B) 품목별 수량 합산해서 Item.bundleV 차감
+  //
+  // ⚠️ 재고 차감은 "묶음 수량" 기준이라고 했으니 bundleV만 차감.
+  //     (원하면 stockV도 같이 차감하는 옵션을 붙일 수 있음)
+
+  // 품목별 총 수량 합산
+  const qtyByItem = new Map<string, number>();
+  const orderIds: string[] = [];
+
+  for (const o of orders as any[]) {
+    orderIds.push(o.id);
+    const itemId = o.itemId || o.item?.id;
+    if (!itemId) continue;
+    const q = Math.max(1, Number(o.quantity ?? 1) || 1);
+    qtyByItem.set(itemId, (qtyByItem.get(itemId) ?? 0) + q);
+  }
+
+  // 트랜잭션: (1) 주문 DONE (2) 재고 차감
+  await prisma.$transaction(async (tx) => {
+    // 1) 주문 상태 DONE
+    await tx.order.updateMany({
+      where: { id: { in: orderIds }, status: "APPROVED" },
+      data: { status: "DONE" },
+    });
+
+    // 2) 재고 차감 (bundleV)
+    const itemIds = Array.from(qtyByItem.keys());
+    const items = await tx.item.findMany({
+      where: { id: { in: itemIds } },
+      select: { id: true, bundleV: true },
+    });
+
+    const currentMap = new Map(items.map((it) => [it.id, it.bundleV ?? 0]));
+
+    for (const [itemId, dec] of qtyByItem.entries()) {
+      const cur = currentMap.get(itemId) ?? 0;
+      const next = Math.max(0, cur - dec); // ✅ 음수 방지
+      await tx.item.update({
+        where: { id: itemId },
+        data: { bundleV: next },
+      });
+    }
+  });
+
+  // ✅ 4) 엑셀 응답 반환
   const buffer = await wb.xlsx.writeBuffer();
 
   return new NextResponse(Buffer.from(buffer), {
