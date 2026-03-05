@@ -109,6 +109,52 @@ export default function AdminOrdersPage() {
     }
   }
 
+  // ✅ 로젠 출력 (승인 탭에서만)
+  async function downloadLozenExcel(fromYmd: string, toYmd: string) {
+    setMsg("");
+    if (!fromYmd || !toYmd) {
+      alert("기간(from/to)을 선택하세요.");
+      return;
+    }
+
+    const res = await fetch("/api/admin/orders/lozen-excel", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: "APPROVED",
+        from: fromYmd,
+        to: toYmd,
+        q: q.trim() || undefined,
+      }),
+    });
+
+    if (!res.ok) {
+      const t = await res.text().catch(() => "");
+      alert("로젠 출력 실패\n" + t);
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lozen_${fromYmd}_to_${toYmd}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    window.URL.revokeObjectURL(url);
+
+    // ✅ 서버에서 APPROVED -> DONE(출고완료) 처리했으니
+    // 출고완료 탭으로 이동 + 목록 갱신
+    setTimeout(async () => {
+      setTab("DONE");
+      await load();
+    }, 300);
+  }
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -161,9 +207,10 @@ export default function AdminOrdersPage() {
     cursor: "pointer",
   });
 
+  // ✅ 로젠 출력 버튼이 승인탭일 때만 추가되므로 6칸으로 늘림
   const controls: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "140px 24px 140px 1fr 120px",
+    gridTemplateColumns: tab === "APPROVED" ? "140px 24px 140px 1fr 120px 140px" : "140px 24px 140px 1fr 120px",
     gap: 10,
     alignItems: "center",
     marginBottom: 14,
@@ -188,6 +235,17 @@ export default function AdminOrdersPage() {
     color: "rgba(255,255,255,0.92)",
     fontWeight: 950,
     cursor: "pointer",
+  };
+
+  const lozenBtn: React.CSSProperties = {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.14)",
+    background: "rgba(59,130,246,0.18)", // 파란 느낌(고급)
+    color: "rgba(255,255,255,0.95)",
+    fontWeight: 950,
+    cursor: "pointer",
+    whiteSpace: "nowrap",
   };
 
   const tableWrap: React.CSSProperties = {
@@ -261,6 +319,12 @@ export default function AdminOrdersPage() {
           <button onClick={load} style={btn} disabled={loading}>
             {loading ? "조회중" : "조회"}
           </button>
+
+          {tab === "APPROVED" ? (
+            <button onClick={() => downloadLozenExcel(from, to)} style={lozenBtn} disabled={loading}>
+              로젠 출력
+            </button>
+          ) : null}
         </div>
 
         <div style={tableWrap}>
@@ -301,18 +365,10 @@ export default function AdminOrdersPage() {
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       {tab === "REQUESTED" ? (
                         <div style={{ display: "flex", gap: 8 }}>
-                          <button
-                            style={miniBtn("ok")}
-                            disabled={changing === r.id}
-                            onClick={() => changeStatus(r.id, "APPROVED")}
-                          >
+                          <button style={miniBtn("ok")} disabled={changing === r.id} onClick={() => changeStatus(r.id, "APPROVED")}>
                             {changing === r.id ? "처리중" : "승인"}
                           </button>
-                          <button
-                            style={miniBtn("bad")}
-                            disabled={changing === r.id}
-                            onClick={() => changeStatus(r.id, "REJECTED")}
-                          >
+                          <button style={miniBtn("bad")} disabled={changing === r.id} onClick={() => changeStatus(r.id, "REJECTED")}>
                             {changing === r.id ? "처리중" : "거절"}
                           </button>
                         </div>
@@ -328,7 +384,7 @@ export default function AdminOrdersPage() {
         </div>
 
         <div style={{ marginTop: 10, fontSize: 12, fontWeight: 850, opacity: 0.7 }}>
-          * 승인/거절은 “대기” 탭에서만 버튼이 보입니다.
+          * 승인/거절은 “대기” 탭에서만 버튼이 보입니다. / 로젠 출력은 “승인” 탭에서만 가능합니다.
         </div>
       </div>
     </div>
