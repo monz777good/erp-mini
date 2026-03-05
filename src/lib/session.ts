@@ -1,125 +1,101 @@
-import "server-only";
-
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getIronSession, IronSessionData } from "iron-session";
-import { prisma } from "@/lib/prisma";
+import crypto from "crypto";
 
-type Role = "SALES" | "ADMIN";
+export const runtime = "nodejs";
 
-declare module "iron-session" {
-  interface IronSessionData {
-    user?: {
-      id: string;
-      name: string;
-      phone: string;
-      role: Role;
-    };
-  }
-}
+export type Role = "SALES" | "ADMIN";
 
-const sessionOptions = {
-  cookieName: "erp_session",
-  password: process.env.SESSION_PASSWORD as string,
-  cookieOptions: {
-    httpOnly: true,
-    sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-  },
+export type SessionUser = {
+  id: string;
+  role: Role;
+  name?: string | null;
+  phone?: string | null;
 };
 
-function assertEnv() {
-  if (!process.env.SESSION_PASSWORD) {
-    throw new Error("SESSION_PASSWORD is missing in environment variables.");
+const COOKIE_NAME = "erp_session";
+
+function hmac(data: string) {
+  const secret = process.env.SESSION_PASSWORD || "dev-secret";
+  return crypto.createHmac("sha256", secret).update(data).digest("hex");
+}
+
+function encode(u: SessionUser) {
+  const json = JSON.stringify(u);
+  const b64 = Buffer.from(json, "utf8").toString("base64url");
+  const sig = hmac(b64);
+  return `${b64}.${sig}`;
+}
+
+function decode(v: string): SessionUser | null {
+  const [b64, sig] = v.split(".");
+  if (!b64 || !sig) return null;
+  if (hmac(b64) !== sig) return null;
+
+  try {
+    const json = Buffer.from(b64, "base64url").toString("utf8");
+    const u = JSON.parse(json);
+    if (!u?.id || !u?.role) return null;
+    return u as SessionUser;
+  } catch {
+    return null;
   }
 }
 
-/**
- * ✅ Next 버전에 따라 cookies()가 Promise처럼 동작하는 경우가 있어
- *    (프로덕션/빌드 환경에서 특히) -> get() 없어서 런타임 500 발생
- * ✅ 그래서 "Promise면 await" 처리해서 무조건 get() 있는 cookieStore로 만든다.
- */
-async function getCookieStore(): Promise<any> {
-  let store: any = (cookies as any)(); // 혹시 비동기면 Promise가 들어옴
-
-  if (store && typeof store.then === "function") {
-    store = await store;
-  }
-
-  if (!store || typeof store.get !== "function") {
-    // 여기 걸리면 정확히 지금 네 에러("e.get is not a function") 상황
-    throw new Error("CookieStore is invalid: missing get()");
-  }
-
-  return store;
+/** ✅ Next16 타입 이슈: cookies()가 Promise로 잡히는 케이스 대응 */
+export async function getSession(): Promise<SessionUser | null> {
+  const c = await cookies();
+  const v = c.get(COOKIE_NAME)?.value;
+  if (!v) return null;
+  return decode(v);
 }
 
-export async function getSession() {
-  assertEnv();
-  const cookieStore = await getCookieStore();
-  return getIronSession<IronSessionData>(cookieStore, sessionOptions);
+export async function getSessionUser(): Promise<SessionUser | null> {
+  return getSession();
 }
 
-export async function getSessionUser() {
-  const session = await getSession();
-  return session.user ?? null;
+export async function setSessionUser(user: SessionUser) {
+  const c = await cookies();
+  const v = encode(user);
+  c.set(COOKIE_NAME, v, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 14,
+  });
 }
 
-export async function setSessionUser(user: {
-  id: string;
-  name: string;
-  phone: string;
-  role: Role;
-}) {
-  const session = await getSession();
-  session.user = user;
-  await session.save();
+export async function setSession(user: SessionUser) {
+  return setSessionUser(user);
 }
 
 export async function clearSession() {
-  const session = await getSession();
-  session.destroy();
-}
-
-export async function requireUser() {
-  const session = await getSession();
-
-  if (!session.user) {
-    return NextResponse.json(
-      { ok: false, error: "LOGIN_REQUIRED" },
-      { status: 401 }
-    );
-  }
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { id: true, name: true, phone: true, role: true },
+  const c = await cookies();
+  c.set(COOKIE_NAME, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 0,
   });
-
-  if (!dbUser) {
-    session.destroy();
-    return NextResponse.json(
-      { ok: false, error: "LOGIN_REQUIRED" },
-      { status: 401 }
-    );
-  }
-
-  return dbUser;
 }
 
-export async function requireAdmin() {
-  const u = await requireUser();
-  if (u instanceof NextResponse) return u;
-
-  if (u.role !== "ADMIN") {
-    return NextResponse.json(
-      { ok: false, error: "UNAUTHORIZED" },
-      { status: 403 }
-    );
+export async function requireUser(): Promise<SessionUser | NextResponse> {
+  const u = await getSession();
+  if (!u) {
+    return NextResponse.json({ ok: false, error: "LOGIN_REQUIRED" }, { status: 401 });
   }
   return u;
 }
 
-// ✅ 기존 이름 호환
-export const requireAdminUser = requireAdmin;
+export async function requireAdmin(): Promise<SessionUser | NextResponse> {
+  const u = await getSession();
+  if (!u) {
+    return NextResponse.json({ ok: false, error: "LOGIN_REQUIRED" }, { status: 401 });
+  }
+  if (u.role !== "ADMIN") {
+    return NextResponse.json({ ok: false, error: "NOT_ADMIN" }, { status: 403 });
+  }
+  return u;
+}
