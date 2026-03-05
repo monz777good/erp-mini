@@ -1,7 +1,117 @@
 @import "tailwindcss";
 
-/* 전체 기본값 */
-html,
-body {
+/* =========================
+   기본 색상 변수
+========================= */
+
+:root {
+  --bg0: 8 10 18;
+  --bg1: 16 20 36;
+  --text: 245 247 255;
+  --muted: 200 208 230;
+}
+
+html, body {
   height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  color: rgb(var(--text));
+  background:
+    radial-gradient(1200px 800px at 15% 20%, rgba(120,105,255,0.25), transparent 60%),
+    radial-gradient(900px 600px at 85% 30%, rgba(0,180,255,0.18), transparent 60%),
+    radial-gradient(900px 700px at 50% 90%, rgba(255,255,255,0.08), transparent 60%),
+    linear-gradient(180deg, rgb(var(--bg0)), rgb(var(--bg1)));
+}
+
+/* =========================
+   관리자 UI 통일 스타일
+========================= */
+
+.admin-scope {
+  color: rgba(255,255,255,0.92);
+}
+
+/* 기본 흰 배경 카드 -> 글래스 */
+.admin-scope .bg-white,
+.admin-scope .bg-gray-50,
+.admin-scope .bg-slate-50 {
+  background: rgba(255,255,255,0.08) !important;
+  border-color: rgba(255,255,255,0.14) !important;
+}
+
+/* 텍스트가 검정으로 나오는 것 방지 */
+.admin-scope .text-black,
+.admin-scope .text-gray-900,
+.admin-scope .text-gray-800 {
+  color: rgba(255,255,255,0.92) !important;
+}
+
+/* input 스타일 통일 */
+.admin-scope input,
+.admin-scope select,
+.admin-scope textarea {
+  background: rgba(255,255,255,0.10) !important;
+  color: rgba(255,255,255,0.92) !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+  border-radius: 12px;
+}
+
+.admin-scope input::placeholder {
+  color: rgba(255,255,255,0.35);
+}
+
+.admin-scope input:focus,
+.admin-scope textarea:focus,
+.admin-scope select:focus {
+  border-color: rgba(255,255,255,0.30) !important;
+  outline: none;
+}
+
+/* 버튼 통일 */
+.admin-scope button {
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.92);
+}
+
+.admin-scope button:hover {
+  background: rgba(255,255,255,0.18);
+}
+
+/* 테이블 스타일 */
+.admin-scope table {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.06);
+}
+
+.admin-scope thead {
+  background: rgba(255,255,255,0.10);
+}
+
+.admin-scope th {
+  padding: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.75);
+}
+
+.admin-scope td {
+  padding: 12px;
+  border-top: 1px solid rgba(255,255,255,0.10);
+}
+
+.admin-scope tr:hover td {
+  background: rgba(255,255,255,0.05);
+}
+
+/* 작은 설명 글씨 */
+.admin-scope .text-gray-500,
+.admin-scope .text-gray-600 {
+  color: rgba(255,255,255,0.55) !important;
 }
