@@ -1,60 +1,80 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { saveSessionUser } from "@/lib/session";
-import { verifyPin } from "@/lib/pin";
+import { setSessionUser } from "@/lib/session";
+import crypto from "crypto";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function digitsOnly(v: string) {
   return String(v ?? "").replace(/\D/g, "");
 }
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+function sha256Hex(s: string) {
+  return crypto.createHash("sha256").update(s).digest("hex");
+}
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json().catch(() => ({} as any));
-    const phone = digitsOnly(body.phone);
+    const body =await req.json().catch(() => ({} as any));
+    const phone = digitsOnly(body.phone ?? "");
     const pin = String(body.pin ?? "");
+    const name = String(body.name ?? "").trim();
 
-    if (!phone || !pin) {
+    if (!phone || phone.length < 10) {
       return NextResponse.json(
-        { ok: false, code: "BAD_REQUEST", message: "전화번호와 PIN을 입력하세요." },
+        { ok: false, error: "PHONE_REQUIRED" },
+        { status: 400 }
+      );
+    }
+    if (!pin || pin.length < 4) {
+      return NextResponse.json(
+        { ok: false, error: "PIN_REQUIRED" },
         { status: 400 }
       );
     }
 
-    const user = await prisma.user.findUnique({ where: { phone } });
+    const pepper = process.env.PIN_PEPPER ?? "";
+    const pinHash = sha256Hex(`{pin}:{pepper}`);
+
+    //    (  1 )
+    let user =await prisma.user.findFirst({
+      where: { phone, role: "ADMIN" },
+    });
 
     if (!user) {
-      return NextResponse.json(
-        { ok: false, code: "NO_USER", message: "사용자를 찾을 수 없습니다." },
-        { status: 401 }
-      );
+      //   : name   
+      if (!name) {
+        return NextResponse.json(
+          { ok: false, error: "NAME_REQUIRED" },
+          { status: 400 }
+        );
+      }
+      user =await prisma.user.create({
+        data: {
+          name,
+          phone,
+          role: "ADMIN",
+          pin: pinHash,
+        },
+      });
+    } else {
+      //   PIN 
+      if (!user.pin || user.pin !== pinHash) {
+        return NextResponse.json(
+          { ok: false, error: "INVALID_PIN" },
+          { status: 401 }
+        );
+      }
     }
 
-    // ✅ 관리자 로그인 화면: ADMIN만 허용
-    if (user.role !== "ADMIN") {
-      return NextResponse.json(
-        { ok: false, code: "FORBIDDEN", message: "관리자만 로그인 가능합니다." },
-        { status: 403 }
-      );
-    }
+    //  : res  . setSessionUser(user) 
+await setSessionUser({ id: user.id, name: user.name, role: user.role as any });
 
-    const ok = verifyPin(pin, (user as any).pin ?? null);
-    if (!ok) {
-      return NextResponse.json(
-        { ok: false, code: "BAD_PIN", message: "PIN이 올바르지 않습니다." },
-        { status: 401 }
-      );
-    }
-
-    // ✅ 핵심: 응답(res)에 쿠키를 세팅해야 Vercel에서 로그인 유지됨
-    const res = NextResponse.json({ ok: true });
-    saveSessionUser(res, { id: user.id, name: user.name, role: user.role as any });
-    return res;
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json(
-      { ok: false, code: "SERVER_ERROR", message: String(e?.message ?? e) },
+      { ok: false, error: "SERVER_ERROR", detail: String(e?.message ?? e) },
       { status: 500 }
     );
   }

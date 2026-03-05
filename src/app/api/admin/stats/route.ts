@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
-    requireAdmin(req);
+    requireAdmin();
 
     const [totalOrders, totalUsers, totalItems] = await Promise.all([
       prisma.order.count(),

@@ -5,11 +5,11 @@ import { requireAdmin } from "@/lib/session";
 export const runtime = "nodejs";
 
 /**
- * ✅ 품목 리포트(JSON) - 빌드 통과 버전
+ *   (JSON) -   
  */
 export async function GET(req: NextRequest) {
   try {
-    requireAdmin(req);
+    requireAdmin();
 
     const items = await prisma.item.findMany({
       orderBy: { createdAt: "asc" },

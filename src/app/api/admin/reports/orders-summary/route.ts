@@ -5,11 +5,11 @@ import { requireAdmin } from "@/lib/session";
 export const runtime = "nodejs";
 
 /**
- * ✅ 주문 요약 리포트
+ *    
  */
 export async function GET(req: NextRequest) {
   try {
-    requireAdmin(req);
+    requireAdmin();
 
     const [total, requested, approved, rejected, done] = await Promise.all([
       prisma.order.count(),

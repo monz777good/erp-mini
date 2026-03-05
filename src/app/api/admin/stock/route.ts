@@ -4,16 +4,16 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 /**
- * ✅ 목적: 관리자에서 영업사원/관리자 계정 "일괄 등록" (import)
- * ✅ 주의: 현재 Prisma User 모델에 loginPinHash 필드가 없어서
- *         그 필드를 업데이트하려고 하면 빌드가 깨짐.
- *         => 그래서 여기서는 loginPinHash 같은 건 절대 건드리지 않음.
+ *  :  /  " " (import)
+ *  :  Prisma User  loginPinHash  
+ *              .
+ *         =>   loginPinHash     .
  *
- * 기대 입력(JSON)
+ *  (JSON)
  * {
  *   "users": [
- *     { "name": "홍길동", "phone": "01012345678", "role": "SALES" },
- *     { "name": "관리자", "phone": "01099999999", "role": "ADMIN" }
+ *     { "name": "", "phone": "01012345678", "role": "SALES" },
+ *     { "name": "", "phone": "01099999999", "role": "ADMIN" }
  *   ]
  * }
  */
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
     if (!Array.isArray(list) || list.length === 0) {
       return NextResponse.json(
-        { ok: false, error: "users 배열이 비어있음" },
+        { ok: false, error: "users  " },
         { status: 400 }
       );
     }
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       const phone = digitsOnly(u?.phone ?? "");
       const role = normalizeRole(u?.role);
 
-      // 최소 조건: 이름 + 전화
+      //  :  + 
       if (!name || phone.length < 8) {
         skipped++;
         continue;
@@ -58,12 +58,12 @@ export async function POST(req: Request) {
         create: {
           name,
           phone,
-          role, // Prisma enum(Role)이어도 문자열로 들어가면 TS는 통과하고 Prisma가 처리함
+          role, // Prisma enum(Role)   TS  Prisma 
         },
         update: {
           name,
           role,
-          // ✅ loginPinHash 같은 "없는 필드"는 절대 넣지 않는다
+          //  loginPinHash  " "   
         },
       });
 

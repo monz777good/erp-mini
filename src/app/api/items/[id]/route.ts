@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// ✅ Next.js 15 빌드 타입 대응: params가 Promise로 들어오는 케이스가 있음
+//  Next.js 15   : params Promise   
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, ctx: Ctx) {
@@ -13,7 +13,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
     if (!name) {
       return NextResponse.json(
-        { ok: false, message: "품목명이 비어있습니다." },
+        { ok: false, message: " ." },
         { status: 400 }
       );
     }
@@ -28,11 +28,11 @@ export async function PATCH(req: Request, ctx: Ctx) {
     console.error(e);
     if (e?.code === "P2002") {
       return NextResponse.json(
-        { ok: false, message: "이미 존재하는 품목명입니다." },
+        { ok: false, message: "  ." },
         { status: 409 }
       );
     }
-    return NextResponse.json({ ok: false, message: "서버 오류" }, { status: 500 });
+    return NextResponse.json({ ok: false, message: " " }, { status: 500 });
   }
 }
 
@@ -46,7 +46,7 @@ export async function DELETE(_req: Request, ctx: Ctx) {
 
     if (used > 0) {
       return NextResponse.json(
-        { ok: false, message: "이 품목으로 주문이 있어 삭제할 수 없습니다." },
+        { ok: false, message: "      ." },
         { status: 409 }
       );
     }
@@ -55,6 +55,6 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ ok: false, message: "서버 오류" }, { status: 500 });
+    return NextResponse.json({ ok: false, message: " " }, { status: 500 });
   }
 }

@@ -3,8 +3,8 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-// ✅ 선택한 주문들을 "DONE(출고완료)"로 일괄 변경
-// - REQUESTED(대기/요청) 또는 APPROVED(승인) 상태만 대상
+//    "DONE()"  
+// - REQUESTED(/)  APPROVED()  
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -12,16 +12,16 @@ export async function POST(req: Request) {
 
     if (orderIds.length === 0) {
       return NextResponse.json(
-        { ok: false, message: "orderIds가 필요합니다." },
+        { ok: false, message: "orderIds ." },
         { status: 400 }
       );
     }
 
-    // ✅ PENDING 같은 옛 상태값 제거
+    //  PENDING    
     const result = await prisma.order.updateMany({
       where: {
         id: { in: orderIds },
-        status: { in: ["REQUESTED", "APPROVED"] }, // ✅ schema.prisma의 OrderStatus에 맞춤
+        status: { in: ["REQUESTED", "APPROVED"] }, //  schema.prisma OrderStatus 
       },
       data: { status: "DONE" },
     });
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error(err);
     return NextResponse.json(
-      { ok: false, message: "서버 오류" },
+      { ok: false, message: " " },
       { status: 500 }
     );
   }

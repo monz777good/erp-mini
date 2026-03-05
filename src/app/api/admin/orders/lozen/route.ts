@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 const SHIPPING_FEE = 3850;
 const DEFAULT_BOX = 1;
-const DEFAULT_FREIGHT_TYPE = "선불";
+const DEFAULT_FREIGHT_TYPE = "";
 
 function digitsOnly(v: any) {
   return String(v ?? "").replace(/\D/g, "");
@@ -16,8 +16,8 @@ function digitsOnly(v: any) {
 
 export async function GET(req: NextRequest) {
   try {
-    // ✅ 핵심: req 넣어서 관리자 검증
-    requireAdmin(req);
+    //  : req   
+    requireAdmin();
 
     const orders = await prisma.order.findMany({
       where: { status: OrderStatus.APPROVED },
@@ -31,16 +31,16 @@ export async function GET(req: NextRequest) {
     const ws = wb.addWorksheet("rozen");
 
     ws.getCell("A1").value = "Y";
-    ws.getCell("B1").value = "수하인명";
-    ws.getCell("C1").value = "수하인주소";
-    ws.getCell("D1").value = "전화";
-    ws.getCell("E1").value = "핸드폰";
-    ws.getCell("F1").value = "박스수량";
-    ws.getCell("G1").value = "택배운임";
-    ws.getCell("H1").value = "운임구분";
-    ws.getCell("I1").value = "품목";
+    ws.getCell("B1").value = "";
+    ws.getCell("C1").value = "";
+    ws.getCell("D1").value = "";
+    ws.getCell("E1").value = "";
+    ws.getCell("F1").value = "";
+    ws.getCell("G1").value = "";
+    ws.getCell("H1").value = "";
+    ws.getCell("I1").value = "";
     ws.getCell("J1").value = "";
-    ws.getCell("K1").value = "배송메세지";
+    ws.getCell("K1").value = "";
 
     let r = 2;
 

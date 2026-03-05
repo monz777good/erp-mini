@@ -14,10 +14,10 @@ function asOrderStatus(v: any): OrderStatus | null {
   return null;
 }
 
-// ✅ GET: 관리자 주문 목록
+//  GET:   
 export async function GET(req: NextRequest) {
   try {
-    requireAdmin(req);
+    requireAdmin();
 
     const { searchParams } = new URL(req.url);
     const statusParam = searchParams.get("status")?.trim() || "";
@@ -51,10 +51,10 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ✅ PATCH: 상태 변경
+//  PATCH:  
 export async function PATCH(req: NextRequest) {
   try {
-    requireAdmin(req);
+    requireAdmin();
 
     const body = await req.json().catch(() => ({}));
     const id = String((body as any)?.id ?? "");

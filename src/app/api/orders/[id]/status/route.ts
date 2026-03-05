@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// Next.js 15: params는 Promise로 들어올 수 있어서 await 처리
+// Next.js 15: params Promise    await 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: Request, { params }: Ctx) {
@@ -12,7 +12,7 @@ export async function POST(req: Request, { params }: Ctx) {
 
     if (!status) {
       return NextResponse.json(
-        { ok: false, message: "status가 비어있습니다." },
+        { ok: false, message: "status ." },
         { status: 400 }
       );
     }
@@ -25,6 +25,6 @@ export async function POST(req: Request, { params }: Ctx) {
     return NextResponse.json({ ok: true, order });
   } catch (e) {
     console.error(e);
-    return NextResponse.json({ ok: false, message: "서버 오류" }, { status: 500 });
+    return NextResponse.json({ ok: false, message: " " }, { status: 500 });
   }
 }

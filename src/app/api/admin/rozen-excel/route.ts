@@ -11,7 +11,7 @@ const onlyNumber = (v: string) => String(v ?? "").replace(/[^\d]/g, "");
 
 export async function GET(req: NextRequest) {
   try {
-    await requireAdmin(req);
+    await requireAdmin();
 
     const { searchParams } = new URL(req.url);
     const fromStr = searchParams.get("from");
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     const where: any = { status: "APPROVED" };
 
-    // (옵션) 기간 필터가 원래 있던 경우 그대로 유지
+    // ()       
     if (fromStr || toStr) {
       where.createdAt = {};
       if (fromStr) where.createdAt.gte = new Date(`${fromStr}T00:00:00.000Z`);
@@ -33,22 +33,22 @@ export async function GET(req: NextRequest) {
     });
 
     const wb = new ExcelJS.Workbook();
-    const ws = wb.addWorksheet("로젠업로드");
+    const ws = wb.addWorksheet("");
 
-    // ⚠️ 여기 아래 “로젠 헤더/컬럼”은 네가 이미 확정한 양식이 있을 테니
-    // 기존 파일의 addRow 헤더/데이터 로우를 그대로 쓰면 됨.
-    // 우선은 빌드부터 살리는 최소 예시:
+    //     /      
+    //   addRow /    .
+    //     :
     ws.addRow([
       "y",
-      "수하인명",
-      "수하인주소",
-      "수하인전화번호",
-      "수하인핸드폰번호",
-      "박스수량",
-      "택배운임",
-      "운임구분",
-      "품목명",
-      "배송메세지",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
     ]);
 
     for (const o of orders) {

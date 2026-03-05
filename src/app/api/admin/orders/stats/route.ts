@@ -22,19 +22,19 @@ export async function GET(req: Request) {
     include: { item: true },
   });
 
-  // ✅ 전체 누적(승인/출고완료) 건수
+  //   (/) 
   const totalCount = await prisma.order.count({
     where: { status: { in: ["APPROVED", "DONE"] } },
   });
 
-  // ✅ 기간 내 건수
+  //    
   const periodCount = orders.length;
 
-  // ✅ 품목별 집계
+  //   
   const itemMap: Record<string, { qty: number; count: number }> = {};
 
   for (const o of orders) {
-    const name = o.item?.name ?? "기타";
+    const name = o.item?.name ?? "";
     if (!itemMap[name]) itemMap[name] = { qty: 0, count: 0 };
     itemMap[name].qty += Number(o.quantity ?? 0);
     itemMap[name].count += 1;

@@ -4,10 +4,10 @@ import { requireAdmin } from "@/lib/session";
 export const runtime = "nodejs";
 
 /**
- * ✅ rozen(로젠) 예전 잔재 - 빌드 통과용 더미
+ *  rozen()   -   
  */
 export async function GET(req: NextRequest) {
-  const admin = await requireAdmin(req);
+  const admin = await requireAdmin();
   if (admin instanceof NextResponse) return admin;
 
   return NextResponse.json(

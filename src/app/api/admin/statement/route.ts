@@ -8,10 +8,10 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   try {
-    // ✅ 핵심: req 넘겨서 인증 (빌드 통과 + 동작)
-    requireAdmin(req);
+    //  : req   (  + )
+    requireAdmin();
 
-    // ✅ 여기서 price는 절대 select 하지 않는다 (Item 모델에 price 없음)
+    //   price  select   (Item  price )
     const rows = await prisma.order.findMany({
       orderBy: { createdAt: "asc" },
       include: {
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // 원래 너가 만들던 statement 이미지/파일 로직 유지용(있으면 쓰고 없으면 그냥 ok)
+    //    statement /  (    ok)
     const imgPath = path.join(process.cwd(), "public", "templates", "statement.png");
     const hasTemplate = fs.existsSync(imgPath);
 

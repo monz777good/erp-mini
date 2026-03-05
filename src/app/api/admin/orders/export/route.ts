@@ -17,8 +17,8 @@ function toKSTDateStr(d: Date) {
 
 export async function GET(req: NextRequest) {
   try {
-    // ✅ 여기만 변경: req 넣어서 관리자 검증
-    requireAdmin(req);
+    //   : req   
+    requireAdmin();
 
     const url = new URL(req.url);
     const from = url.searchParams.get("from"); // YYYY-MM-DD
@@ -58,16 +58,16 @@ export async function GET(req: NextRequest) {
     const ws = wb.addWorksheet("orders");
 
     ws.getCell("A1").value = "Y";
-    ws.getCell("B1").value = "수하인명";
-    ws.getCell("C1").value = "수하인주소";
-    ws.getCell("D1").value = "전화";
-    ws.getCell("E1").value = "핸드폰";
-    ws.getCell("F1").value = "박스수량";
-    ws.getCell("G1").value = "택배운임";
-    ws.getCell("H1").value = "운임구분";
-    ws.getCell("I1").value = "품목";
+    ws.getCell("B1").value = "";
+    ws.getCell("C1").value = "";
+    ws.getCell("D1").value = "";
+    ws.getCell("E1").value = "";
+    ws.getCell("F1").value = "";
+    ws.getCell("G1").value = "";
+    ws.getCell("H1").value = "";
+    ws.getCell("I1").value = "";
     ws.getCell("J1").value = "";
-    ws.getCell("K1").value = "배송메세지";
+    ws.getCell("K1").value = "";
 
     let row = 2;
     for (const o of orders as any[]) {
@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
       const receiverAddr = String(o.receiverAddr ?? "").trim();
       const boxCount = Number(o.boxCount ?? o.boxQty ?? 1);
       const fee = Number(o.deliveryFee ?? o.fee ?? 3850);
-      const freightType = String(o.freightType ?? "선불");
+      const freightType = String(o.freightType ?? "");
       const itemName = String(o.item?.name ?? o.itemName ?? "");
       const msg = String(o.deliveryMsg ?? o.message ?? o.note ?? "");
 

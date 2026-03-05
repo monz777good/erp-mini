@@ -9,13 +9,13 @@ type Ctx = { params: Params | Promise<Params> };
 
 export async function GET(req: NextRequest, ctx: Ctx) {
   try {
-    requireAdmin(req);
+    requireAdmin();
 
-    const p = await ctx.params; // Promise든 object든 안전
+    const p = await ctx.params; // Promise object 
     const id = p?.id;
 
     if (!id) {
-      return NextResponse.json({ ok: false, message: "id 필요" }, { status: 400 });
+      return NextResponse.json({ ok: false, message: "id " }, { status: 400 });
     }
 
     const order = await prisma.order.findUnique({
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     });
 
     if (!order) {
-      return NextResponse.json({ ok: false, message: "주문 없음" }, { status: 404 });
+      return NextResponse.json({ ok: false, message: " " }, { status: 404 });
     }
 
     return NextResponse.json({ ok: true, order });

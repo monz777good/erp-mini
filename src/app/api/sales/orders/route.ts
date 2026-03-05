@@ -4,12 +4,12 @@ import { prisma } from "@/lib/prisma";
 export const runtime = "nodejs";
 
 /**
- * ✅ 영업사원 주문 API (빌드/운영 안전 버전)
- * - ownerUserId(스키마에 없는 필드) 조건 제거
- * - GET: 영업사원 주문 목록 조회(옵션 필터)
- * - POST: 영업사원 주문 생성
+ *    API (/  )
+ * - ownerUserId(  )  
+ * - GET:    ( )
+ * - POST:   
  *
- * status enum(스키마 기준):
+ * status enum( ):
  *   REQUESTED / APPROVED / REJECTED / DONE
  */
 
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
   } catch (err) {
     console.error(err);
     return NextResponse.json(
-      { ok: false, message: "서버 오류" },
+      { ok: false, message: " " },
       { status: 500 }
     );
   }
@@ -62,19 +62,19 @@ export async function POST(req: Request) {
 
     if (!userId || !itemId) {
       return NextResponse.json(
-        { ok: false, message: "userId, itemId가 필요합니다." },
+        { ok: false, message: "userId, itemId ." },
         { status: 400 }
       );
     }
 
     if (!receiverName || !receiverAddr) {
       return NextResponse.json(
-        { ok: false, message: "수하인 이름/주소가 필요합니다." },
+        { ok: false, message: " / ." },
         { status: 400 }
       );
     }
 
-    // ✅ clientId가 있으면 존재만 확인 (ownerUserId 조건 제거)
+    //  clientId    (ownerUserId  )
     if (clientId) {
       const ok = await prisma.client.findFirst({
         where: { id: clientId },
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
       });
       if (!ok) {
         return NextResponse.json(
-          { ok: false, message: "거래처를 찾을 수 없습니다." },
+          { ok: false, message: "   ." },
           { status: 404 }
         );
       }
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error(err);
     return NextResponse.json(
-      { ok: false, message: "서버 오류" },
+      { ok: false, message: " " },
       { status: 500 }
     );
   }

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    await requireAdmin(req);
+    await requireAdmin();
 
     const { searchParams } = new URL(req.url);
     const query = (searchParams.get("q") ?? "").trim();
@@ -18,10 +18,10 @@ export async function GET(req: NextRequest) {
         ? {
             OR: [
               { name: { contains: query, mode: "insensitive" } },
-              // ⚠️ owner 필드는 Client 모델에 없어서 빌드가 터졌던 거야.
-              // 대표자까지 검색하고 싶으면, prisma/schema.prisma의 Client 모델에 있는
-              // "대표자 필드명"으로 아래 한 줄을 바꿔서 추가하면 됨.
-              // 예) { ceoName: { contains: query, mode: "insensitive" } },
+              //  owner  Client     .
+              //   , prisma/schema.prisma Client  
+              // " "      .
+              // ) { ceoName: { contains: query, mode: "insensitive" } },
             ],
           }
         : undefined,

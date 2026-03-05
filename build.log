@@ -1,0 +1,46 @@
+
+> erp-mini@0.1.0 build
+> prisma generate && next build
+
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+✔ Generated Prisma Client (v5.22.0) to .\node_modules\@prisma\client in 81ms
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Want to turn off tips and other hints? https://pris.ly/tip-4-nohints
+
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\user\package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * C:\Users\user\erp-mini\package-lock.json
+
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local, .env
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+(node:9684) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///C:/Users/user/erp-mini/postcss.config.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to C:\Users\user\erp-mini\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> Build error occurred
+Error: Turbopack build failed with 1 errors:
+./erp-mini/src/app/api/auth/login/route.ts:57:9
+Parsing ecmascript source code failed
+[0m [90m 55 |[39m
+ [90m 56 |[39m     [90m// ✅ 핵심: 세션 저장은 인자 1개만[39m
+[31m[1m>[22m[39m[90m 57 |[39m $1await setSessionUser({ id[33m:[39m user[33m.[39mid[33m,[39m name[33m:[39m user[33m.[39mname[33m,[39m role[33m:[39m user[33m.[39mrole [36mas[39m any })[33m;[39m
+ [90m    |[39m         [31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m[31m[1m^[22m[39m
+ [90m 58 |[39m
+ [90m 59 |[39m     [36mreturn[39m [33mNextResponse[39m[33m.[39mjson({ ok[33m:[39m [36mtrue[39m })[33m;[39m
+ [90m 60 |[39m   } [36mcatch[39m (e[33m:[39m any) {[0m
+
+Expected ';', '}' or <eof>
+
+
+    at <unknown> (./erp-mini/src/app/api/auth/login/route.ts:57:9)

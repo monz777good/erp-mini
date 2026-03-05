@@ -8,9 +8,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    await requireAdmin(req);
+    await requireAdmin();
 
-    // ✅ 대시보드에 필요한 값들(예시)
+    //    ()
     const [requested, approved, rejected, done] = await Promise.all([
       prisma.order.count({ where: { status: "REQUESTED" } }),
       prisma.order.count({ where: { status: "APPROVED" } }),

@@ -11,14 +11,14 @@ const ALLOWED = new Set(["REQUESTED", "APPROVED", "REJECTED", "DONE"]);
 
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
-    // ✅ 관리자 검증 (req 필수)
-    requireAdmin(req);
+    //    (req )
+    requireAdmin();
 
-    const p = await ctx.params; // Promise든 object든 OK
+    const p = await ctx.params; // Promise object OK
     const id = p?.id;
 
     if (!id) {
-      return NextResponse.json({ ok: false, message: "id 필요" }, { status: 400 });
+      return NextResponse.json({ ok: false, message: "id " }, { status: 400 });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -26,7 +26,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
 
     if (!ALLOWED.has(status)) {
       return NextResponse.json(
-        { ok: false, message: "status는 REQUESTED/APPROVED/REJECTED/DONE만" },
+        { ok: false, message: "status REQUESTED/APPROVED/REJECTED/DONE" },
         { status: 400 }
       );
     }
