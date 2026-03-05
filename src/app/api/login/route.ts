@@ -15,8 +15,7 @@ function sha256Hex(s: string) {
 
 export async function POST(req: Request) {
   try {
-    const body =await req.json().catch(() => ({} as any));
-    const role = String(body.role ?? "SALES").toUpperCase(); // "SALES" | "ADMIN"
+    const body = await req.json().catch(() => ({} as any));
     const phone = digitsOnly(body.phone ?? "");
     const pin = String(body.pin ?? "");
     const name = String(body.name ?? "").trim();
@@ -29,24 +28,18 @@ export async function POST(req: Request) {
     }
 
     const pepper = process.env.PIN_PEPPER ?? "";
-    const pinHash = sha256Hex(`{pin}:{pepper}`);
-    const dbRole = role === "ADMIN" ? "ADMIN" : "SALES";
+    const pinHash = sha256Hex(`${pin}:${pepper}`);
 
-    let user =await prisma.user.findFirst({
-      where: { phone, role: dbRole as any },
+    let user = await prisma.user.findFirst({
+      where: { phone, role: "SALES" as any },
     });
 
     if (!user) {
       if (!name) {
         return NextResponse.json({ ok: false, error: "NAME_REQUIRED" }, { status: 400 });
       }
-      user =await prisma.user.create({
-        data: {
-          name,
-          phone,
-          role: dbRole as any,
-          pin: pinHash,
-        },
+      user = await prisma.user.create({
+        data: { name, phone, role: "SALES" as any, pin: pinHash },
       });
     } else {
       if (!user.pin || user.pin !== pinHash) {
@@ -54,11 +47,11 @@ export async function POST(req: Request) {
       }
     }
 
-    //   phone   (SessionUser  )
-await setSessionUser({ id: user.id, name: user.name, role: user.role as any });
+    await setSessionUser({ id: user.id, name: user.name, role: user.role as any });
 
-    return NextResponse.json({ ok: true, role: user.role });
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
+    // 👇 이 detail이 DevTools Network → login → Response에 그대로 찍힘
     return NextResponse.json(
       { ok: false, error: "SERVER_ERROR", detail: String(e?.message ?? e) },
       { status: 500 }
