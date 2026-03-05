@@ -1,11 +1,14 @@
+// src/app/api/orders/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { OrderStatus } from "@prisma/client";
+import crypto from "crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// 로컬(서버) 기준 date range (이미 너는 KST를 프론트에서 넣고 있으니 그대로 둠)
 function toDateStart(v: string) {
   const [y, m, d] = v.split("-").map((x) => parseInt(x, 10));
   if (!y || !m || !d) return null;
@@ -43,6 +46,7 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
+      groupId: true,
       status: true,
       quantity: true,
       createdAt: true,
@@ -68,8 +72,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true, orders });
 }
 
-type CartLine = { itemId: string; quantity: number };
-
 export async function POST(req: NextRequest) {
   const user = await requireUser();
   if (user instanceof NextResponse) return user;
@@ -89,39 +91,50 @@ export async function POST(req: NextRequest) {
   if (!receiverName) return NextResponse.json({ ok: false, error: "RECEIVER_NAME_REQUIRED" }, { status: 400 });
   if (!receiverAddr) return NextResponse.json({ ok: false, error: "RECEIVER_ADDR_REQUIRED" }, { status: 400 });
 
-  // ✅ (1) 장바구니(복수 품목) 지원: body.items = [{ itemId, quantity }, ...]
-  const itemsArr = Array.isArray(body.items) ? (body.items as CartLine[]) : null;
+  // ✅ 장바구니 형태: items[]
+  const items = Array.isArray(body.items) ? body.items : null;
 
-  if (itemsArr && itemsArr.length > 0) {
-    const cleaned: CartLine[] = itemsArr
-      .map((x) => ({ itemId: s((x as any)?.itemId), quantity: Number((x as any)?.quantity ?? 0) }))
-      .filter((x) => x.itemId && Number.isFinite(x.quantity) && x.quantity > 0)
-      .map((x) => ({ itemId: x.itemId, quantity: Math.floor(x.quantity) }));
+  // (A) 장바구니 주문
+  if (items && items.length > 0) {
+    // groupId 1개로 묶기
+    const groupId = crypto.randomUUID();
 
-    if (cleaned.length === 0) {
-      return NextResponse.json({ ok: false, error: "ITEMS_INVALID" }, { status: 400 });
+    // 검증 + 정규화
+    const normalized = items
+      .map((x: any) => ({
+        itemId: s(x.itemId),
+        quantity: Number(x.quantity ?? 0),
+      }))
+      .filter((x: any) => x.itemId && Number.isFinite(x.quantity) && x.quantity > 0);
+
+    if (normalized.length === 0) {
+      return NextResponse.json({ ok: false, error: "ITEMS_EMPTY" }, { status: 400 });
     }
 
+    // ✅ 트랜잭션으로 여러 row 생성
     const createdOrders = await prisma.$transaction(async (tx) => {
-      // ✅ 핵심 수정: out이 never[]로 추론되지 않게 타입 지정
       const out: any[] = [];
 
-      for (const line of cleaned) {
+      for (const it of normalized) {
         const created = await tx.order.create({
           data: {
+            groupId,
             status: OrderStatus.REQUESTED,
-            quantity: line.quantity,
+            quantity: Math.floor(it.quantity),
+
             receiverName,
             receiverAddr,
             phone: phone || null,
             mobile: mobile || null,
             note: note || null,
+
             user: { connect: { id: user.id } },
             client: { connect: { id: clientId } },
-            item: { connect: { id: line.itemId } },
+            item: { connect: { id: it.itemId } },
           },
           select: {
             id: true,
+            groupId: true,
             status: true,
             quantity: true,
             createdAt: true,
@@ -150,10 +163,10 @@ export async function POST(req: NextRequest) {
       return out;
     });
 
-    return NextResponse.json({ ok: true, orders: createdOrders });
+    return NextResponse.json({ ok: true, groupId, orders: createdOrders });
   }
 
-  // ✅ (2) 기존 단품 주문(호환 유지)
+  // (B) 단품 주문 (기존 방식 유지)
   const itemId = s(body.itemId);
   const quantity = Number(body.quantity ?? 0);
 
@@ -176,6 +189,7 @@ export async function POST(req: NextRequest) {
     },
     select: {
       id: true,
+      groupId: true,
       status: true,
       quantity: true,
       createdAt: true,

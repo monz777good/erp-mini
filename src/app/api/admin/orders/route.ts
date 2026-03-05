@@ -7,56 +7,39 @@ import { OrderStatus } from "@prisma/client";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function err(message: string, status = 400) {
-  return NextResponse.json({ ok: false, message }, { status });
+function s(v: any) {
+  return String(v ?? "").trim();
 }
 
-// ✅ KST(한국시간) 날짜 문자열(YYYY-MM-DD)을 Date로 변환
-function kstStartOfDay(ymd: string) {
-  // 00:00:00 KST
-  return new Date(`${ymd}T00:00:00+09:00`);
-}
-function kstEndOfDay(ymd: string) {
-  // 23:59:59.999 KST
-  return new Date(`${ymd}T23:59:59.999+09:00`);
-}
-
-function asOrderStatus(v: string | null): OrderStatus | null {
-  const s = String(v ?? "").toUpperCase().trim();
-  if (s === "REQUESTED") return OrderStatus.REQUESTED;
-  if (s === "APPROVED") return OrderStatus.APPROVED;
-  if (s === "REJECTED") return OrderStatus.REJECTED;
-  if (s === "DONE") return OrderStatus.DONE;
-  return null;
+// KST(한국시간) YYYY-MM-DD -> Date range(+09:00)
+function kstRange(fromYmd: string, toYmd: string) {
+  const from = new Date(`${fromYmd}T00:00:00+09:00`);
+  const to = new Date(`${toYmd}T23:59:59.999+09:00`);
+  return { from, to };
 }
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin();
-  if (!admin) return err("관리자 로그인이 필요합니다.", 401);
+  if (!admin) return NextResponse.json({ ok: false, message: "UNAUTHORIZED" }, { status: 401 });
 
-  const { searchParams } = new URL(req.url);
-
-  const status = asOrderStatus(searchParams.get("status"));
-  const q = String(searchParams.get("q") ?? "").trim();
-  const from = String(searchParams.get("from") ?? "").trim(); // YYYY-MM-DD
-  const to = String(searchParams.get("to") ?? "").trim(); // YYYY-MM-DD
+  const url = new URL(req.url);
+  const status = s(url.searchParams.get("status") || "REQUESTED").toUpperCase();
+  const fromYmd = s(url.searchParams.get("from"));
+  const toYmd = s(url.searchParams.get("to"));
+  const q = s(url.searchParams.get("q"));
 
   const where: any = {};
-  if (status) where.status = status;
 
-  // ✅ 한국시간 날짜범위 필터
-  if (from && to) {
-    where.createdAt = {
-      gte: kstStartOfDay(from),
-      lte: kstEndOfDay(to),
-    };
-  } else if (from) {
-    where.createdAt = { gte: kstStartOfDay(from) };
-  } else if (to) {
-    where.createdAt = { lte: kstEndOfDay(to) };
+  if (fromYmd && toYmd) {
+    const { from, to } = kstRange(fromYmd, toYmd);
+    where.createdAt = { gte: from, lte: to };
   }
 
-  // ✅ 검색 (품목명/수화인/거래처/요양기관번호/영업사원/전화/핸드폰)
+  if (status === "REQUESTED") where.status = OrderStatus.REQUESTED;
+  if (status === "APPROVED") where.status = OrderStatus.APPROVED;
+  if (status === "REJECTED") where.status = OrderStatus.REJECTED;
+  if (status === "DONE") where.status = OrderStatus.DONE;
+
   if (q) {
     where.OR = [
       { receiverName: { contains: q, mode: "insensitive" } },
@@ -72,38 +55,99 @@ export async function GET(req: NextRequest) {
     ];
   }
 
-  const orders = await prisma.order.findMany({
+  // ✅ 원본 row들
+  const list = await prisma.order.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: "asc" },
     include: {
-      user: { select: { id: true, name: true, phone: true } },
-      client: { select: { id: true, name: true, careInstitutionNo: true } },
-      item: { select: { id: true, name: true } },
+      item: { select: { name: true } },
+      user: { select: { name: true, phone: true } },
+      client: { select: { name: true, careInstitutionNo: true } },
     },
-    take: 500,
   });
 
-  // ✅ 프론트가 쓰기 쉬운 형태로 정리
-  const rows = orders.map((o) => ({
-    id: o.id,
-    status: o.status,
-    quantity: o.quantity,
-    createdAt: o.createdAt.toISOString(),
+  // ✅ groupId(없으면 id)로 묶기
+  type Agg = {
+    key: string; // groupId 또는 단품 id
+    status: OrderStatus;
+    createdAt: Date;
+    receiverName: string;
+    receiverAddr: string;
+    phone: string | null;
+    mobile: string | null;
+    note: string | null;
+    salesName: string;
+    salesPhone: string;
+    clientName: string;
+    careInstitutionNo: string | null;
+    totalQty: number;
+    itemLines: Record<string, number>; // itemName -> qty합
+  };
 
-    itemName: o.item?.name ?? "",
-    salesName: o.user?.name ?? "",
-    salesPhone: o.user?.phone ?? "",
+  const map = new Map<string, Agg>();
 
-    receiverName: o.receiverName,
-    receiverAddr: o.receiverAddr,
-    phone: o.phone ?? "",
-    mobile: o.mobile ?? "",
+  for (const o of list) {
+    const key = o.groupId || o.id;
 
-    clientName: o.client?.name ?? "",
-    careInstitutionNo: o.client?.careInstitutionNo ?? "",
+    const cur =
+      map.get(key) ||
+      ({
+        key,
+        status: o.status,
+        createdAt: o.createdAt,
+        receiverName: o.receiverName,
+        receiverAddr: o.receiverAddr,
+        phone: o.phone,
+        mobile: o.mobile,
+        note: o.note,
+        salesName: o.user?.name || "-",
+        salesPhone: o.user?.phone || "-",
+        clientName: o.client?.name || "-",
+        careInstitutionNo: o.client?.careInstitutionNo || null,
+        totalQty: 0,
+        itemLines: {},
+      } as Agg);
 
-    note: o.note ?? "",
-  }));
+    // status/createdAt은 가장 빠른걸로 통일
+    if (o.createdAt < cur.createdAt) cur.createdAt = o.createdAt;
+    cur.status = o.status;
+
+    cur.totalQty += Number(o.quantity ?? 0);
+
+    const nm = o.item?.name || "-";
+    cur.itemLines[nm] = (cur.itemLines[nm] ?? 0) + Number(o.quantity ?? 0);
+
+    map.set(key, cur);
+  }
+
+  const rows = Array.from(map.values())
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .map((g) => {
+      const itemName = Object.entries(g.itemLines)
+        .map(([nm, qty]) => `${nm} x${qty}`)
+        .join(", ");
+
+      return {
+        id: g.key, // ✅ 여기 id가 “groupId(장바구니)” 또는 “단품 id”
+        status: g.status,
+        quantity: g.totalQty,
+        createdAt: g.createdAt.toISOString(),
+
+        itemName,
+        salesName: g.salesName,
+        salesPhone: g.salesPhone,
+
+        receiverName: g.receiverName,
+        receiverAddr: g.receiverAddr,
+        phone: g.phone || "",
+        mobile: g.mobile || "",
+
+        clientName: g.clientName,
+        careInstitutionNo: g.careInstitutionNo || "",
+
+        note: g.note || "",
+      };
+    });
 
   return NextResponse.json({ ok: true, rows });
 }

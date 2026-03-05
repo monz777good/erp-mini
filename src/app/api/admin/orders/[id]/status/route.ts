@@ -7,41 +7,56 @@ import { OrderStatus } from "@prisma/client";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function err(message: string, status = 400) {
-  return NextResponse.json({ ok: false, message }, { status });
-}
-
-function asOrderStatus(v: any): OrderStatus | null {
-  const s = String(v ?? "").toUpperCase().trim();
-  if (s === "REQUESTED") return OrderStatus.REQUESTED;
-  if (s === "APPROVED") return OrderStatus.APPROVED;
-  if (s === "REJECTED") return OrderStatus.REJECTED;
-  if (s === "DONE") return OrderStatus.DONE;
-  return null;
-}
-
 type Ctx = { params: Promise<{ id: string }> };
+
+function s(v: any) {
+  return String(v ?? "").trim();
+}
 
 export async function POST(req: Request, { params }: Ctx) {
   const admin = await requireAdmin();
-  if (!admin) return err("관리자 로그인이 필요합니다.", 401);
-
-  const { id } = await params;
-
-  const body = await req.json().catch(() => ({}));
-  const next = asOrderStatus(body?.status);
-
-  if (!next) return err("status 값이 올바르지 않습니다.");
+  if (!admin) return NextResponse.json({ ok: false, message: "UNAUTHORIZED" }, { status: 401 });
 
   try {
-    const updated = await prisma.order.update({
-      where: { id },
+    const { id } = await params;
+    const body = await req.json().catch(() => ({}));
+    const status = s(body.status).toUpperCase();
+
+    if (!status) {
+      return NextResponse.json({ ok: false, message: "status 필요" }, { status: 400 });
+    }
+
+    // ✅ 검증
+    const next =
+      status === "REQUESTED"
+        ? OrderStatus.REQUESTED
+        : status === "APPROVED"
+        ? OrderStatus.APPROVED
+        : status === "REJECTED"
+        ? OrderStatus.REJECTED
+        : status === "DONE"
+        ? OrderStatus.DONE
+        : null;
+
+    if (!next) {
+      return NextResponse.json({ ok: false, message: "status 값이 올바르지 않습니다." }, { status: 400 });
+    }
+
+    // ✅ 핵심: id가 (1) 실제 주문 id 일 수도 있고 (2) groupId 일 수도 있음
+    const updated = await prisma.order.updateMany({
+      where: {
+        OR: [{ id }, { groupId: id }],
+      },
       data: { status: next },
-      select: { id: true, status: true },
     });
 
-    return NextResponse.json({ ok: true, order: updated });
-  } catch (e: any) {
-    return err(e?.message ?? "상태 변경 실패", 400);
+    if (!updated.count) {
+      return NextResponse.json({ ok: false, message: "대상 주문을 찾지 못했습니다." }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, count: updated.count });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ ok: false, message: "상태변경 실패" }, { status: 500 });
   }
 }

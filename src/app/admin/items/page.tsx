@@ -18,15 +18,15 @@ export default function AdminItemsPage() {
       cache: "no-store",
     });
 
-    if (!res.ok) {
-      const t = await res.json().catch(() => null);
-      setMsg(t?.message || `불러오기 실패 (${res.status})`);
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok) {
+      setMsg(data?.message || `불러오기 실패 (${res.status})`);
       setItems([]);
       return;
     }
 
-    const data = await res.json().catch(() => null);
-    setItems(Array.isArray(data?.items) ? data.items : []);
+    setItems(Array.isArray(data.items) ? data.items : []);
   }
 
   async function add() {
@@ -38,11 +38,13 @@ export default function AdminItemsPage() {
       body: JSON.stringify({ name }),
     });
 
-    if (!res.ok) {
-      const t = await res.json().catch(() => null);
-      setMsg(t?.message || `추가 실패 (${res.status})`);
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok) {
+      setMsg(data?.message || `추가 실패 (${res.status})`);
       return;
     }
+
     setName("");
     await load();
   }
@@ -56,9 +58,10 @@ export default function AdminItemsPage() {
       credentials: "include",
     });
 
-    if (!res.ok) {
-      const t = await res.json().catch(() => null);
-      setMsg(t?.message || `삭제 실패 (${res.status})`);
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok) {
+      setMsg(data?.message || `삭제 실패 (${res.status})`);
       return;
     }
 
@@ -78,27 +81,14 @@ export default function AdminItemsPage() {
   return (
     <div className="erp-shell">
       <div className="erp-card">
-        <h1 style={{ fontSize: 34, fontWeight: 900, marginBottom: 6 }}>
-          품목 등록 (관리자)
-        </h1>
+        <h1 style={{ fontSize: 34, fontWeight: 900, marginBottom: 6 }}>품목 등록 (관리자)</h1>
         <div style={{ fontWeight: 700, opacity: 0.75, marginBottom: 14 }}>
           품목 추가/삭제/수정은 관리자만 가능합니다.
         </div>
 
-        {msg ? (
-          <div style={{ color: "crimson", fontWeight: 900, marginBottom: 10, whiteSpace: "pre-line" }}>
-            {msg}
-          </div>
-        ) : null}
+        {msg ? <div style={{ color: "crimson", fontWeight: 900, marginBottom: 10 }}>{msg}</div> : null}
 
-        <div
-          style={{
-            border: "1px solid rgba(0,0,0,0.08)",
-            borderRadius: 14,
-            padding: 14,
-            marginBottom: 14,
-          }}
-        >
+        <div style={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, padding: 14, marginBottom: 14 }}>
           <div style={{ fontWeight: 900, marginBottom: 10 }}>품목 추가</div>
           <input
             value={name}
@@ -114,7 +104,6 @@ export default function AdminItemsPage() {
               fontWeight: 800,
             }}
           />
-
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button
               onClick={add}
@@ -166,16 +155,12 @@ export default function AdminItemsPage() {
         <div style={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, overflow: "hidden" }}>
           <div style={{ padding: 14, fontWeight: 900, display: "flex", justifyContent: "space-between" }}>
             <span>목록</span>
-            <span>
-              {filtered.length}개 표시 / 전체 {items.length}개
-            </span>
+            <span>{filtered.length}개 표시 / 전체 {items.length}개</span>
           </div>
 
           <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
             {filtered.length === 0 ? (
-              <div style={{ padding: 18, textAlign: "center", fontWeight: 800, opacity: 0.7 }}>
-                목록이 없습니다.
-              </div>
+              <div style={{ padding: 18, textAlign: "center", fontWeight: 800, opacity: 0.7 }}>목록이 없습니다.</div>
             ) : (
               filtered.map((it) => (
                 <div
