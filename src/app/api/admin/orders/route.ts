@@ -10,7 +10,6 @@ export const dynamic = "force-dynamic";
 function err(message: string, status = 400) {
   return NextResponse.json({ ok: false, message }, { status });
 }
-
 function s(v: any) {
   return String(v ?? "").trim();
 }
@@ -22,28 +21,37 @@ function kstRange(fromYmd: string, toYmd: string) {
   return { from, to };
 }
 
+type ItemLine = { itemId: string; itemName: string; quantity: number };
+
 type GroupRow = {
-  id: string; // 대표 주문 id (프론트가 이걸로 /api/admin/orders/<id> 호출 가능)
+  id: string; // 대표 주문 id
   createdAt: string;
   status: string;
 
   userName: string;
   userPhone: string;
 
-  clientName: string;
-  clientId: string;
-
   receiverName: string;
   receiverAddr: string;
   phone?: string | null;
   mobile?: string | null;
+
+  clientName: string;
+  clientId: string;
+
+  hospitalNo?: string | null;
   note?: string | null;
 
-  items: { itemId: string; itemName: string; quantity: number }[];
+  items: ItemLine[];
   orderIds: string[];
+
+  // ✅ 구버전 호환(테이블이 이걸 쓰면 그래도 보이게)
+  itemName: string;    // 줄바꿈 문자열
+  quantity: string;    // "x1\nx3" 줄바꿈 문자열
 };
 
 function makeGroupKey(o: any) {
+  // groupId 없으니 createdAt + 동일 수령/거래처/유저 정보로 묶음
   return [
     o.createdAt?.toISOString?.() ?? String(o.createdAt),
     o.userId,
@@ -63,7 +71,7 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const from = s(url.searchParams.get("from"));
   const to = s(url.searchParams.get("to"));
-  const status = s(url.searchParams.get("status")); // REQUESTED/APPROVED/REJECTED/DONE
+  const status = s(url.searchParams.get("status"));
   const q = s(url.searchParams.get("q"));
 
   let createdAt: any = undefined;
@@ -95,49 +103,68 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
     include: {
       user: { select: { name: true, phone: true } },
-      client: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true, hospitalNo: true } as any }, // hospitalNo 있을 수도
       item: { select: { id: true, name: true } },
     },
-    take: 2000,
+    take: 3000,
   });
 
-  // ✅ groupId 없이 createdAt 묶음으로 그룹핑
   const map = new Map<string, GroupRow>();
 
-  for (const o of orders) {
+  for (const o of orders as any[]) {
     const key = makeGroupKey(o);
 
     if (!map.has(key)) {
       map.set(key, {
-        id: o.id, // 대표 id
+        id: o.id,
         createdAt: o.createdAt.toISOString(),
         status: o.status,
+
         userName: o.user?.name ?? "",
         userPhone: o.user?.phone ?? "",
-        clientName: o.client?.name ?? "",
-        clientId: o.client?.id ?? "",
+
         receiverName: o.receiverName ?? "",
         receiverAddr: o.receiverAddr ?? "",
         phone: o.phone ?? null,
         mobile: o.mobile ?? null,
+
+        clientName: o.client?.name ?? "",
+        clientId: o.client?.id ?? "",
+        hospitalNo: (o.client?.hospitalNo ?? o.hospitalNo ?? null) as any,
         note: o.note ?? null,
+
         items: [],
         orderIds: [],
+
+        itemName: "",
+        quantity: "",
       });
     }
 
     const g = map.get(key)!;
     g.orderIds.push(o.id);
 
-    // ✅ 같은 품목이면 수량 합산해서 itemName + xN 만들기
-    const found = g.items.find((it) => it.itemId === o.itemId);
-    if (found) found.quantity += o.quantity ?? 1;
-    else
+    // ✅ itemName 최대한 살려서 가져오기 (관계 없을 때도 대비)
+    const itemId = s(o.itemId || o.item?.id || o.item_id);
+    const itemName = s(o.item?.name || o.itemName || o.item_name || "-") || "-";
+    const qty = Math.max(1, Number(o.quantity ?? o.qty ?? 1) || 1);
+
+    // ✅ 같은 품목이면 합산
+    const found = g.items.find((it) => it.itemId === itemId && itemId);
+    if (found) found.quantity += qty;
+    else {
       g.items.push({
-        itemId: o.itemId,
-        itemName: o.item?.name ?? "",
-        quantity: o.quantity ?? 1,
+        itemId: itemId || `${itemName}_${g.items.length}`,
+        itemName,
+        quantity: qty,
       });
+    }
+  }
+
+  // ✅ 구버전 호환 문자열도 생성
+  for (const g of map.values()) {
+    g.itemName = g.items.map((it) => it.itemName).join("\n");
+    g.quantity = g.items.map((it) => `x${it.quantity}`).join("\n");
   }
 
   const rows = Array.from(map.values());
@@ -145,64 +172,4 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true, rows });
 }
 
-// ✅ (프론트가 /api/admin/orders 로 PATCH 때릴 때도 지원)
-export async function PATCH(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (admin instanceof NextResponse) return admin;
-
-  let body: any = {};
-  try {
-    body = await req.json();
-  } catch {
-    return err("BAD_REQUEST");
-  }
-
-  const status = s(body.status) as OrderStatus;
-  if (!["APPROVED", "REJECTED", "DONE", "REQUESTED"].includes(status)) {
-    return err("INVALID_STATUS");
-  }
-
-  // 1) orderIds 배열로 오면 그대로 updateMany
-  if (Array.isArray(body.orderIds) && body.orderIds.length > 0) {
-    await prisma.order.updateMany({
-      where: { id: { in: body.orderIds.map((x: any) => s(x)).filter(Boolean) } },
-      data: { status },
-    });
-    return NextResponse.json({ ok: true });
-  }
-
-  // 2) id 1개만 오면 그 id 기준으로 묶음 업데이트
-  const id = s(body.id);
-  if (!id) return err("ORDER_REQUIRED");
-
-  const base = await prisma.order.findUnique({
-    where: { id },
-    select: {
-      createdAt: true,
-      userId: true,
-      clientId: true,
-      receiverName: true,
-      receiverAddr: true,
-      phone: true,
-      mobile: true,
-      note: true,
-    },
-  });
-  if (!base) return err("NOT_FOUND", 404);
-
-  await prisma.order.updateMany({
-    where: {
-      createdAt: base.createdAt,
-      userId: base.userId,
-      clientId: base.clientId,
-      receiverName: base.receiverName,
-      receiverAddr: base.receiverAddr,
-      phone: base.phone,
-      mobile: base.mobile,
-      note: base.note,
-    },
-    data: { status },
-  });
-
-  return NextResponse.json({ ok: true });
-}
+// (필요하면 여기 PATCH도 유지 가능하지만, 지금은 [id] 라우트로 처리 중)
