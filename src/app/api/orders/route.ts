@@ -31,20 +31,16 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const from = s(url.searchParams.get("from"));
   const to = s(url.searchParams.get("to"));
-  const status = s(url.searchParams.get("status")); // REQUESTED/APPROVED/REJECTED/DONE
+  const status = s(url.searchParams.get("status"));
   const q = s(url.searchParams.get("q"));
 
-  // 기본: 최근 7일
   let range = undefined as undefined | { gte: Date; lte: Date };
   if (from && to) {
     const r = kstRange(from, to);
     range = { gte: r.from, lte: r.to };
   }
 
-  const where: any = {
-    userId: user.id,
-  };
-
+  const where: any = { userId: user.id };
   if (range) where.createdAt = range;
   if (status) where.status = status as OrderStatus;
 
@@ -70,7 +66,8 @@ export async function GET(req: NextRequest) {
     take: 500,
   });
 
-  return NextResponse.json({ ok: true, rows });
+  // ✅ 호환: rows / orders 둘 다 내려줌 (프론트가 뭐를 읽든 정상)
+  return NextResponse.json({ ok: true, rows, orders: rows });
 }
 
 export async function POST(req: NextRequest) {
@@ -91,10 +88,7 @@ export async function POST(req: NextRequest) {
   const mobile = s(body.mobile) || null;
   const note = s(body.note) || null;
 
-  // ✅ 1) 장바구니 형태: items: [{itemId, quantity}]
   const itemsFromArray: BodyItem[] = Array.isArray(body.items) ? body.items : [];
-
-  // ✅ 2) 단일 형태(호환): itemId + quantity
   const singleItemId = s(body.itemId);
   const singleQty = Number(body.quantity ?? 1);
 
@@ -119,11 +113,8 @@ export async function POST(req: NextRequest) {
   if (!clientId) return err("CLIENT_REQUIRED");
   if (!receiverName) return err("RECEIVER_NAME_REQUIRED");
   if (!receiverAddr) return err("RECEIVER_ADDR_REQUIRED");
-
-  // ✅ 여기서만 ITEM_REQUIRED (진짜 아이템이 없을 때)
   if (items.length === 0) return err("ITEM_REQUIRED");
 
-  // ✅ 장바구니 “한 번 주문” 묶음을 위해 createdAt 동일하게 고정
   const createdAt = new Date();
 
   await prisma.order.createMany({
@@ -132,13 +123,11 @@ export async function POST(req: NextRequest) {
       clientId,
       itemId: it.itemId,
       quantity: it.quantity,
-
       receiverName,
       receiverAddr,
       phone,
       mobile,
       note,
-
       status: OrderStatus.REQUESTED,
       createdAt,
     })),

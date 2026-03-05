@@ -11,6 +11,10 @@ function err(message: string, status = 400) {
   return NextResponse.json({ ok: false, message }, { status });
 }
 
+function s(v: any) {
+  return String(v ?? "").trim();
+}
+
 // ✅ KST(한국시간) 기준 날짜 문자열(YYYY-MM-DD)을 UTC Date 범위로 변환
 function kstRange(fromYmd: string, toYmd: string) {
   const from = new Date(`${fromYmd}T00:00:00+09:00`);
@@ -18,33 +22,59 @@ function kstRange(fromYmd: string, toYmd: string) {
   return { from, to };
 }
 
-function s(v: any) {
-  return String(v ?? "").trim();
+type GroupRow = {
+  id: string; // 대표 주문 id (프론트가 이걸로 /api/admin/orders/<id> 호출 가능)
+  createdAt: string;
+  status: string;
+
+  userName: string;
+  userPhone: string;
+
+  clientName: string;
+  clientId: string;
+
+  receiverName: string;
+  receiverAddr: string;
+  phone?: string | null;
+  mobile?: string | null;
+  note?: string | null;
+
+  items: { itemId: string; itemName: string; quantity: number }[];
+  orderIds: string[];
+};
+
+function makeGroupKey(o: any) {
+  return [
+    o.createdAt?.toISOString?.() ?? String(o.createdAt),
+    o.userId,
+    o.clientId,
+    s(o.receiverName),
+    s(o.receiverAddr),
+    s(o.phone),
+    s(o.mobile),
+    s(o.note),
+  ].join("|");
 }
 
-// ✅ 관리자 주문 목록
-// - "장바구니 주문"을 1건으로 묶어서 내려줌
-// - 관리자 화면이 기대하는 형태(itemName / quantityText / groupKey 등)로 내려줌
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin();
-  if (!admin) return err("관리자 로그인이 필요합니다.", 401);
+  if (admin instanceof NextResponse) return admin;
 
   const url = new URL(req.url);
-  const fromYmd = s(url.searchParams.get("from"));
-  const toYmd = s(url.searchParams.get("to"));
-  const status = s(url.searchParams.get("status") || "REQUESTED").toUpperCase();
+  const from = s(url.searchParams.get("from"));
+  const to = s(url.searchParams.get("to"));
+  const status = s(url.searchParams.get("status")); // REQUESTED/APPROVED/REJECTED/DONE
   const q = s(url.searchParams.get("q"));
 
-  const where: any = {};
-  if (fromYmd && toYmd) {
-    const { from, to } = kstRange(fromYmd, toYmd);
-    where.createdAt = { gte: from, lte: to };
+  let createdAt: any = undefined;
+  if (from && to) {
+    const r = kstRange(from, to);
+    createdAt = { gte: r.from, lte: r.to };
   }
 
-  if (status === "REQUESTED") where.status = OrderStatus.REQUESTED;
-  else if (status === "APPROVED") where.status = OrderStatus.APPROVED;
-  else if (status === "REJECTED") where.status = OrderStatus.REJECTED;
-  else if (status === "DONE") where.status = OrderStatus.DONE;
+  const where: any = {};
+  if (createdAt) where.createdAt = createdAt;
+  if (status) where.status = status as OrderStatus;
 
   if (q) {
     where.OR = [
@@ -53,9 +83,8 @@ export async function GET(req: NextRequest) {
       { phone: { contains: q } },
       { mobile: { contains: q } },
       { note: { contains: q, mode: "insensitive" } },
-      { item: { name: { contains: q, mode: "insensitive" } } },
       { client: { name: { contains: q, mode: "insensitive" } } },
-      { client: { careInstitutionNo: { contains: q } } },
+      { item: { name: { contains: q, mode: "insensitive" } } },
       { user: { name: { contains: q, mode: "insensitive" } } },
       { user: { phone: { contains: q } } },
     ];
@@ -63,164 +92,117 @@ export async function GET(req: NextRequest) {
 
   const orders = await prisma.order.findMany({
     where,
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     include: {
-      user: { select: { id: true, name: true, phone: true } },
-      client: { select: { id: true, name: true, careInstitutionNo: true } },
+      user: { select: { name: true, phone: true } },
+      client: { select: { id: true, name: true } },
       item: { select: { id: true, name: true } },
     },
+    take: 2000,
   });
 
-  // ✅ "장바구니 주문" 묶기
-  // - 같은 영업사원/거래처/수하인정보/상태
-  // - createdAt 2초 버킷
-  type G = {
-    groupKey: string;
-    ids: string[]; // 그룹에 포함된 주문 id들 (상태변경 시 한 번에 변경용)
-    status: OrderStatus;
-    createdAt: Date;
-
-    salesName: string;
-    salesPhone: string;
-
-    receiverName: string;
-    receiverAddr: string;
-    phone: string;
-    mobile: string;
-    note: string;
-
-    clientName: string;
-    instNo: string;
-
-    // 품목별 합산
-    items: { name: string; quantity: number }[];
-  };
-
-  const m = new Map<string, G>();
+  // ✅ groupId 없이 createdAt 묶음으로 그룹핑
+  const map = new Map<string, GroupRow>();
 
   for (const o of orders) {
-    const bucket = Math.floor(new Date(o.createdAt).getTime() / 2000);
-    const key = [
-      o.userId,
-      o.clientId,
-      o.status,
-      bucket,
-      s(o.receiverName),
-      s(o.receiverAddr),
-      s(o.phone),
-      s(o.mobile),
-      s(o.note),
-    ].join("|");
+    const key = makeGroupKey(o);
 
-    const itemName = s(o.item?.name);
-    const qty = Number(o.quantity ?? 0) || 0;
-
-    const exist = m.get(key);
-    if (!exist) {
-      m.set(key, {
-        groupKey: key,
-        ids: [o.id],
+    if (!map.has(key)) {
+      map.set(key, {
+        id: o.id, // 대표 id
+        createdAt: o.createdAt.toISOString(),
         status: o.status,
-        createdAt: o.createdAt,
-
-        salesName: s(o.user?.name),
-        salesPhone: s(o.user?.phone),
-
-        receiverName: s(o.receiverName),
-        receiverAddr: s(o.receiverAddr),
-        phone: s(o.phone),
-        mobile: s(o.mobile),
-        note: s(o.note),
-
-        clientName: s(o.client?.name),
-        instNo: s(o.client?.careInstitutionNo),
-
-        items: itemName ? [{ name: itemName, quantity: qty }] : [],
+        userName: o.user?.name ?? "",
+        userPhone: o.user?.phone ?? "",
+        clientName: o.client?.name ?? "",
+        clientId: o.client?.id ?? "",
+        receiverName: o.receiverName ?? "",
+        receiverAddr: o.receiverAddr ?? "",
+        phone: o.phone ?? null,
+        mobile: o.mobile ?? null,
+        note: o.note ?? null,
+        items: [],
+        orderIds: [],
       });
-    } else {
-      exist.ids.push(o.id);
-
-      const found = exist.items.find((x) => x.name === itemName);
-      if (found) found.quantity += qty;
-      else if (itemName) exist.items.push({ name: itemName, quantity: qty });
-
-      if (o.createdAt < exist.createdAt) exist.createdAt = o.createdAt;
     }
+
+    const g = map.get(key)!;
+    g.orderIds.push(o.id);
+
+    // ✅ 같은 품목이면 수량 합산해서 itemName + xN 만들기
+    const found = g.items.find((it) => it.itemId === o.itemId);
+    if (found) found.quantity += o.quantity ?? 1;
+    else
+      g.items.push({
+        itemId: o.itemId,
+        itemName: o.item?.name ?? "",
+        quantity: o.quantity ?? 1,
+      });
   }
 
-  // ✅ 관리자 화면이 기대하는 필드로 변환
-  // - itemName: 줄바꿈으로 품목 전부
-  // - quantityText: 줄바꿈으로 수량 전부
-  const rows = Array.from(m.values())
-    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-    .map((g) => {
-      const itemName = g.items.map((it) => `${it.name}`).join("\n");
-      const quantityText = g.items.map((it) => `x${it.quantity}`).join("\n");
-
-      return {
-        // ✅ 대표 id(그룹 첫 주문 id) + groupKey + ids
-        id: g.ids[0],
-        ids: g.ids,
-        groupKey: g.groupKey,
-
-        status: g.status,
-        createdAt: g.createdAt,
-
-        salesName: g.salesName,
-        salesPhone: g.salesPhone,
-
-        receiverName: g.receiverName,
-        receiverAddr: g.receiverAddr,
-        phone: g.phone,
-        mobile: g.mobile,
-        note: g.note,
-
-        clientName: g.clientName,
-        instNo: g.instNo,
-
-        // ✅ 관리자 UI용(줄바꿈 표시)
-        itemName,
-        quantityText,
-      };
-    });
+  const rows = Array.from(map.values());
 
   return NextResponse.json({ ok: true, rows });
 }
 
-// ✅ 상태 변경
-// - 프론트가 groupKey/ids를 보내주면 그룹 전체 변경
-// - 아니면 id 1건만 변경 (하위호환)
-export async function POST(req: NextRequest) {
+// ✅ (프론트가 /api/admin/orders 로 PATCH 때릴 때도 지원)
+export async function PATCH(req: NextRequest) {
   const admin = await requireAdmin();
-  if (!admin) return err("관리자 로그인이 필요합니다.", 401);
+  if (admin instanceof NextResponse) return admin;
 
-  const body = await req.json().catch(() => ({}));
-  const id = s(body?.id);
-  const ids = Array.isArray(body?.ids) ? body.ids.map((x: any) => s(x)).filter(Boolean) : [];
-  const status = s(body?.status).toUpperCase();
+  let body: any = {};
+  try {
+    body = await req.json();
+  } catch {
+    return err("BAD_REQUEST");
+  }
 
-  if (!status) return err("status가 필요합니다.");
+  const status = s(body.status) as OrderStatus;
+  if (!["APPROVED", "REJECTED", "DONE", "REQUESTED"].includes(status)) {
+    return err("INVALID_STATUS");
+  }
 
-  const allow = new Set(["REQUESTED", "APPROVED", "REJECTED", "DONE"]);
-  if (!allow.has(status)) return err("status 값이 올바르지 않습니다.");
-
-  // ✅ 그룹 ids가 오면 한 번에 변경
-  if (ids.length > 0) {
+  // 1) orderIds 배열로 오면 그대로 updateMany
+  if (Array.isArray(body.orderIds) && body.orderIds.length > 0) {
     await prisma.order.updateMany({
-      where: { id: { in: ids } },
-      data: { status: status as any },
+      where: { id: { in: body.orderIds.map((x: any) => s(x)).filter(Boolean) } },
+      data: { status },
     });
     return NextResponse.json({ ok: true });
   }
 
-  // ✅ 하위호환: id 1건만 변경
-  if (!id) return err("id가 필요합니다.");
+  // 2) id 1개만 오면 그 id 기준으로 묶음 업데이트
+  const id = s(body.id);
+  if (!id) return err("ORDER_REQUIRED");
 
-  const updated = await prisma.order.update({
+  const base = await prisma.order.findUnique({
     where: { id },
-    data: { status: status as any },
-    select: { id: true, status: true },
+    select: {
+      createdAt: true,
+      userId: true,
+      clientId: true,
+      receiverName: true,
+      receiverAddr: true,
+      phone: true,
+      mobile: true,
+      note: true,
+    },
+  });
+  if (!base) return err("NOT_FOUND", 404);
+
+  await prisma.order.updateMany({
+    where: {
+      createdAt: base.createdAt,
+      userId: base.userId,
+      clientId: base.clientId,
+      receiverName: base.receiverName,
+      receiverAddr: base.receiverAddr,
+      phone: base.phone,
+      mobile: base.mobile,
+      note: base.note,
+    },
+    data: { status },
   });
 
-  return NextResponse.json({ ok: true, order: updated });
+  return NextResponse.json({ ok: true });
 }

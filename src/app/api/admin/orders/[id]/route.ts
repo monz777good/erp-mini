@@ -1,46 +1,79 @@
-import { NextResponse, type NextRequest } from "next/server";
+// src/app/api/admin/orders/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/session";
+import { OrderStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-type Params = { id: string };
-type Ctx = { params: Params | Promise<Params> };
+function s(v: any) {
+  return String(v ?? "").trim();
+}
 
-export async function GET(req: NextRequest, ctx: Ctx) {
+function err(message: string, status = 400) {
+  return NextResponse.json({ ok: false, message }, { status });
+}
+
+// ✅ Next 16.1.x 타입 생성 이슈 대응:
+// context.params 가 Promise로 잡히는 경우가 있어 any로 받고 안전하게 처리
+async function getIdFromContext(context: any) {
+  const p = context?.params;
+  const params = typeof p?.then === "function" ? await p : p;
+  return s(params?.id);
+}
+
+export async function PATCH(req: NextRequest, context: any) {
+  const admin = await requireAdmin();
+  if (admin instanceof NextResponse) return admin;
+
+  const id = await getIdFromContext(context);
+  if (!id) return err("ID_REQUIRED");
+
+  let body: any = {};
   try {
-    requireAdmin();
-
-    const p = await ctx.params; // Promise object 
-    const id = p?.id;
-
-    if (!id) {
-      return NextResponse.json({ ok: false, message: "id " }, { status: 400 });
-    }
-
-    const order = await prisma.order.findUnique({
-      where: { id },
-      include: {
-        item: { select: { id: true, name: true } },
-        user: { select: { id: true, name: true, phone: true, role: true } },
-      },
-    });
-
-    if (!order) {
-      return NextResponse.json({ ok: false, message: " " }, { status: 404 });
-    }
-
-    return NextResponse.json({ ok: true, order });
-  } catch (e: any) {
-    if (String(e?.message ?? "").startsWith("UNAUTHORIZED")) {
-      return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
-    }
-    if (String(e?.message ?? "").startsWith("FORBIDDEN")) {
-      return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
-    }
-    return NextResponse.json(
-      { ok: false, error: String(e?.message ?? e) },
-      { status: 500 }
-    );
+    body = await req.json();
+  } catch {
+    return err("BAD_REQUEST");
   }
+
+  const status = s(body.status) as OrderStatus;
+  if (!["APPROVED", "REJECTED", "DONE", "REQUESTED"].includes(status)) {
+    return err("INVALID_STATUS");
+  }
+
+  // ✅ 기준 주문 1건 조회
+  const base = await prisma.order.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      createdAt: true,
+      userId: true,
+      clientId: true,
+      receiverName: true,
+      receiverAddr: true,
+      phone: true,
+      mobile: true,
+      note: true,
+    },
+  });
+
+  if (!base) return err("NOT_FOUND", 404);
+
+  // ✅ groupId 없이도 “같은 주문요청 묶음” 업데이트
+  await prisma.order.updateMany({
+    where: {
+      createdAt: base.createdAt,
+      userId: base.userId,
+      clientId: base.clientId,
+      receiverName: base.receiverName,
+      receiverAddr: base.receiverAddr,
+      phone: base.phone,
+      mobile: base.mobile,
+      note: base.note,
+    },
+    data: { status },
+  });
+
+  return NextResponse.json({ ok: true });
 }
