@@ -35,14 +35,29 @@ function assertEnv() {
   }
 }
 
-// ✅ Next 16 cookies() 타입 이슈 회피: iron-session에 CookieStore로 캐스팅
+/**
+ * ✅ Next 버전에 따라 cookies()가 Promise처럼 동작하는 경우가 있어
+ *    (프로덕션/빌드 환경에서 특히) -> get() 없어서 런타임 500 발생
+ * ✅ 그래서 "Promise면 await" 처리해서 무조건 get() 있는 cookieStore로 만든다.
+ */
+async function getCookieStore(): Promise<any> {
+  let store: any = (cookies as any)(); // 혹시 비동기면 Promise가 들어옴
+
+  if (store && typeof store.then === "function") {
+    store = await store;
+  }
+
+  if (!store || typeof store.get !== "function") {
+    // 여기 걸리면 정확히 지금 네 에러("e.get is not a function") 상황
+    throw new Error("CookieStore is invalid: missing get()");
+  }
+
+  return store;
+}
+
 export async function getSession() {
   assertEnv();
-
-  // iron-session이 기대하는 CookieStore 타입과 Next cookies() 타입이 다르게 잡혀서 빌드가 터짐
-  // 런타임은 정상이라, 여기서만 안전하게 캐스팅해서 통과시킨다.
-  const cookieStore = cookies() as any;
-
+  const cookieStore = await getCookieStore();
   return getIronSession<IronSessionData>(cookieStore, sessionOptions);
 }
 
@@ -106,4 +121,5 @@ export async function requireAdmin() {
   return u;
 }
 
+// ✅ 기존 이름 호환
 export const requireAdminUser = requireAdmin;
