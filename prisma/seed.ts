@@ -1,86 +1,66 @@
-// prisma/seed.ts
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
-
-function digitsOnly(v: string) {
-  return String(v ?? "").replace(/\D/g, "");
-}
+import { prisma } from "../src/lib/prisma";
+import { Role, OrderStatus } from "@prisma/client";
 
 async function main() {
-  // 1) 관리자/영업 샘플 유저(없으면 생성)
+  // ✅ 유저는 phone이 unique라 upsert OK
   const admin = await prisma.user.upsert({
-    where: { phone: "01000000000" },
-    update: { name: "관리자", role: "ADMIN" },
-    create: {
-      name: "관리자",
-      phone: "01000000000",
-      role: "ADMIN",
-    },
+    where: { phone: "01023833691" },
+    update: { name: "이현택", role: Role.ADMIN },
+    create: { name: "이현택", phone: "01023833691", role: Role.ADMIN },
   });
 
   const sales = await prisma.user.upsert({
-    where: { phone: "01022222222" },
-    update: { name: "영업사원", role: "SALES" },
-    create: {
-      name: "영업사원",
-      phone: "01022222222",
-      role: "SALES",
-    },
+    where: { phone: "01012341234" },
+    update: { name: "영업사원", role: Role.SALES },
+    create: { name: "영업사원", phone: "01012341234", role: Role.SALES },
   });
 
-  // 2) 샘플 품목(없으면 생성)
+  // ✅ Client.name이 unique가 아닐 수 있어서: 있으면 첫 번째 가져오고, 없으면 생성
+  let client = await prisma.client.findFirst({
+    where: { name: "샘플거래처" },
+  });
+
+  if (!client) {
+    client = await prisma.client.create({
+      data: { name: "샘플거래처" },
+    });
+  }
+
+  // ✅ Item.name은 네 스키마에서 unique라 upsert OK (너가 올린 schema에 name @unique 였음)
   const item = await prisma.item.upsert({
-    where: { name: "테스트 품목" },
+    where: { name: "샘플품목" },
     update: {},
-    create: { name: "테스트 품목" },
+    create: { name: "샘플품목" },
   });
 
-  // 3) 샘플 거래처(없으면 생성)  ✅ (사업자등록증 칼럼도 준비되어 있으니 여기서 만들자)
-  const client = await prisma.client.upsert({
-    where: { bizRegNo: "123-45-67890" },
-    update: { name: "샘플거래처" },
-    create: {
-      name: "샘플거래처",
-      bizRegNo: "123-45-67890",
-      receiverName: "이현택",
-      receiverAddr: "경기도 시흥시 (테스트 주소)",
-      receiverTel: digitsOnly("010-2383-3691"),
-      receiverMob: digitsOnly("010-2383-3691"),
-      memo: "seed 테스트",
-      // bizFileUrl / bizFileName 는 업로드 기능에서 채워질 예정
-    },
-  });
-
-  // 4) 샘플 주문 1개 생성 ✅ (스키마 필드명 정확히)
+  // ✅ 주문 샘플 1개
   await prisma.order.create({
     data: {
       userId: sales.id,
-      itemId: item.id,
       clientId: client.id,
-
+      itemId: item.id,
+      status: OrderStatus.REQUESTED,
       quantity: 1,
-      status: "REQUESTED",
-      note: "seed 테스트",
 
-      receiverName: "이현택",
-      receiverAddr: "경기도 시흥시 (테스트 주소)",
-      receiverTel: digitsOnly("01023833691"),
-      receiverMob: digitsOnly("01023833691"),
-
-      message: "취급주의",
-      boxCount: 1,
-      shippingFee: 3850,
+      receiverName: "수령인",
+      receiverAddr: "주소",
+      phone: "01000000000",
+      mobile: "01000000000",
+      note: "seed 주문",
     },
   });
 
-  console.log("✅ seed complete");
-  console.log("ADMIN:", admin.phone, " / SALES:", sales.phone);
+  console.log("✅ Seed complete:", {
+    admin: admin.phone,
+    sales: sales.phone,
+    client: client.name,
+    item: item.name,
+  });
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error("❌ Seed failed:", e);
     process.exit(1);
   })
   .finally(async () => {

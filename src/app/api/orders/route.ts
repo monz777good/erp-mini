@@ -16,7 +16,8 @@ function asOrderStatus(v: any): OrderStatus | null {
 }
 
 export async function GET(req: Request) {
-  const user = await getSessionUser(); //  req  
+  // ✅ 세션 유저 확인
+  const user = await getSessionUser();
   if (!user) {
     return NextResponse.json(
       { ok: false, message: "UNAUTHORIZED" },
@@ -24,10 +25,11 @@ export async function GET(req: Request) {
     );
   }
 
+  // ✅ 쿼리 파라미터(필터)
   const url = new URL(req.url);
   const status = asOrderStatus(url.searchParams.get("status"));
-  const from = url.searchParams.get("from");
-  const to = url.searchParams.get("to");
+  const from = url.searchParams.get("from"); // YYYY-MM-DD
+  const to = url.searchParams.get("to"); // YYYY-MM-DD
 
   const createdAt: any = {};
   if (from) createdAt.gte = new Date(from);
@@ -41,7 +43,7 @@ export async function GET(req: Request) {
   if (status) where.status = status;
   if (from || to) where.createdAt = createdAt;
 
-  //  ADMIN , SALES  
+  // ✅ ADMIN은 전체, SALES는 본인 것만
   if (user.role !== Role.ADMIN) {
     where.userId = user.id;
   }
@@ -51,10 +53,15 @@ export async function GET(req: Request) {
     orderBy: { createdAt: "desc" },
     include: {
       client: true,
-      item: true, //  ! items  item
+      item: true,
       user: { select: { id: true, name: true, phone: true, role: true } },
     },
   });
 
-  return NextResponse.json({ ok: true, rows });
+  // ✅ 프론트 호환: rows + orders 둘 다 내려줌
+  return NextResponse.json({
+    ok: true,
+    rows,
+    orders: rows,
+  });
 }

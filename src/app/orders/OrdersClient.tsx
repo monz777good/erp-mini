@@ -12,17 +12,45 @@ type ClientRow = {
   bizNo?: string | null;
   ykiho?: string | null;
   addr?: string | null;
+  phone?: string | null;
+  mobile?: string | null;
+  note?: string | null;
+  bizFileName?: string | null;
+  bizFileMime?: string | null;
+  createdAt?: string;
 };
+
+type OrderRow = {
+  id: string;
+  status: string;
+  quantity: number;
+  createdAt: string;
+
+  receiverName: string;
+  receiverAddr: string;
+  phone?: string | null;
+  mobile?: string | null;
+  note?: string | null;
+
+  clientName?: string;
+  itemName?: string;
+};
+
+function koStatus(s: string) {
+  const v = String(s ?? "").toUpperCase();
+  if (v === "REQUESTED") return "대기";
+  if (v === "APPROVED") return "승인";
+  if (v === "REJECTED") return "거절";
+  if (v === "DONE") return "완료";
+  return v;
+}
 
 export default function OrdersClient({ initialTab }: { initialTab: string }) {
   const router = useRouter();
   const sp = useSearchParams();
 
-  const [tab, setTab] = useState<Tab>(
-    (initialTab as Tab) || "request"
-  );
+  const [tab, setTab] = useState<Tab>((initialTab as Tab) || "request");
 
-  // ✅ URL(tab=...) 동기화
   useEffect(() => {
     const t = (sp.get("tab") ?? initialTab ?? "request") as Tab;
     setTab(t);
@@ -40,7 +68,6 @@ export default function OrdersClient({ initialTab }: { initialTab: string }) {
 
   return (
     <div className="min-h-[calc(100dvh-64px)]">
-      {/* 상단 바 */}
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">주문</h1>
@@ -57,7 +84,6 @@ export default function OrdersClient({ initialTab }: { initialTab: string }) {
         </button>
       </div>
 
-      {/* 탭 카드 */}
       <div className="rounded-3xl border border-white/15 bg-white/10 p-4 shadow-[0_30px_120px_rgba(0,0,0,0.55)] backdrop-blur-xl">
         <div className="flex flex-wrap items-center gap-2">
           <TabBtn active={tab === "request"} onClick={() => goto("request")}>
@@ -83,8 +109,12 @@ export default function OrdersClient({ initialTab }: { initialTab: string }) {
         <div className="mt-4">
           {tab === "request" && <RequestPanel />}
           {tab === "list" && <ListPanel />}
-          {tab === "clients-list" && <ClientsListPanel onGotoNew={() => goto("clients-new")} />}
-          {tab === "clients-new" && <ClientsNewPanel onGotoList={() => goto("clients-list")} />}
+          {tab === "clients-list" && (
+            <ClientsListPanel onGotoNew={() => goto("clients-new")} />
+          )}
+          {tab === "clients-new" && (
+            <ClientsNewPanel onGotoList={() => goto("clients-list")} />
+          )}
         </div>
       </div>
     </div>
@@ -106,7 +136,9 @@ function TabBtn({
       className={[
         "rounded-2xl px-4 py-2 text-sm font-bold transition",
         "border border-white/15",
-        active ? "bg-white text-black" : "bg-white/10 text-white/80 hover:bg-white/15",
+        active
+          ? "bg-white text-black"
+          : "bg-white/10 text-white/80 hover:bg-white/15",
       ].join(" ")}
     >
       {children}
@@ -114,37 +146,173 @@ function TabBtn({
   );
 }
 
+function Section({ title, children }: { title: string; children: any }) {
+  return (
+    <div className="rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur-xl">
+      <div className="mb-3 text-lg font-bold text-white">{title}</div>
+      {children}
+    </div>
+  );
+}
+
+function Input({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <div className="mb-1.5 text-xs font-semibold tracking-wide text-white/70">
+        {label}
+      </div>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        type={type ?? "text"}
+        className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10"
+      />
+    </label>
+  );
+}
+
+function Info({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+      <div className="text-xs font-semibold text-white/60">{label}</div>
+      <div className="mt-1 text-sm font-bold text-white break-words">
+        {value}
+      </div>
+    </div>
+  );
+}
+
 /** =====================
- *  주문요청(일단 UI만)
+ *  주문요청 (지금은 너가 원래 쓰던 로직 붙일 자리)
  *  ===================== */
 function RequestPanel() {
   return (
     <Section title="주문요청">
       <div className="text-sm text-white/70">
-        여기 “주문요청 폼(거래처/품목/수량/배송정보)” 붙이면 됨.
-        <div className="mt-2 text-white/45">
-          (지금은 UI 복구 먼저라서 빈 패널로 둠)
-        </div>
+        여기 “주문요청 폼(거래처/품목/수량/배송정보)”을 원래 코드로 복구해서 붙이면 됨.
       </div>
     </Section>
   );
 }
 
 /** =====================
- *  조회(일단 UI만)
+ *  ✅ 조회: 주문 테이블 “진짜로 붙임”
  *  ===================== */
 function ListPanel() {
+  const [loading, setLoading] = useState(true);
+  const [rows, setRows] = useState<OrderRow[]>([]);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      setMsg(null);
+      try {
+        const r = await fetch("/api/orders", { credentials: "include" });
+        const d = await r.json().catch(() => ({}));
+
+        const list: any[] =
+          d?.orders ?? d?.rows ?? d?.data ?? (Array.isArray(d) ? d : []);
+
+        const mapped: OrderRow[] = (Array.isArray(list) ? list : []).map(
+          (o: any) => ({
+            id: String(o.id),
+            status: String(o.status ?? ""),
+            quantity: Number(o.quantity ?? 0),
+            createdAt: String(o.createdAt ?? ""),
+            receiverName: String(o.receiverName ?? ""),
+            receiverAddr: String(o.receiverAddr ?? ""),
+            phone: o.phone ?? null,
+            mobile: o.mobile ?? null,
+            note: o.note ?? null,
+            clientName: o.client?.name ?? o.clientName ?? "",
+            itemName: o.item?.name ?? o.itemName ?? "",
+          })
+        );
+
+        if (mounted) setRows(mapped);
+      } catch (e: any) {
+        if (mounted) setMsg("조회 실패(서버 오류)");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <Section title="조회">
-      <div className="text-sm text-white/70">
-        여기 “주문 조회 테이블” 붙이면 됨.
+      {msg && (
+        <div className="mb-3 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+          {msg}
+        </div>
+      )}
+
+      <div className="rounded-2xl border border-white/10 overflow-hidden">
+        <div className="grid grid-cols-12 gap-2 bg-white/5 px-4 py-3 text-xs font-bold text-white/70">
+          <div className="col-span-2">상태</div>
+          <div className="col-span-2">수량</div>
+          <div className="col-span-3">거래처</div>
+          <div className="col-span-3">수령인</div>
+          <div className="col-span-2">주문일</div>
+        </div>
+
+        {loading && (
+          <div className="px-4 py-10 text-sm text-white/60">불러오는 중...</div>
+        )}
+
+        {!loading && rows.length === 0 && (
+          <div className="px-4 py-10 text-sm text-white/60">
+            주문이 없습니다.
+          </div>
+        )}
+
+        {!loading &&
+          rows.map((o) => (
+            <div
+              key={o.id}
+              className="grid grid-cols-12 gap-2 px-4 py-3 text-sm text-white/85 border-t border-white/10"
+            >
+              <div className="col-span-2 font-bold">{koStatus(o.status)}</div>
+              <div className="col-span-2">{o.quantity}</div>
+              <div className="col-span-3 truncate">{o.clientName || "-"}</div>
+              <div className="col-span-3 truncate">
+                {o.receiverName} / {o.receiverAddr}
+              </div>
+              <div className="col-span-2 text-white/60 truncate">
+                {o.createdAt ? new Date(o.createdAt).toLocaleString() : "-"}
+              </div>
+
+              {o.note ? (
+                <div className="col-span-12 mt-1 text-xs text-white/55">
+                  메모: {o.note}
+                </div>
+              ) : null}
+            </div>
+          ))}
       </div>
     </Section>
   );
 }
 
 /** =====================
- *  거래처 목록
+ *  ✅ 거래처 목록 + 우측 상세(등록 정보 전부)
  *  ===================== */
 function ClientsListPanel({ onGotoNew }: { onGotoNew: () => void }) {
   const [q, setQ] = useState("");
@@ -157,16 +325,10 @@ function ClientsListPanel({ onGotoNew }: { onGotoNew: () => void }) {
     (async () => {
       setLoading(true);
       try {
-        // ✅ 네 프로젝트에 이미 있는 /api/sales/clients 를 기대
         const r = await fetch("/api/sales/clients", { credentials: "include" });
         const d = await r.json().catch(() => ({}));
-
         const list: ClientRow[] =
-          d?.clients ??
-          d?.rows ??
-          d?.data ??
-          (Array.isArray(d) ? d : []);
-
+          d?.clients ?? d?.rows ?? d?.data ?? (Array.isArray(d) ? d : []);
         if (mounted) {
           setRows(Array.isArray(list) ? list : []);
           setSel(Array.isArray(list) && list.length ? list[0] : null);
@@ -186,7 +348,7 @@ function ClientsListPanel({ onGotoNew }: { onGotoNew: () => void }) {
     const s = q.trim();
     if (!s) return rows;
     return rows.filter((c) => {
-      const t = `${c.name ?? ""} ${c.owner ?? ""} ${c.addr ?? ""} ${c.bizNo ?? ""} ${c.ykiho ?? ""}`;
+      const t = `${c.name ?? ""} ${c.owner ?? ""} ${c.addr ?? ""} ${c.bizNo ?? ""} ${c.ykiho ?? ""} ${c.phone ?? ""} ${c.mobile ?? ""} ${c.note ?? ""}`;
       return t.includes(s);
     });
   }, [q, rows]);
@@ -227,27 +389,64 @@ function ClientsListPanel({ onGotoNew }: { onGotoNew: () => void }) {
             </button>
           ))}
           {!loading && filtered.length === 0 && (
-            <div className="px-4 py-8 text-sm text-white/60">거래처가 없습니다.</div>
+            <div className="px-4 py-8 text-sm text-white/60">
+              거래처가 없습니다.
+            </div>
           )}
           {loading && (
-            <div className="px-4 py-8 text-sm text-white/60">불러오는 중...</div>
+            <div className="px-4 py-8 text-sm text-white/60">
+              불러오는 중...
+            </div>
           )}
         </div>
       </Section>
 
       <Section title="상세">
         {!sel ? (
-          <div className="text-sm text-white/60">왼쪽에서 거래처를 선택하세요.</div>
+          <div className="text-sm text-white/60">
+            왼쪽에서 거래처를 선택하세요.
+          </div>
         ) : (
           <div className="space-y-3">
             <div>
               <div className="text-2xl font-bold text-white">{sel.name}</div>
-              <div className="mt-1 text-sm text-white/60">{sel.addr ?? ""}</div>
+              <div className="mt-1 text-sm text-white/60">
+                {sel.addr ?? ""}
+              </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Info label="사업자번호" value={sel.bizNo ?? "-"} />
               <Info label="요양기관번호" value={sel.ykiho ?? "-"} />
+              <Info label="수하인명" value={sel.owner ?? "-"} />
+              <Info label="수하인 전화" value={sel.phone ?? "-"} />
+              <Info label="수하인 핸드폰" value={sel.mobile ?? "-"} />
+              <Info label="메모" value={sel.note ?? "-"} />
+            </div>
+
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              <div className="text-xs font-semibold text-white/60">
+                사업자등록증
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {sel.bizFileName ? (
+                  <>
+                    <div className="text-sm font-bold text-white">
+                      {sel.bizFileName}
+                    </div>
+                    <a
+                      className="rounded-xl border border-white/15 bg-white text-black px-3 py-2 text-xs font-bold hover:bg-white/90"
+                      href={`/api/sales/clients/${sel.id}/bizfile`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      보기/다운로드
+                    </a>
+                  </>
+                ) : (
+                  <div className="text-sm text-white/60">첨부 없음</div>
+                )}
+              </div>
             </div>
 
             <button className="mt-2 w-full rounded-2xl border border-white/15 bg-white text-black px-4 py-3 text-sm font-bold hover:bg-white/90">
@@ -261,7 +460,7 @@ function ClientsListPanel({ onGotoNew }: { onGotoNew: () => void }) {
 }
 
 /** =====================
- *  거래처 등록
+ *  ✅ 거래처 등록 + 사업자등록증 첨부
  *  ===================== */
 function ClientsNewPanel({ onGotoList }: { onGotoList: () => void }) {
   const [loading, setLoading] = useState(false);
@@ -276,7 +475,43 @@ function ClientsNewPanel({ onGotoList }: { onGotoList: () => void }) {
   const [mobile, setMobile] = useState("");
   const [note, setNote] = useState("");
 
+  const [bizFileName, setBizFileName] = useState<string | null>(null);
+  const [bizFileMime, setBizFileMime] = useState<string | null>(null);
+  const [bizFileData, setBizFileData] = useState<string | null>(null);
+
+  async function onPickFile(file: File | null) {
+    setMsg(null);
+    if (!file) {
+      setBizFileName(null);
+      setBizFileMime(null);
+      setBizFileData(null);
+      return;
+    }
+
+    // ✅ 너무 큰 파일 방지(대략 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setMsg("파일이 너무 큽니다. (5MB 이하 권장)");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        setBizFileName(file.name);
+        setBizFileMime(file.type || "application/octet-stream");
+        setBizFileData(result); // dataURL
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function save() {
+    if (!name.trim()) {
+      setMsg("거래처명(필수)을 입력하세요.");
+      return;
+    }
+
     setLoading(true);
     setMsg(null);
     try {
@@ -293,6 +528,9 @@ function ClientsNewPanel({ onGotoList }: { onGotoList: () => void }) {
           phone,
           mobile,
           note,
+          bizFileName,
+          bizFileMime,
+          bizFileData,
         }),
       });
 
@@ -314,18 +552,51 @@ function ClientsNewPanel({ onGotoList }: { onGotoList: () => void }) {
   return (
     <Section title="거래처 등록">
       <div className="space-y-4">
-        <Input label="거래처명(필수)" value={name} onChange={setName} placeholder="예: 한한한의원" />
+        <Input
+          label="거래처명(필수)"
+          value={name}
+          onChange={setName}
+          placeholder="예: 한한한의원"
+        />
+
         <div className="grid gap-4 md:grid-cols-2">
           <Input label="사업자번호" value={bizNo} onChange={setBizNo} />
           <Input label="요양기관번호" value={ykiho} onChange={setYkiho} />
         </div>
+
         <Input label="수하인명" value={owner} onChange={setOwner} />
         <Input label="수하인 주소" value={addr} onChange={setAddr} />
+
         <div className="grid gap-4 md:grid-cols-2">
           <Input label="수하인 전화" value={phone} onChange={setPhone} />
           <Input label="수하인 핸드폰" value={mobile} onChange={setMobile} />
         </div>
+
         <Input label="메모" value={note} onChange={setNote} />
+
+        {/* ✅ 사업자등록증 첨부 */}
+        <div className="rounded-2xl border border-white/15 bg-white/10 p-4">
+          <div className="mb-2 text-xs font-semibold tracking-wide text-white/70">
+            사업자등록증 첨부
+          </div>
+
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            onChange={(e) => onPickFile(e.target.files?.[0] ?? null)}
+            className="block w-full text-sm text-white/70"
+          />
+
+          <div className="mt-2 text-xs text-white/50">
+            권장: 5MB 이하 / PDF 또는 이미지
+          </div>
+
+          {bizFileName && (
+            <div className="mt-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white">
+              첨부됨: <span className="font-bold">{bizFileName}</span>
+            </div>
+          )}
+        </div>
 
         {msg && (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
@@ -357,49 +628,5 @@ function ClientsNewPanel({ onGotoList }: { onGotoList: () => void }) {
         </div>
       </div>
     </Section>
-  );
-}
-
-function Section({ title, children }: { title: string; children: any }) {
-  return (
-    <div className="rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur-xl">
-      <div className="mb-3 text-lg font-bold text-white">{title}</div>
-      {children}
-    </div>
-  );
-}
-
-function Input({
-  label,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <label className="block">
-      <div className="mb-1.5 text-xs font-semibold tracking-wide text-white/70">
-        {label}
-      </div>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-white/30 focus:ring-2 focus:ring-white/10"
-      />
-    </label>
-  );
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-      <div className="text-xs font-semibold text-white/60">{label}</div>
-      <div className="mt-1 text-sm font-bold text-white">{value}</div>
-    </div>
   );
 }

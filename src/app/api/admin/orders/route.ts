@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/session";
 import { OrderStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function asOrderStatus(v: any): OrderStatus | null {
   const s = String(v ?? "").toUpperCase();
@@ -14,75 +15,36 @@ function asOrderStatus(v: any): OrderStatus | null {
   return null;
 }
 
-//  GET:   
 export async function GET(req: NextRequest) {
-  try {
-    requireAdmin();
+  const admin = await requireAdmin();
+  if (admin instanceof NextResponse) return admin;
 
-    const { searchParams } = new URL(req.url);
-    const statusParam = searchParams.get("status")?.trim() || "";
-    const status = asOrderStatus(statusParam);
+  const url = new URL(req.url);
+  const status = asOrderStatus(url.searchParams.get("status"));
+  const from = url.searchParams.get("from");
+  const to = url.searchParams.get("to");
 
-    const where: any = {};
-    if (status) where.status = status;
-
-    const orders = await prisma.order.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: { select: { name: true, phone: true } },
-        item: { select: { id: true, name: true } },
-        client: { select: { id: true, name: true, bizRegNo: true } },
-      },
-    });
-
-    return NextResponse.json({ ok: true, orders });
-  } catch (e: any) {
-    if (String(e?.message ?? "").startsWith("UNAUTHORIZED")) {
-      return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
-    }
-    if (String(e?.message ?? "").startsWith("FORBIDDEN")) {
-      return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
-    }
-    return NextResponse.json(
-      { ok: false, error: String(e?.message ?? e) },
-      { status: 500 }
-    );
+  const createdAt: any = {};
+  if (from) createdAt.gte = new Date(from);
+  if (to) {
+    const d = new Date(to);
+    d.setHours(23, 59, 59, 999);
+    createdAt.lte = d;
   }
-}
 
-//  PATCH:  
-export async function PATCH(req: NextRequest) {
-  try {
-    requireAdmin();
+  const where: any = {};
+  if (status) where.status = status;
+  if (from || to) where.createdAt = createdAt;
 
-    const body = await req.json().catch(() => ({}));
-    const id = String((body as any)?.id ?? "");
-    const next = asOrderStatus((body as any)?.status);
+  const rows = await prisma.order.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    include: {
+      user: { select: { id: true, name: true, phone: true, role: true } },
+      item: { select: { id: true, name: true } },
+      client: { select: { id: true, name: true } }, // ✅ bizRegNo 제거
+    },
+  });
 
-    if (!id) {
-      return NextResponse.json({ ok: false, error: "missing id" }, { status: 400 });
-    }
-    if (!next) {
-      return NextResponse.json({ ok: false, error: "invalid status" }, { status: 400 });
-    }
-
-    const updated = await prisma.order.update({
-      where: { id },
-      data: { status: next },
-    });
-
-    return NextResponse.json({ ok: true, order: updated });
-  } catch (e: any) {
-    if (String(e?.message ?? "").startsWith("UNAUTHORIZED")) {
-      return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
-    }
-    if (String(e?.message ?? "").startsWith("FORBIDDEN")) {
-      return NextResponse.json({ ok: false, error: "FORBIDDEN" }, { status: 403 });
-    }
-    return NextResponse.json(
-      { ok: false, error: String(e?.message ?? e) },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ ok: true, rows, orders: rows });
 }
