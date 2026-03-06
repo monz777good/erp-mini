@@ -39,11 +39,9 @@ export async function POST(req: NextRequest) {
   const name = s(body.name);
   if (!name) return err("NAME_REQUIRED");
 
-  // ✅ 첨부 관련
   const bizFileUrl = s(body.bizFileUrl) || null;
   const bizFileName = s(body.bizFileName) || null;
 
-  // ✅ owner는 스키마에 없으니 저장하지 않는다 (빌드 에러 방지)
   const created = await prisma.client.create({
     data: {
       name,
