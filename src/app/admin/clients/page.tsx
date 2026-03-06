@@ -10,12 +10,12 @@ type ClientRow = {
   salesPhone?: string;
 
   name?: string;
-  bizNo?: string;
-  instNo?: string;
+  bizRegNo?: string;
+  careInstitutionNo?: string;
   address?: string;
 
-  phone?: string;
-  mobile?: string;
+  receiverTel?: string;
+  receiverMobile?: string;
   note?: string;
 
   bizFileUrl?: string | null;
@@ -23,7 +23,6 @@ type ClientRow = {
 };
 
 function todayKST(): string {
-  // KST 기준 "YYYY-MM-DD"
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return kst.toISOString().slice(0, 10);
@@ -58,8 +57,6 @@ export default function AdminClientsPage() {
     }
 
     const data = await res.json().catch(() => null);
-
-    // ✅ { ok:true, rows } 형태 지원
     const list = Array.isArray(data) ? data : Array.isArray(data?.rows) ? data.rows : [];
     setRows(list);
   }
@@ -129,7 +126,6 @@ export default function AdminClientsPage() {
 
         {msg ? <div style={{ color: "#ff6b6b", fontWeight: 900, marginBottom: 10 }}>{msg}</div> : null}
 
-        {/* ✅ 기간 + 검색 */}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <span style={{ fontWeight: 900, opacity: 0.9 }}>기간</span>
@@ -215,11 +211,11 @@ export default function AdminClientsPage() {
                       {r.salesPhone ? <span style={{ opacity: 0.75 }}> ({r.salesPhone})</span> : null}
                     </td>
                     <td style={{ ...td, fontWeight: 900 }}>{r.name ?? "-"}</td>
-                    <td style={td}>{r.bizNo ?? "-"}</td>
-                    <td style={td}>{r.instNo ?? "-"}</td>
+                    <td style={td}>{r.bizRegNo ?? "-"}</td>
+                    <td style={td}>{r.careInstitutionNo ?? "-"}</td>
                     <td style={td}>{r.address ?? "-"}</td>
-                    <td style={td}>{r.phone ?? "-"}</td>
-                    <td style={td}>{r.mobile ?? "-"}</td>
+                    <td style={td}>{r.receiverTel ?? "-"}</td>
+                    <td style={td}>{r.receiverMobile ?? "-"}</td>
                     <td style={td}>{r.note ?? "-"}</td>
                     <td style={td}>
                       {r.bizFileUrl ? (
