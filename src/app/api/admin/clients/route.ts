@@ -14,7 +14,7 @@ function s(v: any) {
   return String(v ?? "").trim();
 }
 
-// ✅ KST(한국시간) YYYY-MM-DD → UTC range
+// KST 날짜 범위
 function kstRange(fromYmd: string, toYmd: string) {
   const from = new Date(`${fromYmd}T00:00:00+09:00`);
   const to = new Date(`${toYmd}T23:59:59.999+09:00`);
@@ -67,7 +67,6 @@ export async function GET(request: Request) {
       receiverMobile: true,
       ownerName: true,
 
-      // ✅ 사업자등록증 (이게 핵심)
       bizFileUrl: true,
       bizFileName: true,
       bizFileUploadedAt: true,
