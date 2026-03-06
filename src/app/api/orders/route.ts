@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { OrderStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,11 @@ function err(message: string, status = 400) {
 
 function s(v: any) {
   return String(v ?? "").trim();
+}
+
+function n(v: any) {
+  const num = Number(v);
+  return Number.isFinite(num) ? num : 0;
 }
 
 // ✅ KST(한국시간) 기준 날짜 문자열(YYYY-MM-DD)을 UTC Date 범위로 변환
@@ -49,9 +55,7 @@ export async function GET(req: NextRequest) {
       { phone: { contains: q, mode: "insensitive" } },
       { mobile: { contains: q, mode: "insensitive" } },
       { note: { contains: q, mode: "insensitive" } },
-      // 거래처명(관계가 있으면)
       { client: { is: { name: { contains: q, mode: "insensitive" } } } },
-      // ✅ 품목명
       { item: { is: { name: { contains: q, mode: "insensitive" } } } },
     ];
   }
@@ -63,8 +67,7 @@ export async function GET(req: NextRequest) {
       id: true,
       status: true,
       createdAt: true,
-
-      quantity: true, // ✅ 수량 내려줌
+      quantity: true,
 
       receiverName: true,
       receiverAddr: true,
@@ -72,15 +75,11 @@ export async function GET(req: NextRequest) {
       mobile: true,
       note: true,
 
-      // 거래처명(있으면)
       client: { select: { name: true } },
-
-      // ✅ 품목명 내려줌 (items ❌, item ✅)
       item: { select: { name: true } },
     },
   });
 
-  // ✅ 프론트가 바로 쓰기 쉽게 평탄화해서 내려줌
   const orders = rows.map((r) => ({
     id: r.id,
     status: r.status,
@@ -98,4 +97,73 @@ export async function GET(req: NextRequest) {
   }));
 
   return NextResponse.json({ ok: true, orders });
+}
+
+export async function POST(req: NextRequest) {
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
+
+  let body: any = {};
+  try {
+    body = await req.json();
+  } catch {
+    return err("BAD_REQUEST", 400);
+  }
+
+  const clientId = s(body.clientId);
+  const receiverName = s(body.receiverName);
+  const receiverAddr = s(body.receiverAddr);
+  const phone = s(body.phone) || null;
+  const mobile = s(body.mobile) || null;
+  const note = s(body.note) || null;
+
+  if (!clientId) return err("CLIENT_REQUIRED", 400);
+  if (!receiverName) return err("RECEIVER_NAME_REQUIRED", 400);
+  if (!receiverAddr) return err("RECEIVER_ADDR_REQUIRED", 400);
+
+  // ✅ 프론트가 cart/items 배열로 보내는 경우도 받고
+  // ✅ itemId, quantity 단건으로 보내는 경우도 같이 받음
+  const rawItems = Array.isArray(body.items)
+    ? body.items
+    : Array.isArray(body.cart)
+    ? body.cart
+    : body.itemId
+    ? [{ itemId: body.itemId, quantity: body.quantity }]
+    : [];
+
+  const items = rawItems
+    .map((x: any) => ({
+      itemId: s(x.itemId ?? x.id ?? x.item?.id),
+      quantity: n(x.quantity),
+    }))
+    .filter((x: any) => x.itemId && x.quantity > 0);
+
+  if (!items.length) return err("ITEM_REQUIRED", 400);
+
+  const created = await prisma.$transaction(
+    items.map((x: { itemId: string; quantity: number }) =>
+      prisma.order.create({
+        data: {
+          userId: me.id,
+          clientId,
+          itemId: x.itemId,
+          quantity: x.quantity,
+
+          receiverName,
+          receiverAddr,
+          phone,
+          mobile,
+          note,
+
+          status: OrderStatus.REQUESTED,
+        },
+      })
+    )
+  );
+
+  return NextResponse.json({
+    ok: true,
+    count: created.length,
+    rows: created,
+  });
 }
