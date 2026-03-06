@@ -14,7 +14,7 @@ function s(v: any) {
   return String(v ?? "").trim();
 }
 
-// KST 날짜 범위
+// ✅ KST(한국시간) YYYY-MM-DD → UTC range
 function kstRange(fromYmd: string, toYmd: string) {
   const from = new Date(`${fromYmd}T00:00:00+09:00`);
   const to = new Date(`${toYmd}T23:59:59.999+09:00`);
@@ -49,6 +49,8 @@ export async function GET(request: Request) {
       { receiverTel: { contains: q, mode: "insensitive" } },
       { receiverMobile: { contains: q, mode: "insensitive" } },
       { ownerName: { contains: q, mode: "insensitive" } },
+      // ✅ 영업사원 이름으로도 검색되게
+      { user: { is: { name: { contains: q, mode: "insensitive" } } } },
     ];
   }
 
@@ -67,11 +69,25 @@ export async function GET(request: Request) {
       receiverMobile: true,
       ownerName: true,
 
+      // ✅ 영업사원
+      userId: true,
+      user: {
+        select: {
+          name: true,
+        },
+      },
+
+      // ✅ 사업자등록증
       bizFileUrl: true,
       bizFileName: true,
       bizFileUploadedAt: true,
     },
   });
 
-  return NextResponse.json({ ok: true, rows });
+  const normalized = rows.map((r) => ({
+    ...r,
+    salesName: r.user?.name ?? "-",
+  }));
+
+  return NextResponse.json({ ok: true, rows: normalized });
 }
