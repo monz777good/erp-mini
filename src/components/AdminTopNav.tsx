@@ -57,9 +57,9 @@ export default function AdminTopNav() {
         <Link className={tab("/admin/clients")} href="/admin/clients">
           거래처
         </Link>
-
+ㄴ
         <Link className={tab("/admin/ecount-clients")} href="/admin/ecount-clients">
-          이카운트
+          기존 거래처 목록
         </Link>
 
         <Link className={tab("/admin/items")} href="/admin/items">
