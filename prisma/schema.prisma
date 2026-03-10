@@ -111,3 +111,18 @@ model Order {
   @@index([itemId])
   @@index([createdAt])
 }
+
+model EcountClient {
+  id                String   @id @default(cuid())
+  name              String
+  bizRegNo          String?
+  careInstitutionNo String?
+  address           String?
+  phone             String?
+  mobile            String?
+  ownerName         String?
+  note              String?
+  createdAt         DateTime @default(now())
+
+  @@index([name])
+}
