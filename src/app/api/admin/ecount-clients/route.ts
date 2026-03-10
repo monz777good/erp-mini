@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/session";
-import path from "path";
-import fs from "fs";
 import * as XLSX from "xlsx";
 
 export const runtime = "nodejs";
@@ -26,23 +24,25 @@ export async function GET(req: NextRequest) {
     const admin = await requireAdmin();
     if (admin instanceof NextResponse) return admin;
 
-    const { searchParams } = new URL(req.url);
+    const { searchParams, origin } = new URL(req.url);
     const q = s(searchParams.get("q")).toLowerCase();
 
-    const filePath = path.join(process.cwd(), "public", "ecount_clients.xlsx");
+    const fileUrl = `${origin}/ecount_clients.xlsx`;
 
-    if (!fs.existsSync(filePath)) {
+    const fileRes = await fetch(fileUrl, { cache: "no-store" });
+    if (!fileRes.ok) {
       return NextResponse.json(
         {
           ok: false,
-          message: `엑셀 파일이 없습니다: ${filePath}`,
+          message: `엑셀 파일을 불러오지 못했습니다: ${fileUrl}`,
           rows: [],
         },
         { status: 404 }
       );
     }
 
-    const workbook = XLSX.readFile(filePath);
+    const arrayBuffer = await fileRes.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: "array" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
     const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, {
