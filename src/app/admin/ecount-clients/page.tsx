@@ -25,7 +25,6 @@ export default function AdminEcountClientsPage() {
 
     const params = new URLSearchParams();
     const search = (keyword ?? q).trim();
-
     if (search) params.set("q", search);
 
     const res = await fetch(`/api/admin/ecount-clients?${params.toString()}`, {
@@ -34,19 +33,27 @@ export default function AdminEcountClientsPage() {
       cache: "no-store",
     });
 
+    const data = await res.json().catch(() => null);
+
     if (!res.ok) {
-      setMsg(`조회 실패 (${res.status})`);
+      setMsg(data?.message || `조회 실패 (${res.status})`);
       setRows([]);
       return;
     }
 
-    const data = await res.json().catch(() => null);
+    if (!data?.ok) {
+      setMsg(data?.message || "조회 실패");
+      setRows([]);
+      return;
+    }
+
     const list = Array.isArray(data?.rows) ? data.rows : [];
     setRows(list);
   }
 
   useEffect(() => {
     load("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const th: React.CSSProperties = {
@@ -146,9 +153,10 @@ export default function AdminEcountClientsPage() {
                   "전화",
                   "핸드폰",
                   "대표자",
-                  "비고",
                 ].map((h) => (
-                  <th key={h} style={th}>{h}</th>
+                  <th key={h} style={th}>
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -156,7 +164,7 @@ export default function AdminEcountClientsPage() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ padding: 18, textAlign: "center", fontWeight: 900, opacity: 0.8 }}>
+                  <td colSpan={8} style={{ padding: 18, textAlign: "center", fontWeight: 900, opacity: 0.8 }}>
                     데이터 없음
                   </td>
                 </tr>
@@ -171,7 +179,6 @@ export default function AdminEcountClientsPage() {
                     <td style={td}>{r.phone ?? "-"}</td>
                     <td style={td}>{r.mobile ?? "-"}</td>
                     <td style={td}>{r.ownerName ?? "-"}</td>
-                    <td style={td}>{r.note ?? "-"}</td>
                   </tr>
                 ))
               )}
