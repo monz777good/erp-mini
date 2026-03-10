@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = s(searchParams.get("q")).toLowerCase();
 
-  const filePath = path.join(process.cwd(), "data", "거래처명단.xlsx");
+  const filePath = path.join(process.cwd(), "data", "ecount_clients.xlsx");
 
   if (!fs.existsSync(filePath)) {
     return NextResponse.json(
