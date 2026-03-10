@@ -1,4 +1,3 @@
-// src/app/orders/OrdersClient.tsx
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -43,14 +42,12 @@ function s(v: any) {
 // ---- KST helpers ----
 function kstTodayYmd() {
   const now = new Date();
-  // UTC ms + 9h
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
   return kst.toISOString().slice(0, 10);
 }
 function addDaysYmd(ymd: string, days: number) {
   const d = new Date(`${ymd}T00:00:00+09:00`);
   d.setDate(d.getDate() + days);
-  // keep KST date
   const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
   return kst.toISOString().slice(0, 10);
 }
@@ -229,7 +226,6 @@ export default function OrdersClient() {
   const cartTotal = useMemo(() => cart.reduce((sum, x) => sum + (x.quantity || 0), 0), [cart]);
 
   useEffect(() => {
-    // 거래처 선택 시 배송정보 기본값 자동 채움
     const c = clients.find((x) => x.id === clientId);
     if (!c) return;
     setReceiverName(c.receiverName ?? "");
@@ -257,7 +253,8 @@ export default function OrdersClient() {
     setErrMsg(null);
     setLoadingOrders(true);
     try {
-      const qs = fromDate && toDate ? `?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}` : "";
+      const qs =
+        fromDate && toDate ? `?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}` : "";
       const o = await apiGET<{ ok: true; orders: OrderRowAny[] }>(`/api/orders${qs}`);
       setOrders(o.orders || []);
     } catch (e: any) {
@@ -322,7 +319,6 @@ export default function OrdersClient() {
   }
 
   function orderItemsText(o: OrderRowAny) {
-    // 다양한 형태를 다 흡수
     const lines = (o?.items || o?.lines || o?.orderItems || []) as any[];
     if (Array.isArray(lines) && lines.length > 0) {
       return lines
@@ -334,7 +330,6 @@ export default function OrdersClient() {
         .filter(Boolean)
         .join(", ");
     }
-    // 단품 호환
     if (o?.itemName) return `${o.itemName} (${o?.quantity ?? ""})`;
     return "-";
   }
@@ -368,7 +363,7 @@ export default function OrdersClient() {
     try {
       if (!clientId) throw new Error("거래처를 선택하세요.");
       if (!receiverName.trim()) throw new Error("수하인(필수)을 입력하세요.");
-      if (!receiverAddr.trim()) throw new Error("주소(필수)를 입력하세요.");
+      if (!receiverAddr.trim()) throw new Error("주소(필수)을 입력하세요.");
 
       if (cart.length > 0) {
         await apiPOST("/api/orders", {
@@ -382,7 +377,6 @@ export default function OrdersClient() {
         });
         clearCart();
       } else {
-        // 단품 호환
         if (!itemId) throw new Error("품목을 선택하세요.");
         await apiPOST("/api/orders", {
           clientId,
@@ -439,7 +433,6 @@ export default function OrdersClient() {
         await uploadBizFile(created.id, bizFile);
       }
 
-      // reset
       setCName("");
       setCAddress("");
       setCOwnerName("");
@@ -470,7 +463,6 @@ export default function OrdersClient() {
     }
   }
 
-  // styles
   const shell = "min-h-screen w-full px-4 py-10 md:py-14";
   const card =
     "mx-auto w-full max-w-[1200px] rounded-[28px] border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_20px_70px_rgba(0,0,0,0.55)]";
@@ -695,24 +687,66 @@ export default function OrdersClient() {
               {/* ------------------- 조회 ------------------- */}
               {tab === "list" && (
                 <div className="space-y-4">
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div className="space-y-2">
-                      <div className={label}>기간 (한국시간 기준)</div>
-                      <div className="flex items-center gap-2">
-                        <input className={input} type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-                        <div className="text-white/60 font-extrabold">~</div>
-                        <input className={input} type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+                  <div className="rounded-3xl border border-white/10 bg-white/5 p-4 md:p-5">
+                    <div className="mb-4 text-lg font-extrabold text-white">기간 (한국시간 기준)</div>
+
+                    <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                      <div className="flex min-w-0 flex-1 flex-col gap-3 md:flex-row md:items-center">
+                        <div className="min-w-0 flex-1">
+                          <input
+                            type="date"
+                            value={fromDate}
+                            onChange={(e) => setFromDate(e.target.value)}
+                            className="h-14 w-full min-w-0 rounded-2xl border border-white/10 bg-white/5 px-4 text-base font-bold text-white outline-none"
+                          />
+                        </div>
+
+                        <div className="flex justify-center text-lg font-extrabold text-white/70 md:px-1">
+                          ~
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <input
+                            type="date"
+                            value={toDate}
+                            onChange={(e) => setToDate(e.target.value)}
+                            className="h-14 w-full min-w-0 rounded-2xl border border-white/10 bg-white/5 px-4 text-base font-bold text-white outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={refreshOrders}
+                        className="h-14 shrink-0 rounded-2xl border border-white/10 bg-white/10 px-6 text-base font-extrabold text-white transition hover:bg-white/15 active:scale-[0.99]"
+                        disabled={loadingOrders}
+                      >
+                        {loadingOrders ? "조회중..." : "조회"}
+                      </button>
+                    </div>
+
+                    <div className="mt-5">
+                      <div className="mb-3 text-lg font-extrabold text-white">검색</div>
+
+                      <div className="flex flex-col gap-3 md:flex-row">
+                        <input
+                          value={q}
+                          onChange={(e) => setQ(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") refreshOrders();
+                          }}
+                          placeholder="검색(품목/거래처/수하인/전화/주소/비고)"
+                          className="h-14 min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 text-base font-bold text-white placeholder:text-white/35 outline-none"
+                        />
+
+                        <button
+                          onClick={refreshOrders}
+                          className="h-14 shrink-0 rounded-2xl border border-white/10 bg-white/10 px-6 text-base font-extrabold text-white transition hover:bg-white/15 active:scale-[0.99]"
+                          disabled={loadingOrders}
+                        >
+                          {loadingOrders ? "조회중..." : "조회"}
+                        </button>
                       </div>
                     </div>
-
-                    <div className="flex-1 min-w-[240px] space-y-2">
-                      <div className={label}>검색</div>
-                      <input className={input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="검색(품목/거래처/수하인/전화/주소/비고)" />
-                    </div>
-
-                    <button className={btn} onClick={refreshOrders} disabled={loadingOrders}>
-                      {loadingOrders ? "조회중..." : "조회"}
-                    </button>
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-white/5 overflow-auto">
