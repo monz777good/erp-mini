@@ -24,25 +24,30 @@ export async function GET(req: NextRequest) {
     const admin = await requireAdmin();
     if (admin instanceof NextResponse) return admin;
 
-    const { searchParams, origin } = new URL(req.url);
+    const { searchParams } = new URL(req.url);
     const q = s(searchParams.get("q")).toLowerCase();
 
-    const fileUrl = `${origin}/ecount_clients.xlsx`;
+    // public 파일 URL
+    const fileUrl = new URL("/ecount_clients.xlsx", req.url).toString();
 
-    const fileRes = await fetch(fileUrl, { cache: "no-store" });
-    if (!fileRes.ok) {
+    const res = await fetch(fileUrl, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
       return NextResponse.json(
         {
           ok: false,
-          message: `엑셀 파일을 불러오지 못했습니다: ${fileUrl}`,
+          message: "엑셀 파일을 불러올 수 없습니다.",
           rows: [],
         },
-        { status: 404 }
+        { status: 500 }
       );
     }
 
-    const arrayBuffer = await fileRes.arrayBuffer();
-    const workbook = XLSX.read(arrayBuffer, { type: "array" });
+    const buffer = await res.arrayBuffer();
+
+    const workbook = XLSX.read(buffer, { type: "array" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
     const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, {
