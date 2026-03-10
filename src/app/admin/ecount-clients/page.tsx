@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import * as XLSX from "xlsx";
 
 type Row = {
   id: string;
-  name?: string;
+  createdAt?: string;
+  name?: string | null;
   bizRegNo?: string | null;
   careInstitutionNo?: string | null;
   address?: string | null;
@@ -12,49 +14,91 @@ type Row = {
   mobile?: string | null;
   ownerName?: string | null;
   note?: string | null;
-  createdAt?: string;
 };
+
+function pick(row: Record<string, any>, keys: string[]) {
+  for (const key of keys) {
+    const value = row[key];
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      return String(value).trim();
+    }
+  }
+  return "";
+}
 
 export default function AdminEcountClientsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [q, setQ] = useState("");
   const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  async function load(keyword?: string) {
-    setMsg("");
+  async function loadExcel() {
+    try {
+      setLoading(true);
+      setMsg("");
 
-    const params = new URLSearchParams();
-    const search = (keyword ?? q).trim();
-    if (search) params.set("q", search);
+      const res = await fetch("/ecount_clients.xlsx", {
+        cache: "no-store",
+      });
 
-    const res = await fetch(`/api/admin/ecount-clients?${params.toString()}`, {
-      method: "GET",
-      credentials: "include",
-      cache: "no-store",
-    });
+      if (!res.ok) {
+        setMsg("엑셀 파일을 불러오지 못했습니다.");
+        setRows([]);
+        return;
+      }
 
-    const data = await res.json().catch(() => null);
+      const arrayBuffer = await res.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
 
-    if (!res.ok) {
-      setMsg(data?.message || `조회 실패 (${res.status})`);
+      const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, {
+        range: 1,
+        defval: "",
+      });
+
+      const parsed: Row[] = rawRows
+        .map((row, idx) => {
+          const name = pick(row, ["거래처명"]);
+          const bizRegNo = pick(row, ["거래처코드"]);
+          const address = pick(row, ["주소1"]);
+          const ownerName = pick(row, ["대표자명"]);
+          const phone = pick(row, ["전화"]);
+          const mobile = pick(row, ["모바일"]);
+          const note = pick(row, ["검색창내용"]);
+
+          return {
+            id: `excel-${idx + 1}`,
+            createdAt: "",
+            name,
+            bizRegNo: bizRegNo || null,
+            careInstitutionNo: null,
+            address: address || null,
+            phone: phone || null,
+            mobile: mobile || null,
+            ownerName: ownerName || null,
+            note: note || null,
+          };
+        })
+        .filter((row) => row.name);
+
+      setRows(parsed);
+    } catch (e: any) {
+      setMsg(e?.message || "엑셀을 읽는 중 오류가 발생했습니다.");
       setRows([]);
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    if (!data?.ok) {
-      setMsg(data?.message || "조회 실패");
-      setRows([]);
-      return;
-    }
-
-    const list = Array.isArray(data?.rows) ? data.rows : [];
-    setRows(list);
   }
 
   useEffect(() => {
-    load("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadExcel();
   }, []);
+
+  const filtered = useMemo(() => {
+    const keyword = q.trim().toLowerCase();
+    if (!keyword) return rows;
+    return rows.filter((row) => (row.name || "").toLowerCase().includes(keyword));
+  }, [rows, q]);
 
   const th: React.CSSProperties = {
     textAlign: "left",
@@ -119,22 +163,18 @@ export default function AdminEcountClientsPage() {
               onChange={(e) => setQ(e.target.value)}
               placeholder="거래처명 검색"
               style={inputStyle}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") load();
-              }}
             />
           </div>
 
-          <button onClick={() => load()} style={btnStyle}>
+          <button style={btnStyle} onClick={() => setQ(q)}>
             검색
           </button>
 
           <button
+            style={btnStyle}
             onClick={() => {
               setQ("");
-              load("");
             }}
-            style={btnStyle}
           >
             전체보기
           </button>
@@ -162,14 +202,20 @@ export default function AdminEcountClientsPage() {
             </thead>
 
             <tbody>
-              {rows.length === 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: 18, textAlign: "center", fontWeight: 900, opacity: 0.8 }}>
+                    불러오는 중...
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} style={{ padding: 18, textAlign: "center", fontWeight: 900, opacity: 0.8 }}>
                     데이터 없음
                   </td>
                 </tr>
               ) : (
-                rows.map((r) => (
+                filtered.map((r) => (
                   <tr key={r.id}>
                     <td style={td}>{r.createdAt ? String(r.createdAt).slice(0, 10) : "-"}</td>
                     <td style={td}>{r.name ?? "-"}</td>
