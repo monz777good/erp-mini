@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files
 .env*
+.env*.local
 
 # vercel
 .vercel
@@ -42,5 +43,8 @@ next-env.d.ts
 
 /src/generated/prisma
 
-.vercel
-.env*.local
+# =========================
+# Excel data (허용)
+# =========================
+!data/
+!data/ecount_clients.xlsx
