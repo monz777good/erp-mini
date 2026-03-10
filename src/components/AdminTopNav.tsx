@@ -31,7 +31,9 @@ export default function AdminTopNav() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-2xl font-extrabold text-white">관리자</div>
-          <div className="text-white/60 text-sm mt-1">주문/거래처/품목/재고 관리</div>
+          <div className="text-white/60 text-sm mt-1">
+            주문/거래처/품목/재고 관리
+          </div>
         </div>
 
         <button
@@ -47,18 +49,27 @@ export default function AdminTopNav() {
         <Link className={tab("/admin")} href="/admin">
           대시보드
         </Link>
+
         <Link className={tab("/admin/orders")} href="/admin/orders">
           주문관리
         </Link>
+
         <Link className={tab("/admin/clients")} href="/admin/clients">
           거래처
         </Link>
+
+        <Link className={tab("/admin/ecount-clients")} href="/admin/ecount-clients">
+          이카운트
+        </Link>
+
         <Link className={tab("/admin/items")} href="/admin/items">
           품목
         </Link>
+
         <Link className={tab("/admin/stock")} href="/admin/stock">
           재고
         </Link>
+
         <Link className={tab("/orders")} href="/orders">
           영업 화면
         </Link>
