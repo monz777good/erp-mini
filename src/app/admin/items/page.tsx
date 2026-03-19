@@ -6,18 +6,24 @@ import { useEffect, useMemo, useState } from "react";
 type Item = {
   id: string;
   name: string;
+  price: number;
   createdAt?: string;
 };
+
+function priceText(v: number) {
+  return `${Number(v || 0).toLocaleString()}원`;
+}
 
 export default function AdminItemsPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [name, setName] = useState("");
+  const [price, setPrice] = useState("0");
   const [q, setQ] = useState("");
   const [msg, setMsg] = useState("");
 
-  // edit state
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editPrice, setEditPrice] = useState("0");
 
   async function load() {
     setMsg("");
@@ -40,6 +46,8 @@ export default function AdminItemsPage() {
   async function add() {
     setMsg("");
     const n = name.trim();
+    const p = Math.max(0, Number(price || 0));
+
     if (!n) {
       setMsg("품목명을 입력하세요.");
       return;
@@ -49,7 +57,7 @@ export default function AdminItemsPage() {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: n }),
+      body: JSON.stringify({ name: n, price: p }),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -59,23 +67,29 @@ export default function AdminItemsPage() {
     }
 
     setName("");
+    setPrice("0");
     await load();
   }
 
   function startEdit(it: Item) {
     setEditId(it.id);
     setEditName(it.name);
+    setEditPrice(String(it.price ?? 0));
     setMsg("");
   }
 
   function cancelEdit() {
     setEditId(null);
     setEditName("");
+    setEditPrice("0");
   }
 
   async function saveEdit() {
     if (!editId) return;
+
     const n = editName.trim();
+    const p = Math.max(0, Number(editPrice || 0));
+
     if (!n) {
       setMsg("품목명을 입력하세요.");
       return;
@@ -86,7 +100,7 @@ export default function AdminItemsPage() {
       method: "PATCH",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: editId, name: n }),
+      body: JSON.stringify({ id: editId, name: n, price: p }),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -139,20 +153,36 @@ export default function AdminItemsPage() {
 
         <div style={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: 14, padding: 14, marginBottom: 14 }}>
           <div style={{ fontWeight: 900, marginBottom: 10 }}>품목 추가</div>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="품목명 (예: 죽염 1.8 2mL)"
-            style={{
-              width: "100%",
-              padding: "14px 14px",
-              borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.12)",
-              marginBottom: 10,
-              fontSize: 16,
-              fontWeight: 800,
-            }}
-          />
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 10, marginBottom: 10 }}>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="품목명 (예: 죽염 1.8 2mL)"
+              style={{
+                width: "100%",
+                padding: "14px 14px",
+                borderRadius: 12,
+                border: "1px solid rgba(0,0,0,0.12)",
+                fontSize: 16,
+                fontWeight: 800,
+              }}
+            />
+            <input
+              value={price}
+              onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ""))}
+              placeholder="가격"
+              style={{
+                width: "100%",
+                padding: "14px 14px",
+                borderRadius: 12,
+                border: "1px solid rgba(0,0,0,0.12)",
+                fontSize: 16,
+                fontWeight: 800,
+              }}
+            />
+          </div>
+
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button
               onClick={add}
@@ -226,21 +256,37 @@ export default function AdminItemsPage() {
                       flexWrap: "wrap",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 260 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "minmax(260px,1fr) 180px", gap: 10, flex: 1, minWidth: 320 }}>
                       {editing ? (
-                        <input
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          style={{
-                            width: "100%",
-                            padding: "10px 12px",
-                            borderRadius: 12,
-                            border: "1px solid rgba(0,0,0,0.12)",
-                            fontWeight: 900,
-                          }}
-                        />
+                        <>
+                          <input
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            style={{
+                              width: "100%",
+                              padding: "10px 12px",
+                              borderRadius: 12,
+                              border: "1px solid rgba(0,0,0,0.12)",
+                              fontWeight: 900,
+                            }}
+                          />
+                          <input
+                            value={editPrice}
+                            onChange={(e) => setEditPrice(e.target.value.replace(/[^\d]/g, ""))}
+                            style={{
+                              width: "100%",
+                              padding: "10px 12px",
+                              borderRadius: 12,
+                              border: "1px solid rgba(0,0,0,0.12)",
+                              fontWeight: 900,
+                            }}
+                          />
+                        </>
                       ) : (
-                        <div style={{ fontWeight: 900 }}>{it.name}</div>
+                        <>
+                          <div style={{ fontWeight: 900 }}>{it.name}</div>
+                          <div style={{ fontWeight: 900, opacity: 0.8 }}>{priceText(it.price)}</div>
+                        </>
                       )}
                     </div>
 

@@ -25,11 +25,13 @@ type ClientRow = {
 type ItemRow = {
   id: string;
   name: string;
+  price: number;
 };
 
 type CartLine = {
   itemId: string;
   name: string;
+  price: number;
   quantity: number;
 };
 
@@ -39,7 +41,6 @@ function s(v: any) {
   return String(v ?? "").trim();
 }
 
-// ---- KST helpers ----
 function kstTodayYmd() {
   const now = new Date();
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
@@ -80,7 +81,6 @@ async function apiPOST<T = any>(url: string, body?: any, init?: RequestInit): Pr
   return data as T;
 }
 
-// ---- ComboBox (네이티브 select 금지: 하얀 박스 방지) ----
 function ComboBox(props: {
   label: string;
   placeholder: string;
@@ -189,29 +189,24 @@ export default function OrdersClient() {
   const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
-  // 주문요청
   const [clientId, setClientId] = useState("");
   const [itemId, setItemId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [cart, setCart] = useState<CartLine[]>([]);
 
-  // 배송정보
   const [receiverName, setReceiverName] = useState("");
   const [receiverAddr, setReceiverAddr] = useState("");
   const [phone, setPhone] = useState("");
   const [mobile, setMobile] = useState("");
   const [note, setNote] = useState("");
 
-  // 검색
   const [clientSearch, setClientSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
 
-  // 조회 기간/검색
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [q, setQ] = useState("");
 
-  // 거래처 등록 + 사업자등록증
   const [cName, setCName] = useState("");
   const [cAddress, setCAddress] = useState("");
   const [cOwnerName, setCOwnerName] = useState("");
@@ -224,6 +219,15 @@ export default function OrdersClient() {
   const [bizFile, setBizFile] = useState<File | null>(null);
 
   const cartTotal = useMemo(() => cart.reduce((sum, x) => sum + (x.quantity || 0), 0), [cart]);
+  const cartPriceTotal = useMemo(
+    () => cart.reduce((sum, x) => sum + (x.price || 0) * (x.quantity || 0), 0),
+    [cart]
+  );
+
+  const selectedItem = useMemo(
+    () => items.find((x) => x.id === itemId) || null,
+    [items, itemId]
+  );
 
   useEffect(() => {
     const c = clients.find((x) => x.id === clientId);
@@ -253,8 +257,7 @@ export default function OrdersClient() {
     setErrMsg(null);
     setLoadingOrders(true);
     try {
-      const qs =
-        fromDate && toDate ? `?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}` : "";
+      const qs = fromDate && toDate ? `?from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}` : "";
       const o = await apiGET<{ ok: true; orders: OrderRowAny[] }>(`/api/orders${qs}`);
       setOrders(o.orders || []);
     } catch (e: any) {
@@ -269,7 +272,6 @@ export default function OrdersClient() {
     const today = kstTodayYmd();
     setToDate(today);
     setFromDate(addDaysYmd(today, -7));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function addToCart() {
@@ -290,7 +292,7 @@ export default function OrdersClient() {
         next[idx] = { ...next[idx], quantity: next[idx].quantity + qn };
         return next;
       }
-      return [...prev, { itemId, name: it.name, quantity: qn }];
+      return [...prev, { itemId, name: it.name, price: it.price || 0, quantity: qn }];
     });
 
     setQuantity(1);
@@ -363,7 +365,7 @@ export default function OrdersClient() {
     try {
       if (!clientId) throw new Error("거래처를 선택하세요.");
       if (!receiverName.trim()) throw new Error("수하인(필수)을 입력하세요.");
-      if (!receiverAddr.trim()) throw new Error("주소(필수)을 입력하세요.");
+      if (!receiverAddr.trim()) throw new Error("주소(필수)를 입력하세요.");
 
       if (cart.length > 0) {
         await apiPOST("/api/orders", {
@@ -457,7 +459,6 @@ export default function OrdersClient() {
     try {
       await apiPOST("/api/logout");
     } catch {
-      // ignore
     } finally {
       window.location.href = "/";
     }
@@ -497,7 +498,6 @@ export default function OrdersClient() {
     >
       <div className={card}>
         <div className={inner}>
-          {/* 헤더 */}
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="text-2xl font-extrabold text-white">주문</div>
@@ -508,44 +508,23 @@ export default function OrdersClient() {
             </button>
           </div>
 
-          {/* 탭 */}
           <div className="mt-5 flex flex-wrap gap-2">
-            <button className={tabBtn(tab === "request")} onClick={() => setTab("request")}>
-              주문요청
-            </button>
-
-            <button
-              className={tabBtn(tab === "list")}
-              onClick={async () => {
-                setTab("list");
-                await refreshOrders();
-              }}
-            >
-              조회
-            </button>
-
-            <button className={tabBtn(tab === "clients")} onClick={() => setTab("clients")}>
-              거래처 목록
-            </button>
-
-            <button className={tabBtn(tab === "clientsNew")} onClick={() => setTab("clientsNew")}>
-              거래처 등록
-            </button>
+            <button className={tabBtn(tab === "request")} onClick={() => setTab("request")}>주문요청</button>
+            <button className={tabBtn(tab === "list")} onClick={async () => { setTab("list"); await refreshOrders(); }}>조회</button>
+            <button className={tabBtn(tab === "clients")} onClick={() => setTab("clients")}>거래처 목록</button>
+            <button className={tabBtn(tab === "clientsNew")} onClick={() => setTab("clientsNew")}>거래처 등록</button>
           </div>
 
-          {/* 에러 */}
           {errMsg ? (
             <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-200 font-extrabold">
               {errMsg}
             </div>
           ) : null}
 
-          {/* 본문 */}
           {loadingBase ? (
             <div className="mt-6 text-white/70 font-bold">불러오는 중...</div>
           ) : (
             <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-5 md:p-6">
-              {/* ------------------- 주문요청 ------------------- */}
               {tab === "request" && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   <div className="space-y-5">
@@ -556,18 +535,44 @@ export default function OrdersClient() {
                       valueId={clientId}
                       onChangeId={(id) => {
                         setClientId(id);
-                        setCart([]); // 실수 방지
+                        setCart([]);
                       }}
                       search={clientSearch}
                       onChangeSearch={setClientSearch}
                     />
 
+                    <ComboBox
+                      label="품목 검색/선택"
+                      placeholder="품목을 선택하세요"
+                      items={items.map((x) => ({
+                        id: x.id,
+                        name: `${x.name} / ${Number(x.price || 0).toLocaleString()}원`,
+                      }))}
+                      valueId={itemId}
+                      onChangeId={setItemId}
+                      search={itemSearch}
+                      onChangeSearch={setItemSearch}
+                    />
+
+                    <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
+                      <div className="text-white font-extrabold">선택 품목 정보</div>
+                      <div className="mt-2 text-white/75 text-sm font-bold">
+                        {selectedItem ? (
+                          <>
+                            <div>품목명: {selectedItem.name}</div>
+                            <div>단가: {Number(selectedItem.price || 0).toLocaleString()}원</div>
+                            <div>예상금액: {Number((selectedItem.price || 0) * quantity).toLocaleString()}원</div>
+                          </>
+                        ) : (
+                          <div>품목을 선택하세요.</div>
+                        )}
+                      </div>
+                    </div>
+
                     <div>
                       <div className={label}>수량</div>
                       <div className="mt-2 flex items-center gap-3">
-                        <button className={btn} onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
-                          -
-                        </button>
+                        <button className={btn} onClick={() => setQuantity((q) => Math.max(1, q - 1))}>-</button>
                         <input
                           className={input}
                           style={{ width: 140, textAlign: "center" as const }}
@@ -578,34 +583,20 @@ export default function OrdersClient() {
                             setQuantity(Math.max(1, Math.floor(n)));
                           }}
                         />
-                        <button className={btn} onClick={() => setQuantity((q) => q + 1)}>
-                          +
-                        </button>
-
-                        <button className={btnPrimary} onClick={addToCart} disabled={!clientId || !itemId}>
-                          담기
-                        </button>
+                        <button className={btn} onClick={() => setQuantity((q) => q + 1)}>+</button>
+                        <button className={btnPrimary} onClick={addToCart} disabled={!clientId || !itemId}>담기</button>
                       </div>
                       <div className="text-white/45 text-xs mt-2">
                         * “담기”를 누르면 장바구니에 누적됩니다 (같은 품목이면 수량 합산)
                       </div>
                     </div>
 
-                    <ComboBox
-                      label="품목 검색/선택"
-                      placeholder="품목을 선택하세요"
-                      items={items.map((x) => ({ id: x.id, name: x.name }))}
-                      valueId={itemId}
-                      onChangeId={setItemId}
-                      search={itemSearch}
-                      onChangeSearch={setItemSearch}
-                    />
-
-                    {/* 장바구니 */}
                     <div className="rounded-2xl border border-white/10 bg-white/10 p-4">
                       <div className="flex items-center justify-between">
                         <div className="text-white font-extrabold">장바구니</div>
-                        <div className="text-white/60 text-sm font-extrabold">총 {cartTotal}개</div>
+                        <div className="text-white/60 text-sm font-extrabold">
+                          총 {cartTotal}개 / {cartPriceTotal.toLocaleString()}원
+                        </div>
                       </div>
 
                       {cart.length === 0 ? (
@@ -619,32 +610,26 @@ export default function OrdersClient() {
                             >
                               <div className="min-w-0">
                                 <div className="text-white font-extrabold truncate">{x.name}</div>
-                                <div className="text-white/60 text-sm font-bold">수량: {x.quantity}</div>
+                                <div className="text-white/60 text-sm font-bold">
+                                  단가: {Number(x.price || 0).toLocaleString()}원 / 수량: {x.quantity} / 합계:{" "}
+                                  {Number((x.price || 0) * x.quantity).toLocaleString()}원
+                                </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <button className={btn} onClick={() => decCart(x.itemId)}>
-                                  -
-                                </button>
-                                <button className={btn} onClick={() => incCart(x.itemId)}>
-                                  +
-                                </button>
-                                <button className={btn} onClick={() => removeFromCart(x.itemId)}>
-                                  삭제
-                                </button>
+                                <button className={btn} onClick={() => decCart(x.itemId)}>-</button>
+                                <button className={btn} onClick={() => incCart(x.itemId)}>+</button>
+                                <button className={btn} onClick={() => removeFromCart(x.itemId)}>삭제</button>
                               </div>
                             </div>
                           ))}
                           <div className="flex justify-end">
-                            <button className={btn} onClick={clearCart}>
-                              장바구니 비우기
-                            </button>
+                            <button className={btn} onClick={clearCart}>장바구니 비우기</button>
                           </div>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* 배송정보 */}
                   <div className="space-y-4">
                     <div className="text-white font-extrabold">배송정보</div>
 
@@ -684,7 +669,6 @@ export default function OrdersClient() {
                 </div>
               )}
 
-              {/* ------------------- 조회 ------------------- */}
               {tab === "list" && (
                 <div className="space-y-4">
                   <div className="rounded-3xl border border-white/10 bg-white/5 p-4 md:p-5">
@@ -701,9 +685,7 @@ export default function OrdersClient() {
                           />
                         </div>
 
-                        <div className="flex justify-center text-lg font-extrabold text-white/70 md:px-1">
-                          ~
-                        </div>
+                        <div className="flex justify-center text-lg font-extrabold text-white/70 md:px-1">~</div>
 
                         <div className="min-w-0 flex-1">
                           <input
@@ -792,7 +774,6 @@ export default function OrdersClient() {
                 </div>
               )}
 
-              {/* ------------------- 거래처 목록 ------------------- */}
               {tab === "clients" && (
                 <div className="space-y-4">
                   <div className="flex items-end gap-3">
@@ -800,9 +781,7 @@ export default function OrdersClient() {
                       <div className={label}>거래처 검색</div>
                       <input className={input} value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} placeholder="거래처명을 입력하세요" />
                     </div>
-                    <button className={btn} onClick={refreshBase}>
-                      새로고침
-                    </button>
+                    <button className={btn} onClick={refreshBase}>새로고침</button>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -845,7 +824,6 @@ export default function OrdersClient() {
                 </div>
               )}
 
-              {/* ------------------- 거래처 등록 ------------------- */}
               {tab === "clientsNew" && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   <div className="space-y-4">
