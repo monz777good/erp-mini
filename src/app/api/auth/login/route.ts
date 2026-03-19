@@ -6,6 +6,10 @@ import crypto from "crypto";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function onlyNumber(v: string) {
+  return String(v ?? "").replace(/[^\d]/g, "");
+}
+
 function hashPin(pin: string) {
   const pepper = process.env.PIN_PEPPER ?? "";
   return crypto.createHash("sha256").update(`${pin}:${pepper}`).digest("hex");
@@ -16,9 +20,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
 
     const role = String(body?.role ?? "SALES").toUpperCase();
-    const phone = String(body?.phone ?? "").trim();
+    const phone = onlyNumber(body?.phone ?? "");
     const pin = String(body?.pin ?? "").trim();
-    const name = String(body?.name ?? "").trim();
 
     if (!phone || !pin) {
       return NextResponse.json(
@@ -27,50 +30,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const hashed = hashPin(pin);
+    if (role !== "SALES" && role !== "ADMIN") {
+      return NextResponse.json(
+        { ok: false, error: "INVALID_ROLE" },
+        { status: 400 }
+      );
+    }
 
     const user = await prisma.user.findUnique({
       where: { phone },
-      select: { id: true, name: true, phone: true, role: true, pin: true },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        role: true,
+        pin: true,
+      },
     });
 
-    // 유저 없으면 영업사원 자동 생성
+    // ✅ 없는 유저 자동 생성 금지
     if (!user) {
-      if (role === "ADMIN") {
-        return NextResponse.json(
-          { ok: false, error: "ADMIN_NOT_FOUND" },
-          { status: 404 }
-        );
-      }
-
-      if (!name) {
-        return NextResponse.json(
-          { ok: false, error: "NAME_REQUIRED" },
-          { status: 400 }
-        );
-      }
-
-      const created = await prisma.user.create({
-        data: {
-          name,
-          phone,
-          role: "SALES" as any,
-          pin: hashed,
-        },
-        select: { id: true, name: true, phone: true, role: true },
-      });
-
-      await setSessionUser({
-        id: created.id,
-        name: created.name,
-        phone: created.phone,
-        role: created.role as any,
-      });
-
-      return NextResponse.json({ ok: true, created: true });
+      return NextResponse.json(
+        { ok: false, error: "USER_NOT_FOUND" },
+        { status: 404 }
+      );
     }
 
-    // ADMIN 로그인 시도면 실제 ADMIN인지 확인
+    // ✅ 역할 일치 확인
     if (role === "ADMIN" && user.role !== "ADMIN") {
       return NextResponse.json(
         { ok: false, error: "NOT_ADMIN" },
@@ -78,22 +64,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // pin 검증
-    if (!user.pin) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { pin: hashed },
-      });
-    } else {
-      if (user.pin !== hashed) {
-        return NextResponse.json(
-          { ok: false, error: "INVALID_PIN" },
-          { status: 401 }
-        );
-      }
+    if (role === "SALES" && user.role !== "SALES") {
+      return NextResponse.json(
+        { ok: false, error: "NOT_SALES" },
+        { status: 403 }
+      );
     }
 
-    // ✅ 여기 phone 포함 (빌드 에러 해결)
+    // ✅ PIN 자동 설정 금지
+    if (!user.pin) {
+      return NextResponse.json(
+        { ok: false, error: "PIN_NOT_SET" },
+        { status: 403 }
+      );
+    }
+
+    const hashed = hashPin(pin);
+
+    if (user.pin !== hashed) {
+      return NextResponse.json(
+        { ok: false, error: "INVALID_PIN" },
+        { status: 401 }
+      );
+    }
+
     await setSessionUser({
       id: user.id,
       name: user.name,
@@ -101,7 +95,7 @@ export async function POST(req: NextRequest) {
       role: user.role as any,
     });
 
-    return NextResponse.json({ ok: true, created: false });
+    return NextResponse.json({ ok: true, created: false, role: user.role });
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: "SERVER_ERROR", detail: String(e?.message ?? e) },
