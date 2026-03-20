@@ -1,3 +1,4 @@
+console.log("🔥🔥🔥 ROZEN API 실행됨");
 // src/app/api/admin/rozen-excel/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
