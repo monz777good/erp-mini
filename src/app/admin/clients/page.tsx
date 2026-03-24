@@ -13,6 +13,7 @@ type ClientRow = {
   bizRegNo?: string;
   careInstitutionNo?: string;
   address?: string;
+  email?: string;
 
   receiverTel?: string;
   receiverMobile?: string;
@@ -162,7 +163,7 @@ export default function AdminClientsPage() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="검색(거래처/요양기관/사업자번호/영업사원/전화/주소/비고)"
+              placeholder="검색(거래처/메일/요양기관/사업자번호/영업사원/전화/주소/비고)"
               style={inputStyle}
             />
           </div>
@@ -173,7 +174,7 @@ export default function AdminClientsPage() {
         </div>
 
         <div style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: 14, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1200 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1380 }}>
             <thead>
               <tr style={{ background: "rgba(255,255,255,0.06)" }}>
                 {[
@@ -182,6 +183,7 @@ export default function AdminClientsPage() {
                   "거래처명",
                   "사업자번호",
                   "요양기관번호",
+                  "메일주소",
                   "주소",
                   "전화",
                   "핸드폰",
@@ -198,7 +200,7 @@ export default function AdminClientsPage() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} style={{ padding: 18, textAlign: "center", fontWeight: 900, opacity: 0.8 }}>
+                  <td colSpan={11} style={{ padding: 18, textAlign: "center", fontWeight: 900, opacity: 0.8 }}>
                     데이터 없음
                   </td>
                 </tr>
@@ -213,6 +215,7 @@ export default function AdminClientsPage() {
                     <td style={{ ...td, fontWeight: 900 }}>{r.name ?? "-"}</td>
                     <td style={td}>{r.bizRegNo ?? "-"}</td>
                     <td style={td}>{r.careInstitutionNo ?? "-"}</td>
+                    <td style={td}>{r.email ?? "-"}</td>
                     <td style={td}>{r.address ?? "-"}</td>
                     <td style={td}>{r.receiverTel ?? "-"}</td>
                     <td style={td}>{r.receiverMobile ?? "-"}</td>
