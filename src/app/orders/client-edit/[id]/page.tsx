@@ -31,6 +31,8 @@ export default function ClientEditPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
+  const [bizFile, setBizFile] = useState<File | null>(null);
+
   const [form, setForm] = useState<ClientForm>({
     id: "",
     name: "",
@@ -95,6 +97,31 @@ export default function ClientEditPage() {
     load();
   }, [clientId]);
 
+  async function uploadBizFile() {
+    if (!clientId || !bizFile) return;
+
+    const fd = new FormData();
+    fd.append("clientId", clientId);
+    fd.append("file", bizFile);
+
+    const res = await fetch("/api/sales/clients/bizfile", {
+      method: "POST",
+      credentials: "include",
+      body: fd,
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.ok) {
+      throw new Error(data?.error || "사업자등록증 업로드에 실패했습니다.");
+    }
+
+    return {
+      url: data.url as string,
+      fileName: data.fileName as string,
+    };
+  }
+
   async function save() {
     if (!clientId) return;
     if (!s(form.name)) {
@@ -131,7 +158,20 @@ export default function ClientEditPage() {
         return;
       }
 
+      if (bizFile) {
+        const uploaded = await uploadBizFile();
+        if (uploaded) {
+          setForm((prev) => ({
+            ...prev,
+            bizFileUrl: uploaded.url,
+            bizFileName: uploaded.fileName,
+          }));
+        }
+        setBizFile(null);
+      }
+
       setMsg("거래처 정보가 수정되었습니다.");
+      await load();
     } catch (e: any) {
       setMsg(e?.message || "수정에 실패했습니다.");
     } finally {
@@ -250,7 +290,7 @@ export default function ClientEditPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className={label}>사업자등록증</div>
+                  <div className={label}>현재 사업자등록증</div>
                   {form.bizFileUrl ? (
                     <a
                       href={form.bizFileUrl}
@@ -263,6 +303,24 @@ export default function ClientEditPage() {
                   ) : (
                     <div className="text-white/50 text-sm font-bold">등록된 파일 없음</div>
                   )}
+                </div>
+
+                <div className="space-y-2">
+                  <div className={label}>사업자등록증 변경</div>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="block w-full text-white/80 font-bold"
+                    onChange={(e) => setBizFile(e.target.files?.[0] || null)}
+                  />
+                  <div className="text-white/45 text-xs font-bold">
+                    * 새 파일을 선택하고 저장하면 사업자등록증이 변경됩니다.
+                  </div>
+                  {bizFile ? (
+                    <div className="text-white/80 text-sm font-extrabold">
+                      선택한 파일: {bizFile.name}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
