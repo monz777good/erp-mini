@@ -290,19 +290,10 @@ export default function ClientEditPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className={label}>현재 사업자등록증</div>
-                  {form.bizFileUrl ? (
-                    <a
-                      href={form.bizFileUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex h-[44px] items-center rounded-2xl border border-white/14 bg-white/10 px-4 font-extrabold text-white hover:bg-white/15"
-                    >
-                      {form.bizFileName || "사업자등록증 보기"}
-                    </a>
-                  ) : (
-                    <div className="text-white/50 text-sm font-bold">등록된 파일 없음</div>
-                  )}
+                  <div className={label}>현재 사업자등록증 파일명</div>
+                  <div className="rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm font-extrabold text-white/80">
+                    {form.bizFileName || "등록된 파일 없음"}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
