@@ -467,6 +467,10 @@ export default function OrdersClient() {
     }
   }
 
+  function goEditClient(id: string) {
+    window.location.href = `/orders/client-edit/${id}`;
+  }
+
   const shell = "min-h-screen w-full px-4 py-10 md:py-14";
   const card =
     "mx-auto w-full max-w-[1200px] rounded-[28px] border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_20px_70px_rgba(0,0,0,0.55)]";
@@ -816,6 +820,14 @@ export default function OrdersClient() {
                           >
                             주문요청에서 선택
                           </button>
+
+                          <button
+                            className={btn}
+                            onClick={() => goEditClient(c.id)}
+                          >
+                            수정
+                          </button>
+
                           {c.bizFileUrl ? (
                             <a className={btn} href={c.bizFileUrl} target="_blank" rel="noreferrer">
                               사업자등록증 보기
