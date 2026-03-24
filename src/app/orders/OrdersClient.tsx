@@ -9,6 +9,7 @@ type ClientRow = {
   ownerName?: string | null;
   careInstitutionNo?: string | null;
   bizRegNo?: string | null;
+  email?: string | null;
 
   receiverName?: string | null;
   receiverAddr?: string | null;
@@ -212,6 +213,7 @@ export default function OrdersClient() {
   const [cOwnerName, setCOwnerName] = useState("");
   const [cCareNo, setCCareNo] = useState("");
   const [cBizNo, setCBizNo] = useState("");
+  const [cEmail, setCEmail] = useState("");
   const [cRecvName, setCRecvName] = useState("");
   const [cRecvAddr, setCRecvAddr] = useState("");
   const [cRecvTel, setCRecvTel] = useState("");
@@ -422,7 +424,7 @@ export default function OrdersClient() {
         ownerName: s(cOwnerName) || null,
         careInstitutionNo: s(cCareNo) || null,
         bizRegNo: s(cBizNo) || null,
-
+        email: s(cEmail) || null,
         receiverName: s(cRecvName) || null,
         receiverAddr: s(cRecvAddr) || null,
         receiverTel: s(cRecvTel) || null,
@@ -440,6 +442,7 @@ export default function OrdersClient() {
       setCOwnerName("");
       setCCareNo("");
       setCBizNo("");
+      setCEmail("");
       setCRecvName("");
       setCRecvAddr("");
       setCRecvTel("");
@@ -792,6 +795,7 @@ export default function OrdersClient() {
                           <div>대표: {c.ownerName ?? "-"}</div>
                           <div>요양기관번호: {c.careInstitutionNo ?? "-"}</div>
                           <div>사업자번호: {c.bizRegNo ?? "-"}</div>
+                          <div>메일주소: {c.email ?? "-"}</div>
                           <div className="pt-2">거래처 주소: {c.address ?? "-"}</div>
                           <div>수하인: {c.receiverName ?? "-"}</div>
                           <div>배송지: {c.receiverAddr ?? "-"}</div>
@@ -851,6 +855,15 @@ export default function OrdersClient() {
                       <div className="space-y-2 md:col-span-2">
                         <div className={label}>사업자번호</div>
                         <input className={input} value={cBizNo} onChange={(e) => setCBizNo(e.target.value)} />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <div className={label}>메일주소</div>
+                        <input
+                          className={input}
+                          value={cEmail}
+                          onChange={(e) => setCEmail(e.target.value)}
+                          placeholder="예: sample@domain.com"
+                        />
                       </div>
                     </div>
 

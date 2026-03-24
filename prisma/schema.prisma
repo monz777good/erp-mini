@@ -69,6 +69,9 @@ model Client {
   bizFileName       String?
   bizFileUploadedAt DateTime?
 
+  // ✅ 이번에 추가하는 것
+  email String?
+
   createdAt DateTime @default(now())
 
   userId    String

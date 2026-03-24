@@ -18,13 +18,11 @@ export async function GET() {
   const me = await requireUser();
   if (me instanceof NextResponse) return me;
 
-  // ✅ Client 모델에 user 연결이 있으므로, "본인 것만" 필터
-  // (ADMIN이면 전체 보여주고 싶으면 여기서 조건 분기 가능)
   const where =
     me.role === "ADMIN"
       ? {}
       : {
-          userId: me.id, // ✅ 너 스키마에서 user 관계 FK가 userId인 구조일 확률이 높음
+          userId: me.id,
         };
 
   const clients = await prisma.client.findMany({
@@ -37,6 +35,7 @@ export async function GET() {
       ownerName: true,
       careInstitutionNo: true,
       bizRegNo: true,
+      email: true,
 
       receiverName: true,
       receiverAddr: true,
@@ -66,7 +65,6 @@ export async function POST(request: Request) {
   }
 
   const data = {
-    // ✅ 핵심: Client는 user 관계가 필수라서 connect 필요
     user: { connect: { id: me.id } },
 
     name: s(body.name),
@@ -74,6 +72,7 @@ export async function POST(request: Request) {
     ownerName: s(body.ownerName) || null,
     careInstitutionNo: s(body.careInstitutionNo) || null,
     bizRegNo: s(body.bizRegNo) || null,
+    email: s(body.email) || null,
 
     receiverName: s(body.receiverName) || null,
     receiverAddr: s(body.receiverAddr) || null,
@@ -92,13 +91,17 @@ export async function POST(request: Request) {
       ownerName: true,
       careInstitutionNo: true,
       bizRegNo: true,
+      email: true,
+
       receiverName: true,
       receiverAddr: true,
       receiverTel: true,
       receiverMobile: true,
+
       bizFileUrl: true,
       bizFileName: true,
       bizFileUploadedAt: true,
+
       createdAt: true,
     },
   });
