@@ -28,7 +28,6 @@ type RowOut = {
   createdAt: string;
   status: OrderStatus;
 
-  // ✅ page.tsx가 쓰는 이름
   salesName: string;
   salesPhone: string;
 
@@ -41,18 +40,16 @@ type RowOut = {
   careInstitutionNo?: string | null;
 
   note?: string | null;
+  specYN?: string | null;
 
-  // ✅ page.tsx가 줄바꿈으로 보여줄 값
-  itemName: string;       // "품목A\n품목B"
-  quantityText: string;   // "x1\nx3"
+  itemName: string;
+  quantityText: string;
 
-  // (참고용) 실제 합산 목록
   items: ItemLine[];
   orderIds: string[];
 };
 
 function makeGroupKey(o: any) {
-  // ✅ 장바구니 묶음 그룹 키 (기존 groupId 없이도 안정적으로 묶음)
   return [
     o.createdAt?.toISOString?.() ?? String(o.createdAt),
     o.userId,
@@ -62,6 +59,7 @@ function makeGroupKey(o: any) {
     s(o.phone),
     s(o.mobile),
     s(o.note),
+    s(o.specYN),
   ].join("|");
 }
 
@@ -92,6 +90,7 @@ export async function GET(req: NextRequest) {
       { phone: { contains: q } },
       { mobile: { contains: q } },
       { note: { contains: q, mode: "insensitive" } },
+      { specYN: { contains: q, mode: "insensitive" } },
       { client: { name: { contains: q, mode: "insensitive" } } },
       { item: { name: { contains: q, mode: "insensitive" } } },
       { user: { name: { contains: q, mode: "insensitive" } } },
@@ -104,7 +103,7 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
     include: {
       user: { select: { name: true, phone: true } },
-      client: true, // ✅ 안전: Client 전체
+      client: true,
       item: { select: { id: true, name: true } },
     },
     take: 3000,
@@ -140,6 +139,7 @@ export async function GET(req: NextRequest) {
         careInstitutionNo: careNo,
 
         note: o.note ?? null,
+        specYN: o.specYN ?? "-",
 
         itemName: "",
         quantityText: "",
@@ -150,6 +150,11 @@ export async function GET(req: NextRequest) {
     }
 
     const g = map.get(key)!;
+
+    if (!g.specYN && o.specYN) {
+      g.specYN = o.specYN;
+    }
+
     g.orderIds.push(o.id);
 
     const itemId = s(o.itemId || o.item?.id || "");
@@ -167,10 +172,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ✅ 줄바꿈 문자열 생성
   for (const g of map.values()) {
     g.itemName = g.items.map((it) => it.itemName).join("\n");
     g.quantityText = g.items.map((it) => `x${it.quantity}`).join("\n");
+    g.specYN = g.specYN ?? "-";
   }
 
   return NextResponse.json({ ok: true, rows: Array.from(map.values()) });
