@@ -5,10 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 type Row = {
   id: string;
   createdAt: string;
-
-  // ✅ 이미 너 프로젝트에서 “장바구니 묶음”으로 내려주는 값들
-  itemName: string;     // 예: "자하거 2ML (5V)\nx1\n자하거 2ML (30V)\nx3"
-  quantityText: string; // 예: "1\n3\n2"
+  itemName: string;
+  quantityText: string;
   status: "REQUESTED" | "APPROVED" | "REJECTED" | "DONE";
 
   salesName: string;
@@ -22,6 +20,7 @@ type Row = {
   clientName: string;
   careInstitutionNo?: string | null;
   note?: string | null;
+  specYN?: string | null;
 };
 
 const STATUS_LABEL: Record<Row["status"], string> = {
@@ -106,9 +105,6 @@ export default function AdminOrdersPage() {
     }
   }
 
-  // ✅ 로젠 출력 (승인 탭에서만 버튼 노출)
-  // - 기존 프로젝트에 엔드포인트 이름이 뭐였는지 헷갈릴 수 있어서,
-  //   가장 흔한 2개를 “순서대로” 시도해서 하나라도 성공하면 다운로드됨.
   async function exportLozen() {
     setMsg(null);
 
@@ -185,7 +181,6 @@ export default function AdminOrdersPage() {
     cursor: "pointer",
   });
 
-  // ✅ 마지막 칸 하나 더(로젠 버튼 자리)
   const controls: React.CSSProperties = {
     display: "grid",
     gridTemplateColumns: "160px 30px 160px 1fr 110px 140px",
@@ -289,12 +284,11 @@ export default function AdminOrdersPage() {
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={input} />
           <div style={{ textAlign: "center", opacity: 0.8, fontWeight: 950 }}>~</div>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={input} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="검색 (품목/수하인/거래처/요양기관/영업/전화/비고)" style={input} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="검색 (품목/수하인/거래처/요양기관/영업/전화/비고/명세서)" style={input} />
           <button onClick={load} style={btn} disabled={loading}>
             {loading ? "조회중" : "조회"}
           </button>
 
-          {/* ✅ 여기! 승인 탭일 때만 로젠 출력 버튼 */}
           {tab === "APPROVED" ? (
             <button onClick={exportLozen} style={lozenBtn}>
               로젠 출력
@@ -305,10 +299,10 @@ export default function AdminOrdersPage() {
         </div>
 
         <div style={tableWrap}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1200 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1320 }}>
             <thead>
               <tr>
-                {["등록일", "품목", "수량", "영업사원", "영업전화", "수하인", "주소", "전화", "핸드폰", "거래처", "요양기관번호", "비고", "작업"].map((h) => (
+                {["등록일", "품목", "수량", "명세서", "영업사원", "영업전화", "수하인", "주소", "전화", "핸드폰", "거래처", "요양기관번호", "비고", "작업"].map((h) => (
                   <th key={h} style={th}>
                     {h}
                   </th>
@@ -319,7 +313,7 @@ export default function AdminOrdersPage() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={13} style={{ ...td, textAlign: "center", opacity: 0.7, padding: 18 }}>
+                  <td colSpan={14} style={{ ...td, textAlign: "center", opacity: 0.7, padding: 18 }}>
                     표시할 주문이 없습니다.
                   </td>
                 </tr>
@@ -327,13 +321,9 @@ export default function AdminOrdersPage() {
                 rows.map((r) => (
                   <tr key={r.id}>
                     <td style={td}>{r.createdAt}</td>
-
-                    {/* ✅ 품목 여러줄 */}
                     <td style={{ ...td, whiteSpace: "pre-line" }}>{r.itemName}</td>
-
-                    {/* ✅ 수량 여러줄 */}
                     <td style={{ ...td, whiteSpace: "pre-line" }}>{r.quantityText}</td>
-
+                    <td style={td}>{r.specYN || "-"}</td>
                     <td style={td}>{r.salesName}</td>
                     <td style={td}>{r.salesPhone}</td>
                     <td style={td}>{r.receiverName}</td>

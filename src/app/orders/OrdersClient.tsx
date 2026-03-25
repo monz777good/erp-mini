@@ -200,6 +200,7 @@ export default function OrdersClient() {
   const [phone, setPhone] = useState("");
   const [mobile, setMobile] = useState("");
   const [note, setNote] = useState("");
+  const [specYN, setSpecYN] = useState("");
 
   const [clientSearch, setClientSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
@@ -352,6 +353,7 @@ export default function OrdersClient() {
         o?.phone,
         o?.mobile,
         o?.note,
+        o?.specYN,
         o?.careInstitutionNo,
         o?.bizRegNo,
       ]
@@ -367,7 +369,8 @@ export default function OrdersClient() {
     try {
       if (!clientId) throw new Error("거래처를 선택하세요.");
       if (!receiverName.trim()) throw new Error("수하인(필수)을 입력하세요.");
-      if (!receiverAddr.trim()) throw new Error("주소(필수)를 입력하세요.");
+      if (!receiverAddr.trim()) throw new Error("주소(필수)을 입력하세요.");
+      if (!specYN) throw new Error("명세서 여부를 선택해주세요.");
 
       if (cart.length > 0) {
         await apiPOST("/api/orders", {
@@ -377,6 +380,7 @@ export default function OrdersClient() {
           phone: s(phone) || null,
           mobile: s(mobile) || null,
           note: s(note) || null,
+          specYN,
           items: cart.map((x) => ({ itemId: x.itemId, quantity: x.quantity })),
         });
         clearCart();
@@ -391,6 +395,7 @@ export default function OrdersClient() {
           phone: s(phone) || null,
           mobile: s(mobile) || null,
           note: s(note) || null,
+          specYN,
         });
       }
 
@@ -398,6 +403,7 @@ export default function OrdersClient() {
       await refreshOrders();
       setQuantity(1);
       setNote("");
+      setSpecYN("");
     } catch (e: any) {
       setErrMsg(e?.message || "FAILED_SUBMIT_ORDER");
     } finally {
@@ -663,6 +669,34 @@ export default function OrdersClient() {
                       </div>
                     </div>
 
+                    <div className="space-y-2">
+                      <div className={label}>거래명세서 요청</div>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className={cls(btn, specYN === "Y" && "bg-emerald-400 text-black")}
+                          onClick={() => setSpecYN("Y")}
+                        >
+                          Y
+                        </button>
+
+                        <button
+                          type="button"
+                          className={cls(btn, specYN === "N" && "bg-emerald-400 text-black")}
+                          onClick={() => setSpecYN("N")}
+                        >
+                          N
+                        </button>
+                      </div>
+
+                      {!specYN && (
+                        <div className="text-red-400 text-sm font-bold">
+                          선택해주세요
+                        </div>
+                      )}
+                    </div>
+
                     <div className="pt-2 flex justify-end">
                       <button className={btnPrimary} onClick={submitOrder} disabled={loading}>
                         {loading ? "주문요청 중..." : "주문요청"}
@@ -670,7 +704,7 @@ export default function OrdersClient() {
                     </div>
 
                     <div className="text-white/40 text-xs font-bold">
-                      * 거래처/품목 선택 후 “담기” → 배송정보 입력 → “주문요청”
+                      * 거래처/품목 선택 후 “담기” → 배송정보 입력 → 명세서 여부 선택 → “주문요청”
                     </div>
                   </div>
                 </div>
@@ -723,7 +757,7 @@ export default function OrdersClient() {
                           onKeyDown={(e) => {
                             if (e.key === "Enter") refreshOrders();
                           }}
-                          placeholder="검색(품목/거래처/수하인/전화/주소/비고)"
+                          placeholder="검색(품목/거래처/수하인/전화/주소/비고/명세서)"
                           className="h-14 min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 text-base font-bold text-white placeholder:text-white/35 outline-none"
                         />
 
@@ -739,10 +773,10 @@ export default function OrdersClient() {
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-white/5 overflow-auto">
-                    <table className="min-w-[1100px] w-full text-sm">
+                    <table className="min-w-[1200px] w-full text-sm">
                       <thead>
                         <tr className="bg-white/5">
-                          {["등록일", "거래처", "품목(수량)", "상태", "수하인", "주소", "전화", "핸드폰", "비고"].map((h) => (
+                          {["등록일", "거래처", "품목(수량)", "명세서", "상태", "수하인", "주소", "전화", "핸드폰", "비고"].map((h) => (
                             <th key={h} className="text-left px-4 py-3 text-white/85 font-extrabold whitespace-nowrap border-b border-white/10">
                               {h}
                             </th>
@@ -752,7 +786,7 @@ export default function OrdersClient() {
                       <tbody>
                         {filteredOrders.length === 0 ? (
                           <tr>
-                            <td colSpan={9} className="px-4 py-8 text-white/55 font-bold">
+                            <td colSpan={10} className="px-4 py-8 text-white/55 font-bold">
                               데이터가 없습니다.
                             </td>
                           </tr>
@@ -766,6 +800,7 @@ export default function OrdersClient() {
                                 {o?.clientName || o?.client?.name || "-"}
                               </td>
                               <td className="px-4 py-3 text-white/85 font-bold">{orderItemsText(o)}</td>
+                              <td className="px-4 py-3 text-white/85 font-extrabold whitespace-nowrap">{o?.specYN ?? "-"}</td>
                               <td className="px-4 py-3 text-white/85 font-extrabold whitespace-nowrap">{statusKo(o?.status)}</td>
                               <td className="px-4 py-3 text-white/85 font-bold whitespace-nowrap">{o?.receiverName ?? "-"}</td>
                               <td className="px-4 py-3 text-white/75 font-bold">{o?.receiverAddr ?? "-"}</td>

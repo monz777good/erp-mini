@@ -36,7 +36,6 @@ model Item {
   name      String   @unique
   createdAt DateTime @default(now())
 
-  // ✅ 추가
   price     Int      @default(0)
 
   bundleV   Int      @default(0)
@@ -69,7 +68,6 @@ model Client {
   bizFileName       String?
   bizFileUploadedAt DateTime?
 
-  // ✅ 이번에 추가하는 것
   email String?
 
   createdAt DateTime @default(now())
@@ -88,6 +86,8 @@ model Order {
   status    OrderStatus @default(REQUESTED)
   quantity  Int
   createdAt DateTime    @default(now())
+
+  specYN    String?
 
   receiverName String
   receiverAddr String
