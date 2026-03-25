@@ -675,7 +675,11 @@ export default function OrdersClient() {
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          className={cls(btn, specYN === "Y" && "bg-emerald-400 text-black")}
+                          className={
+                            specYN === "Y"
+                              ? "h-[44px] min-w-[64px] px-4 rounded-2xl border border-emerald-300 bg-emerald-400 text-black font-extrabold shadow-[0_0_0_2px_rgba(16,185,129,0.18)]"
+                              : "h-[44px] min-w-[64px] px-4 rounded-2xl border border-white/14 bg-white/10 text-white font-extrabold hover:bg-white/15 active:bg-white/20"
+                          }
                           onClick={() => setSpecYN("Y")}
                         >
                           Y
@@ -683,7 +687,11 @@ export default function OrdersClient() {
 
                         <button
                           type="button"
-                          className={cls(btn, specYN === "N" && "bg-emerald-400 text-black")}
+                          className={
+                            specYN === "N"
+                              ? "h-[44px] min-w-[64px] px-4 rounded-2xl border border-emerald-300 bg-emerald-400 text-black font-extrabold shadow-[0_0_0_2px_rgba(16,185,129,0.18)]"
+                              : "h-[44px] min-w-[64px] px-4 rounded-2xl border border-white/14 bg-white/10 text-white font-extrabold hover:bg-white/15 active:bg-white/20"
+                          }
                           onClick={() => setSpecYN("N")}
                         >
                           N
