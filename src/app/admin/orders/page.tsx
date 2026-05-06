@@ -323,7 +323,28 @@ export default function AdminOrdersPage() {
                     <td style={td}>{r.createdAt}</td>
                     <td style={{ ...td, whiteSpace: "pre-line" }}>{r.itemName}</td>
                     <td style={{ ...td, whiteSpace: "pre-line" }}>{r.quantityText}</td>
-                    <td style={td}>{r.specYN || "-"}</td>
+                    <td style={td}>
+                      {r.specYN === "Y" ? (
+                        <a
+                          href={`/api/admin/orders/${r.id}/statement`}
+                          style={{
+                            display: "inline-block",
+                            padding: "8px 10px",
+                            borderRadius: 10,
+                            background: "rgba(34,197,94,0.20)",
+                            border: "1px solid rgba(34,197,94,0.35)",
+                            color: "white",
+                            fontWeight: 950,
+                            textDecoration: "none",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          명세서 출력
+                        </a>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
                     <td style={td}>{r.salesName}</td>
                     <td style={td}>{r.salesPhone}</td>
                     <td style={td}>{r.receiverName}</td>
