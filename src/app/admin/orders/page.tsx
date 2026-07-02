@@ -137,9 +137,51 @@ function statementAccountLabel(value: unknown) {
   return found?.label ?? "계좌 미지정";
 }
 
+function statementAccountShortLabel(value: unknown) {
+  if (value === "hana") return "하나은행";
+  if (value === "ibk") return "기업은행";
+  if (value === "kb") return "국민은행";
+  return "미지정";
+}
+
 function statementDisplay(row: Row) {
   if (row.specYN !== "Y") return "N";
   return `Y · ${statementAccountLabel(row.statementAccount)}`;
+}
+
+function statementBadge(row: Row, selected: boolean, onToggle: () => void) {
+  if (row.specYN !== "Y") {
+    return (
+      <span className="inline-flex h-8 min-w-[52px] items-center justify-center rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-black text-slate-500">
+        N
+      </span>
+    );
+  }
+
+  const isMissing = !row.statementAccount;
+
+  return (
+    <label
+      title={statementAccountLabel(row.statementAccount)}
+      className={cls(
+        "inline-flex h-9 max-w-[150px] items-center gap-2 rounded-full border px-2.5 text-xs font-black",
+        isMissing
+          ? "border-amber-200 bg-amber-50 text-amber-700"
+          : "border-emerald-200 bg-emerald-50 text-emerald-800"
+      )}
+    >
+      <input type="checkbox" checked={selected} onChange={onToggle} className="h-4 w-4 shrink-0" />
+      <span
+        className={cls(
+          "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] text-white",
+          isMissing ? "bg-amber-500" : "bg-emerald-600"
+        )}
+      >
+        Y
+      </span>
+      <span className="min-w-0 truncate">{statementAccountShortLabel(row.statementAccount)}</span>
+    </label>
+  );
 }
 
 export default function AdminOrdersPage() {
@@ -767,20 +809,8 @@ export default function AdminOrdersPage() {
                         ))}
                       </div>
                     </td>
-                    <td className="px-3 py-3 font-bold text-slate-700 whitespace-nowrap">
-                      {row.specYN === "Y" ? (
-                        <label className="inline-flex items-center gap-2 font-black text-emerald-700">
-                          <input
-                            type="checkbox"
-                            checked={selectedStatementIds.includes(row.id)}
-                            onChange={() => toggleStatementId(row.id)}
-                            className="h-4 w-4"
-                          />
-                          {statementDisplay(row)}
-                        </label>
-                      ) : (
-                        statementDisplay(row)
-                      )}
+                    <td className="w-[170px] px-3 py-3 font-bold text-slate-700 whitespace-nowrap">
+                      {statementBadge(row, selectedStatementIds.includes(row.id), () => toggleStatementId(row.id))}
                     </td>
                     <td className="px-3 py-3 font-bold text-slate-700 whitespace-nowrap">{row.salesName || "-"}</td>
                     <td className="px-3 py-3 font-bold text-slate-700 whitespace-nowrap">{row.salesPhone || "-"}</td>
