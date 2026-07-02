@@ -246,6 +246,7 @@ export default function AdminOrdersPage() {
   }, [rows, statementFilter]);
 
   const statementRows = useMemo(() => visibleRows.filter((row) => row.specYN === "Y"), [visibleRows]);
+  const nonStatementRows = useMemo(() => visibleRows.filter((row) => row.specYN !== "Y"), [visibleRows]);
   const summaryStatementRows = useMemo(
     () => summaryRows.filter((row) => row.specYN === "Y"),
     [summaryRows]
@@ -588,6 +589,19 @@ export default function AdminOrdersPage() {
       <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-wrap gap-2">
+            {(["ALL", "Y", "N"] as StatementFilter[]).map((filter) => (
+              <button
+                key={`quick-${filter}`}
+                type="button"
+                onClick={() => setStatementFilter(filter)}
+                className={cls(
+                  secondaryButton,
+                  statementFilter === filter && "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                )}
+              >
+                {filter === "ALL" ? "전체 보기" : filter === "Y" ? "Y만 보기" : "N만 보기"}
+              </button>
+            ))}
             <button type="button" onClick={toggleAllStatements} className={secondaryButton}>
               {allStatementSelected ? "현재 Y 선택 해제" : "현재 Y 전체 선택"}
             </button>
@@ -601,7 +615,7 @@ export default function AdminOrdersPage() {
               선택 명세서 출력
             </button>
             <div className="text-sm font-extrabold text-emerald-800">
-              선택 {selectedStatementIds.length}건 / 현재 출력 가능 {statementRows.length}건
+              선택 {selectedStatementIds.length}건 / Y {statementRows.length}건 / N {nonStatementRows.length}건
             </div>
           </div>
         </div>
