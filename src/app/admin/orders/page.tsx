@@ -10,6 +10,8 @@ type ItemLine = {
   itemId?: string;
   itemName?: string;
   quantity?: number;
+  price?: number;
+  amount?: number;
 };
 
 type Row = {
@@ -107,10 +109,18 @@ function qtyTotal(row: Row) {
 
 function itemLines(row: Row) {
   if (Array.isArray(row.items) && row.items.length > 0) {
-    return row.items.map((item) => ({
-      name: item.itemName || "-",
-      quantity: Math.max(1, Number(item.quantity ?? 1) || 1),
-    }));
+    return row.items.map((item) => {
+      const quantity = Math.max(1, Number(item.quantity ?? 1) || 1);
+      const price = Math.max(0, Number(item.price ?? 0) || 0);
+      const amount = Math.max(0, Number(item.amount ?? quantity * price) || 0);
+
+      return {
+        name: item.itemName || "-",
+        quantity,
+        price,
+        amount,
+      };
+    });
   }
 
   const names = String(row.itemName ?? "-").split("\n");
@@ -121,7 +131,17 @@ function itemLines(row: Row) {
   return names.map((name, index) => ({
     name: name || "-",
     quantity: qtys[index] ?? 1,
+    price: 0,
+    amount: 0,
   }));
+}
+
+function amountTotal(row: Row) {
+  return itemLines(row).reduce((sum, item) => sum + item.amount, 0);
+}
+
+function money(value: number) {
+  return `${Math.round(value || 0).toLocaleString("ko-KR")}원`;
 }
 
 function cls(...arr: Array<string | false | null | undefined>) {
@@ -306,15 +326,28 @@ export default function AdminOrdersPage() {
   }, [statementRows]);
 
   const dealerStats = useMemo(() => {
-    const map = new Map<string, { name: string; count: number; qty: number; items: Map<string, number> }>();
+    const map = new Map<
+      string,
+      { name: string; count: number; qty: number; amount: number; items: Map<string, { qty: number; amount: number }> }
+    >();
 
     for (const row of summaryRows) {
       const key = row.salesName || "미지정";
-      const prev = map.get(key) ?? { name: key, count: 0, qty: 0, items: new Map<string, number>() };
+      const prev = map.get(key) ?? {
+        name: key,
+        count: 0,
+        qty: 0,
+        amount: 0,
+        items: new Map<string, { qty: number; amount: number }>(),
+      };
       prev.count += 1;
       prev.qty += qtyTotal(row);
+      prev.amount += amountTotal(row);
       for (const item of itemLines(row)) {
-        prev.items.set(item.name, (prev.items.get(item.name) ?? 0) + item.quantity);
+        const prevItem = prev.items.get(item.name) ?? { qty: 0, amount: 0 };
+        prevItem.qty += item.quantity;
+        prevItem.amount += item.amount;
+        prev.items.set(item.name, prevItem);
       }
       map.set(key, prev);
     }
@@ -323,24 +356,37 @@ export default function AdminOrdersPage() {
       .map((item) => ({
         ...item,
         itemList: Array.from(item.items.entries())
-          .map(([name, qty]) => ({ name, qty }))
-          .sort((a, b) => b.qty - a.qty)
+          .map(([name, data]) => ({ name, qty: data.qty, amount: data.amount }))
+          .sort((a, b) => b.amount - a.amount || b.qty - a.qty)
           .slice(0, 4),
       }))
-      .sort((a, b) => b.count - a.count)
+      .sort((a, b) => b.amount - a.amount || b.count - a.count)
       .slice(0, 6);
   }, [summaryRows]);
 
   const monthStats = useMemo(() => {
-    const map = new Map<string, { month: string; count: number; qty: number; items: Map<string, number> }>();
+    const map = new Map<
+      string,
+      { month: string; count: number; qty: number; amount: number; items: Map<string, { qty: number; amount: number }> }
+    >();
 
     for (const row of summaryRows) {
       const key = monthKey(row.createdAt);
-      const prev = map.get(key) ?? { month: key, count: 0, qty: 0, items: new Map<string, number>() };
+      const prev = map.get(key) ?? {
+        month: key,
+        count: 0,
+        qty: 0,
+        amount: 0,
+        items: new Map<string, { qty: number; amount: number }>(),
+      };
       prev.count += 1;
       prev.qty += qtyTotal(row);
+      prev.amount += amountTotal(row);
       for (const item of itemLines(row)) {
-        prev.items.set(item.name, (prev.items.get(item.name) ?? 0) + item.quantity);
+        const prevItem = prev.items.get(item.name) ?? { qty: 0, amount: 0 };
+        prevItem.qty += item.quantity;
+        prevItem.amount += item.amount;
+        prev.items.set(item.name, prevItem);
       }
       map.set(key, prev);
     }
@@ -349,11 +395,61 @@ export default function AdminOrdersPage() {
       .map((item) => ({
         ...item,
         itemList: Array.from(item.items.entries())
-          .map(([name, qty]) => ({ name, qty }))
-          .sort((a, b) => b.qty - a.qty)
+          .map(([name, data]) => ({ name, qty: data.qty, amount: data.amount }))
+          .sort((a, b) => b.amount - a.amount || b.qty - a.qty)
           .slice(0, 4),
       }))
       .sort((a, b) => b.month.localeCompare(a.month));
+  }, [summaryRows]);
+
+  const dealerMonthStats = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        month: string;
+        dealer: string;
+        count: number;
+        qty: number;
+        amount: number;
+        items: Map<string, { qty: number; amount: number }>;
+      }
+    >();
+
+    for (const row of summaryRows) {
+      const month = monthKey(row.createdAt);
+      const dealer = row.salesName || "미지정";
+      const key = `${month}|${dealer}`;
+      const prev = map.get(key) ?? {
+        month,
+        dealer,
+        count: 0,
+        qty: 0,
+        amount: 0,
+        items: new Map<string, { qty: number; amount: number }>(),
+      };
+
+      prev.count += 1;
+      prev.qty += qtyTotal(row);
+      prev.amount += amountTotal(row);
+
+      for (const item of itemLines(row)) {
+        const prevItem = prev.items.get(item.name) ?? { qty: 0, amount: 0 };
+        prevItem.qty += item.quantity;
+        prevItem.amount += item.amount;
+        prev.items.set(item.name, prevItem);
+      }
+
+      map.set(key, prev);
+    }
+
+    return Array.from(map.values())
+      .map((item) => ({
+        ...item,
+        itemList: Array.from(item.items.entries())
+          .map(([name, data]) => ({ name, qty: data.qty, amount: data.amount }))
+          .sort((a, b) => b.amount - a.amount || b.qty - a.qty),
+      }))
+      .sort((a, b) => b.month.localeCompare(a.month) || b.amount - a.amount || b.count - a.count);
   }, [summaryRows]);
 
   async function setStatus(id: string, next: Status) {
@@ -586,13 +682,16 @@ export default function AdminOrdersPage() {
                   <div key={item.name} className="rounded-xl bg-emerald-50 px-3 py-2">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0 truncate text-sm font-extrabold text-slate-800">{item.name}</div>
-                      <div className="shrink-0 text-sm font-black text-emerald-700">
-                        {item.count}건 · {item.qty}개
+                      <div className="shrink-0 text-right">
+                        <div className="text-sm font-black text-emerald-700">
+                          {item.count}건 · {item.qty}개
+                        </div>
+                        <div className="text-[11px] font-black text-slate-700">{money(item.amount)}</div>
                       </div>
                     </div>
                     <div className="mt-1 text-xs font-bold leading-relaxed text-slate-600">
                       {item.itemList.length > 0
-                        ? item.itemList.map((line) => `${line.name} x${line.qty}`).join(" / ")
+                        ? item.itemList.map((line) => `${line.name} x${line.qty} · ${money(line.amount)}`).join(" / ")
                         : "품목 없음"}
                     </div>
                   </div>
@@ -611,13 +710,16 @@ export default function AdminOrdersPage() {
                   <div key={item.month} className="rounded-xl bg-slate-50 px-3 py-2">
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-sm font-extrabold text-slate-800">{item.month}</div>
-                      <div className="text-sm font-black text-slate-700">
-                        {item.count}건 · {item.qty}개
+                      <div className="text-right">
+                        <div className="text-sm font-black text-slate-700">
+                          {item.count}건 · {item.qty}개
+                        </div>
+                        <div className="text-[11px] font-black text-emerald-700">{money(item.amount)}</div>
                       </div>
                     </div>
                     <div className="mt-1 text-xs font-bold leading-relaxed text-slate-600">
                       {item.itemList.length > 0
-                        ? item.itemList.map((line) => `${line.name} x${line.qty}`).join(" / ")
+                        ? item.itemList.map((line) => `${line.name} x${line.qty} · ${money(line.amount)}`).join(" / ")
                         : "품목 없음"}
                     </div>
                   </div>
@@ -626,6 +728,65 @@ export default function AdminOrdersPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-base font-black text-slate-950">딜러 월별 데이터</div>
+            <div className="mt-1 text-xs font-bold text-slate-500">기간 안의 전체 상태 주문을 딜러와 월별로 합산합니다.</div>
+          </div>
+          <div className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
+            {dealerMonthStats.length}개 그룹
+          </div>
+        </div>
+        {dealerMonthStats.length === 0 ? (
+          <div className="py-6 text-center text-sm font-bold text-slate-500">데이터 없음</div>
+        ) : (
+          <div className="-mx-1 max-h-[420px] overflow-auto px-1">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="sticky top-0 bg-white text-xs text-slate-500">
+                <tr className="border-b border-emerald-100">
+                  <th className="py-2.5 pr-4 font-black">월</th>
+                  <th className="py-2.5 pr-4 font-black">딜러</th>
+                  <th className="py-2.5 pr-4 text-right font-black">주문</th>
+                  <th className="py-2.5 pr-4 text-right font-black">수량</th>
+                  <th className="py-2.5 pr-4 text-right font-black">판매금액</th>
+                  <th className="py-2.5 font-black">품목별 데이터</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-emerald-50">
+                {dealerMonthStats.map((item) => {
+                  const itemText =
+                    item.itemList.length > 0
+                      ? item.itemList.map((line) => `${line.name} x${line.qty} · ${money(line.amount)}`).join(" / ")
+                      : "품목 없음";
+
+                  return (
+                    <tr key={`${item.month}-${item.dealer}`} className="align-top hover:bg-emerald-50/60">
+                      <td className="whitespace-nowrap py-3 pr-4 font-extrabold text-slate-800">{item.month}</td>
+                      <td className="whitespace-nowrap py-3 pr-4 font-extrabold text-slate-900">{item.dealer}</td>
+                      <td className="whitespace-nowrap py-3 pr-4 text-right font-black text-slate-700">
+                        {item.count}건
+                      </td>
+                      <td className="whitespace-nowrap py-3 pr-4 text-right font-black text-slate-700">
+                        {item.qty}개
+                      </td>
+                      <td className="whitespace-nowrap py-3 pr-4 text-right font-black text-emerald-700">
+                        {money(item.amount)}
+                      </td>
+                      <td className="py-3 font-bold leading-relaxed text-slate-600">
+                        <div className="max-w-[560px]" title={itemText}>
+                          {itemText}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">

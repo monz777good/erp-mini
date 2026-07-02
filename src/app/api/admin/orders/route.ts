@@ -21,7 +21,7 @@ function kstRange(fromYmd: string, toYmd: string) {
   return { from, to };
 }
 
-type ItemLine = { itemId: string; itemName: string; quantity: number };
+type ItemLine = { itemId: string; itemName: string; quantity: number; price: number; amount: number };
 
 type RowOut = {
   id: string;
@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
     include: {
       user: { select: { name: true, phone: true } },
       client: true,
-      item: { select: { id: true, name: true } },
+      item: { select: { id: true, name: true, price: true } },
     },
     take: 3000,
   });
@@ -167,14 +167,21 @@ export async function GET(req: NextRequest) {
     const itemId = s(o.itemId || o.item?.id || "");
     const itemName = s(o.item?.name || o.itemName || o.item_name || "-") || "-";
     const qty = Math.max(1, Number(o.quantity ?? o.qty ?? 1) || 1);
+    const price = Math.max(0, Number(o.item?.price ?? 0) || 0);
+    const amount = qty * price;
 
     const found = g.items.find((it) => it.itemId === itemId && itemId);
-    if (found) found.quantity += qty;
+    if (found) {
+      found.quantity += qty;
+      found.amount += amount;
+    }
     else {
       g.items.push({
         itemId: itemId || `${itemName}_${g.items.length}`,
         itemName,
         quantity: qty,
+        price,
+        amount,
       });
     }
   }
