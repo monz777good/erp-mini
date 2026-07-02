@@ -1,117 +1,122 @@
 @import "tailwindcss";
 
-/* =========================
-   기본 색상 변수
-========================= */
-
 :root {
-  --bg0: 8 10 18;
-  --bg1: 16 20 36;
-  --text: 245 247 255;
-  --muted: 200 208 230;
+  --bg: #f7fbf7;
+  --text: #0f172a;
 }
 
-html, body {
-  height: 100%;
+html,
+body {
+  min-height: 100%;
 }
 
 body {
   margin: 0;
   overflow-x: hidden;
-  color: rgb(var(--text));
-  background:
-    radial-gradient(1200px 800px at 15% 20%, rgba(120,105,255,0.25), transparent 60%),
-    radial-gradient(900px 600px at 85% 30%, rgba(0,180,255,0.18), transparent 60%),
-    radial-gradient(900px 700px at 50% 90%, rgba(255,255,255,0.08), transparent 60%),
-    linear-gradient(180deg, rgb(var(--bg0)), rgb(var(--bg1)));
+  color: var(--text);
+  background: var(--bg);
 }
 
-/* =========================
-   관리자 UI 통일 스타일
-========================= */
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
 
 .admin-scope {
-  color: rgba(255,255,255,0.92);
+  color: #12382f;
 }
 
-/* 기본 흰 배경 카드 -> 글래스 */
-.admin-scope .bg-white,
-.admin-scope .bg-gray-50,
-.admin-scope .bg-slate-50 {
-  background: rgba(255,255,255,0.08) !important;
-  border-color: rgba(255,255,255,0.14) !important;
-}
-
-/* 텍스트가 검정으로 나오는 것 방지 */
-.admin-scope .text-black,
-.admin-scope .text-gray-900,
-.admin-scope .text-gray-800 {
-  color: rgba(255,255,255,0.92) !important;
-}
-
-/* input 스타일 통일 */
 .admin-scope input,
 .admin-scope select,
 .admin-scope textarea {
-  background: rgba(255,255,255,0.10) !important;
-  color: rgba(255,255,255,0.92) !important;
-  border: 1px solid rgba(255,255,255,0.16) !important;
-  border-radius: 12px;
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #bbf7d0;
 }
 
-.admin-scope input::placeholder {
-  color: rgba(255,255,255,0.35);
+.admin-scope input::placeholder,
+.admin-scope textarea::placeholder {
+  color: #94a3b8;
 }
 
 .admin-scope input:focus,
 .admin-scope textarea:focus,
 .admin-scope select:focus {
-  border-color: rgba(255,255,255,0.30) !important;
-  outline: none;
+  border-color: #10b981;
+  outline: 2px solid rgba(16, 185, 129, 0.16);
+  outline-offset: 0;
 }
 
-/* 버튼 통일 */
-.admin-scope button {
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.16);
-  background: rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.92);
+.sales-light-scope {
+  color: #0f172a;
 }
 
-.admin-scope button:hover {
-  background: rgba(255,255,255,0.18);
+.sales-light-scope .text-white,
+.sales-light-scope .text-white\/90,
+.sales-light-scope .text-white\/85,
+.sales-light-scope .text-white\/80 {
+  color: #0f172a !important;
 }
 
-/* 테이블 스타일 */
-.admin-scope table {
-  width: 100%;
-  border-collapse: collapse;
-  border-radius: 16px;
-  overflow: hidden;
-  background: rgba(255,255,255,0.06);
+.sales-light-scope .text-white\/75,
+.sales-light-scope .text-white\/70,
+.sales-light-scope .text-white\/60,
+.sales-light-scope .text-white\/55 {
+  color: #475569 !important;
 }
 
-.admin-scope thead {
-  background: rgba(255,255,255,0.10);
+.sales-light-scope .text-white\/45,
+.sales-light-scope .text-white\/40,
+.sales-light-scope .text-white\/35 {
+  color: #64748b !important;
 }
 
-.admin-scope th {
-  padding: 12px;
-  font-weight: 600;
-  color: rgba(255,255,255,0.75);
+.sales-light-scope .bg-white\/5,
+.sales-light-scope .bg-white\/8,
+.sales-light-scope .bg-white\/10,
+.sales-light-scope .bg-white\/12 {
+  background: #ffffff !important;
 }
 
-.admin-scope td {
-  padding: 12px;
-  border-top: 1px solid rgba(255,255,255,0.10);
+.sales-light-scope .bg-white\/15,
+.sales-light-scope .hover\:bg-white\/15:hover,
+.sales-light-scope .hover\:bg-white\/8:hover,
+.sales-light-scope .hover\:bg-white\/10:hover {
+  background: #ecfdf5 !important;
 }
 
-.admin-scope tr:hover td {
-  background: rgba(255,255,255,0.05);
+.sales-light-scope .border-white\/5,
+.sales-light-scope .border-white\/8,
+.sales-light-scope .border-white\/10,
+.sales-light-scope .border-white\/12,
+.sales-light-scope .border-white\/14,
+.sales-light-scope .border-white\/15 {
+  border-color: #d1fae5 !important;
 }
 
-/* 작은 설명 글씨 */
-.admin-scope .text-gray-500,
-.admin-scope .text-gray-600 {
-  color: rgba(255,255,255,0.55) !important;
+.sales-light-scope input,
+.sales-light-scope select,
+.sales-light-scope textarea {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #bbf7d0 !important;
+}
+
+.sales-light-scope input::placeholder,
+.sales-light-scope textarea::placeholder {
+  color: #94a3b8 !important;
 }

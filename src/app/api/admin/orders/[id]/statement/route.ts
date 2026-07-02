@@ -99,7 +99,7 @@ export async function GET(
     const buffer = await fs.readFile(filePath);
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(buffer);
+    await workbook.xlsx.load(buffer as any);
 
     const sheet = workbook.worksheets[0];
 

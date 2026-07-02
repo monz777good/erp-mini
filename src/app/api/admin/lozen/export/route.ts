@@ -106,22 +106,28 @@ export async function POST(req: NextRequest) {
   }
 
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet("lozen");
+  const ws = wb.addWorksheet("제목있음(주소만있음)");
 
-  // ✅ 로젠 양식 헤더
-  ws.getCell("A1").value = "y";
-  ws.getCell("B1").value = "";
-  ws.getCell("C1").value = "수하인주소";
-  ws.getCell("D1").value = "전화번호";
-  ws.getCell("E1").value = "핸드폰번호";
-  ws.getCell("F1").value = "박스수량";
-  ws.getCell("G1").value = "택배운임";
-  ws.getCell("H1").value = "운임구분";
-  ws.getCell("I1").value = "품목명";
-  ws.getCell("J1").value = "";
-  ws.getCell("K1").value = "배송메세지";
+  const headers = [
+    "y",
+    "",
+    "수하인주소",
+    "수하인전화번호",
+    "수하인핸드폰번호",
+    "박스수량",
+    "택배운임",
+    "운임구분",
+    "품목명",
+    "",
+    "배송메세지",
+  ];
 
-  ws.getRow(1).font = { bold: true };
+  ws.getRow(1).values = headers;
+  ws.getRow(1).height = 24;
+  ws.getRow(1).eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: "FFFF0000" } };
+    cell.alignment = { vertical: "middle", horizontal: "center" };
+  });
 
   let rowNo = 2;
 
@@ -142,7 +148,7 @@ export async function POST(req: NextRequest) {
     ws.getCell(`H${rowNo}`).value = "";
     ws.getCell(`I${rowNo}`).value = itemText;
     ws.getCell(`J${rowNo}`).value = "";
-    ws.getCell(`K${rowNo}`).value = s(o.note);
+    ws.getCell(`K${rowNo}`).value = "취급주의";
 
     ws.getCell(`A${rowNo}`).numFmt = "@";
     ws.getCell(`C${rowNo}`).numFmt = "@";

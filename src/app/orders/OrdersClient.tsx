@@ -114,59 +114,59 @@ function ComboBox(props: {
 
   return (
     <div ref={boxRef} className="space-y-2">
-      <div className="text-sm font-extrabold text-white/85">{label}</div>
+      <div className="text-sm font-extrabold text-slate-700">{label}</div>
 
       <div className="relative">
         <button
           type="button"
           className={cls(
-            "w-full h-[48px] px-4 rounded-2xl border text-left font-extrabold",
-            "bg-white/5 border-white/12 text-white",
-            "hover:bg-white/8 active:bg-white/10",
+            "w-full h-[48px] px-4 rounded-xl border text-left font-extrabold",
+            "bg-white border-emerald-100 text-slate-900 shadow-sm",
+            "hover:border-emerald-300 hover:bg-emerald-50 active:bg-emerald-100",
             "flex items-center justify-between gap-3"
           )}
           onClick={() => setOpen((v) => !v)}
         >
-          <span className={cls("truncate", selected ? "text-white" : "text-white/55")}>
+          <span className={cls("truncate", selected ? "text-slate-900" : "text-slate-400")}>
             {selected ? selected.name : placeholder}
           </span>
-          <span className="text-white/45">▾</span>
+          <span className="text-slate-500">▾</span>
         </button>
 
         {open ? (
-          <div className="absolute z-50 mt-2 w-full rounded-2xl border border-white/12 bg-[rgba(15,18,30,0.98)] backdrop-blur-xl overflow-hidden shadow-2xl">
-            <div className="p-3 border-b border-white/10">
+          <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-emerald-100 bg-white shadow-2xl">
+            <div className="border-b border-emerald-100 p-3">
               <input
                 value={search}
                 onChange={(e) => onChangeSearch(e.target.value)}
                 placeholder="검색..."
                 className={cls(
-                  "w-full h-[44px] px-4 rounded-2xl border",
-                  "bg-white/5 border-white/12 text-white font-extrabold outline-none",
-                  "placeholder:text-white/35"
+                  "w-full h-[44px] px-4 rounded-xl border",
+                  "bg-white border-emerald-100 text-slate-900 font-extrabold outline-none",
+                  "placeholder:text-slate-400"
                 )}
                 autoFocus
               />
             </div>
             <div className="max-h-[320px] overflow-auto">
               {filtered.length === 0 ? (
-                <div className="p-4 text-white/60 font-bold">검색 결과 없음</div>
+                <div className="p-4 text-slate-500 font-bold">검색 결과 없음</div>
               ) : (
                 filtered.map((it) => (
                   <button
                     key={it.id}
                     type="button"
                     className={cls(
-                      "w-full px-4 py-3 text-left border-b border-white/8",
-                      "hover:bg-white/8",
-                      it.id === valueId ? "bg-white/10" : "bg-transparent"
+                      "w-full border-b border-emerald-50 px-4 py-3 text-left",
+                      "hover:bg-emerald-50",
+                      it.id === valueId ? "bg-emerald-50" : "bg-transparent"
                     )}
                     onClick={() => {
                       onChangeId(it.id);
                       setOpen(false);
                     }}
                   >
-                    <div className="text-white font-extrabold truncate">{it.name}</div>
+                    <div className="truncate font-extrabold text-slate-900">{it.name}</div>
                   </button>
                 ))
               )}
@@ -178,7 +178,7 @@ function ComboBox(props: {
   );
 }
 
-export default function OrdersClient() {
+export default function OrdersClient({ isAdmin = false }: { isAdmin?: boolean }) {
   const [tab, setTab] = useState<"request" | "list" | "clients" | "clientsNew">("request");
 
   const [clients, setClients] = useState<ClientRow[]>([]);
@@ -477,22 +477,24 @@ export default function OrdersClient() {
     window.location.href = `/orders/client-edit/${id}`;
   }
 
-  const shell = "min-h-screen w-full px-4 py-10 md:py-14";
+  const shell = "sales-light-scope min-h-screen w-full px-3 py-5 sm:px-4 md:py-8";
   const card =
-    "mx-auto w-full max-w-[1200px] rounded-[28px] border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_20px_70px_rgba(0,0,0,0.55)]";
-  const inner = "p-6 md:p-8";
+    "mx-auto w-full max-w-[1240px] rounded-2xl border border-emerald-100 bg-white shadow-[0_20px_70px_rgba(22,101,52,0.10)]";
+  const inner = "p-4 sm:p-5 md:p-6";
   const btn =
-    "h-[44px] px-4 rounded-2xl border border-white/14 bg-white/10 text-white font-extrabold hover:bg-white/15 active:bg-white/20";
+    "h-[44px] px-4 rounded-xl border border-emerald-100 bg-white text-slate-700 font-extrabold shadow-sm hover:border-emerald-300 hover:bg-emerald-50 active:bg-emerald-100";
   const btnPrimary =
-    "h-[44px] px-5 rounded-2xl border border-white/12 bg-emerald-400/90 text-black font-extrabold hover:bg-emerald-300 active:bg-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed";
+    "h-[44px] px-5 rounded-xl border border-emerald-600 bg-emerald-600 text-white font-extrabold shadow-sm hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed";
   const input =
-    "w-full h-[44px] px-4 rounded-2xl border border-white/12 bg-white/5 text-white font-extrabold outline-none placeholder:text-white/35";
-  const label = "text-sm font-extrabold text-white/85";
+    "w-full h-[44px] px-4 rounded-xl border border-emerald-100 bg-white text-slate-900 font-extrabold outline-none placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100";
+  const label = "text-sm font-extrabold text-slate-700";
 
   const tabBtn = (active: boolean) =>
     cls(
-      "h-[40px] px-4 rounded-full border text-sm font-extrabold",
-      active ? "bg-white text-black border-white" : "bg-white/10 text-white border-white/15 hover:bg-white/15"
+      "h-[40px] px-4 rounded-full border text-sm font-extrabold transition",
+      active
+        ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+        : "border-emerald-100 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
     );
 
   const filteredClients = useMemo(() => {
@@ -506,19 +508,28 @@ export default function OrdersClient() {
       className={shell}
       style={{
         background:
-          "radial-gradient(1200px 700px at 20% 20%, rgba(120,105,255,0.22), transparent 55%), radial-gradient(900px 600px at 80% 30%, rgba(0,180,255,0.18), transparent 55%), radial-gradient(900px 700px at 50% 90%, rgba(255,255,255,0.08), transparent 55%), linear-gradient(180deg, rgb(8,10,18), rgb(12,14,24))",
+          "linear-gradient(180deg, #f7fbf7 0%, #edf7ef 48%, #f9fffb 100%)",
       }}
     >
       <div className={card}>
         <div className={inner}>
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <div className="text-2xl font-extrabold text-white">주문</div>
-              <div className="text-white/60 text-sm mt-1">거래처/품목 선택 + 배송정보 입력 후 주문요청</div>
+              <div className="text-2xl font-black text-slate-950">주문</div>
+              <div className="mt-1 text-sm font-bold text-slate-500">
+                거래처와 품목을 선택하고 배송 정보를 입력합니다.
+              </div>
             </div>
-            <button className={btn} onClick={logout}>
-              로그아웃
-            </button>
+            <div className="flex flex-wrap gap-2">
+              {isAdmin ? (
+                <button className={btnPrimary} onClick={() => (window.location.href = "/admin/orders")}>
+                  관리자 화면으로 돌아가기
+                </button>
+              ) : null}
+              <button className={btn} onClick={logout}>
+                로그아웃
+              </button>
+            </div>
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">

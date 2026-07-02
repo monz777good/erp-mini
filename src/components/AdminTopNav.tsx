@@ -7,6 +7,15 @@ function cls(...arr: Array<string | false | null | undefined>) {
   return arr.filter(Boolean).join(" ");
 }
 
+const tabs = [
+  { href: "/admin/orders", label: "주문관리" },
+  { href: "/admin/clients", label: "거래처" },
+  { href: "/admin/ecount-clients", label: "기존 거래처" },
+  { href: "/admin/items", label: "품목" },
+  { href: "/admin/stock", label: "재고" },
+  { href: "/orders", label: "영업 화면" },
+];
+
 export default function AdminTopNav() {
   const pathname = usePathname();
 
@@ -20,60 +29,39 @@ export default function AdminTopNav() {
 
   const tab = (href: string) =>
     cls(
-      "px-4 py-2 rounded-full text-sm font-semibold transition border",
+      "inline-flex h-10 shrink-0 items-center justify-center rounded-full border px-4 text-sm font-extrabold transition",
       pathname === href
-        ? "bg-white text-black border-white"
-        : "bg-white/10 text-white border-white/15 hover:bg-white/15"
+        ? "border-emerald-600 bg-emerald-600 text-white shadow-sm"
+        : "border-emerald-100 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
     );
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-start justify-between gap-4">
+    <header className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="text-2xl font-extrabold text-white">관리자</div>
-          <div className="text-white/60 text-sm mt-1">
-            주문/거래처/품목/재고 관리
+          <Link href="/admin/orders" className="text-2xl font-black tracking-tight text-slate-950">
+            관리자
+          </Link>
+          <div className="mt-1 text-sm font-bold text-slate-500">
+            주문, 거래처, 품목, 재고를 한 곳에서 관리합니다.
           </div>
         </div>
 
         <button
           onClick={logout}
-          className="h-[44px] rounded-xl px-4 py-3 font-semibold transition border border-white/15 bg-white/15 hover:bg-white/20 active:scale-[0.99] text-white"
+          className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-extrabold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50"
         >
           로그아웃
         </button>
       </div>
 
-      {/* 탭 */}
-      <div className="flex flex-wrap gap-2">
-        <Link className={tab("/admin")} href="/admin">
-          대시보드
-        </Link>
-
-        <Link className={tab("/admin/orders")} href="/admin/orders">
-          주문관리
-        </Link>
-
-        <Link className={tab("/admin/clients")} href="/admin/clients">
-          거래처
-        </Link>
-
-        <Link className={tab("/admin/ecount-clients")} href="/admin/ecount-clients">
-          기존 거래처 목록
-        </Link>
-
-        <Link className={tab("/admin/items")} href="/admin/items">
-          품목
-        </Link>
-
-        <Link className={tab("/admin/stock")} href="/admin/stock">
-          재고
-        </Link>
-
-        <Link className={tab("/orders")} href="/orders">
-          영업 화면
-        </Link>
-      </div>
-    </div>
+      <nav className="flex gap-2 overflow-x-auto pb-1">
+        {tabs.map((t) => (
+          <Link key={t.href} className={tab(t.href)} href={t.href}>
+            {t.label}
+          </Link>
+        ))}
+      </nav>
+    </header>
   );
 }

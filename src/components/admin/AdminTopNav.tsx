@@ -4,8 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const tabs = [
-  { href: "/admin", label: "대시보드" },
-  { href: "/admin/orders", label: "주문" },
+  { href: "/admin/orders", label: "주문관리" },
   { href: "/admin/items", label: "품목" },
   { href: "/admin/clients", label: "거래처" },
   { href: "/admin/stock", label: "재고관리" },
@@ -23,7 +22,7 @@ export default function AdminTopNav() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-black/20 backdrop-blur">
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/admin" className="font-bold tracking-tight text-white">
+        <Link href="/admin/orders" className="font-bold tracking-tight text-white">
           한의N원외탕전 ERP MINI (관리자)
         </Link>
 
