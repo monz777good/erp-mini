@@ -220,6 +220,7 @@ export default function AdminOrdersPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const [selectedStatementIds, setSelectedStatementIds] = useState<string[]>([]);
+  const [dealerMonthOpen, setDealerMonthOpen] = useState(false);
 
   const load = useCallback(
     async (silent = false) => {
@@ -554,6 +555,13 @@ export default function AdminOrdersPage() {
     "h-11 min-w-[64px] whitespace-nowrap rounded-xl border border-emerald-600 bg-emerald-600 px-4 text-sm font-black text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-60";
   const dangerButton =
     "h-11 min-w-[64px] whitespace-nowrap rounded-xl border border-rose-200 bg-rose-50 px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100";
+  const statementQuickButton = (filter: StatementFilter) =>
+    cls(
+      "h-11 min-w-[64px] whitespace-nowrap rounded-xl border px-4 text-sm font-black shadow-sm transition",
+      statementFilter === filter
+        ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+        : "border-emerald-100 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+    );
 
   return (
     <main className="space-y-5">
@@ -736,11 +744,21 @@ export default function AdminOrdersPage() {
             <div className="text-base font-black text-slate-950">딜러 월별 데이터</div>
             <div className="mt-1 text-xs font-bold text-slate-500">기간 안의 전체 상태 주문을 딜러와 월별로 합산합니다.</div>
           </div>
-          <div className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
-            {dealerMonthStats.length}개 그룹
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
+              {dealerMonthStats.length}개 그룹
+            </div>
+            <button
+              type="button"
+              onClick={() => setDealerMonthOpen((prev) => !prev)}
+              aria-expanded={dealerMonthOpen}
+              className={secondaryButton}
+            >
+              {dealerMonthOpen ? "접기" : "펼치기"}
+            </button>
           </div>
         </div>
-        {dealerMonthStats.length === 0 ? (
+        {dealerMonthOpen ? dealerMonthStats.length === 0 ? (
           <div className="py-6 text-center text-sm font-bold text-slate-500">데이터 없음</div>
         ) : (
           <div className="-mx-1 max-h-[420px] overflow-auto px-1">
@@ -786,7 +804,7 @@ export default function AdminOrdersPage() {
               </tbody>
             </table>
           </div>
-        )}
+        ) : null}
       </section>
 
       <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
@@ -797,10 +815,7 @@ export default function AdminOrdersPage() {
                 key={`quick-${filter}`}
                 type="button"
                 onClick={() => setStatementFilter(filter)}
-                className={cls(
-                  secondaryButton,
-                  statementFilter === filter && "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
-                )}
+                className={statementQuickButton(filter)}
               >
                 {filter === "ALL" ? "전체 보기" : filter === "Y" ? "Y만 보기" : "N만 보기"}
               </button>
