@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Status = "REQUESTED" | "APPROVED" | "REJECTED" | "DONE";
-type AccountKey = "hana" | "ibk" | "kb" | "none";
-type StatementFilter = "ALL" | "Y" | "N";
+type AccountKey = "hana" | "ibk" | "kb";
+type StatementFilter = "ALL" | "Y" | "N" | AccountKey;
 
 type ItemLine = {
   itemId?: string;
@@ -27,6 +27,7 @@ type Row = {
   careInstitutionNo?: string | null;
   note?: string | null;
   specYN?: string | null;
+  statementAccount?: string | null;
   itemName: string;
   quantityText: string;
   items?: ItemLine[];
@@ -40,16 +41,18 @@ const STATUS_LABEL: Record<Status, string> = {
 };
 
 const ACCOUNT_OPTIONS: { value: AccountKey; label: string }[] = [
-  { value: "hana", label: "하나은행 871-910010-06204 송현준" },
-  { value: "ibk", label: "기업은행 106-054551-04019 송현준" },
+  { value: "hana", label: "하나은행 871-910010-06204 송영준" },
+  { value: "ibk", label: "기업은행 106-054551-04019 송영준" },
   { value: "kb", label: "국민은행 202602-04-157713 송영준" },
-  { value: "none", label: "계좌 없음" },
 ];
 
 const STATEMENT_FILTER_LABEL: Record<StatementFilter, string> = {
   ALL: "명세서 전체",
-  Y: "Y만 보기",
+  Y: "Y 전체",
   N: "N만 보기",
+  hana: "하나은행",
+  ibk: "기업은행",
+  kb: "국민은행",
 };
 
 function kstTodayYmd() {
@@ -125,6 +128,20 @@ function cls(...arr: Array<string | false | null | undefined>) {
   return arr.filter(Boolean).join(" ");
 }
 
+function isAccountKey(value: string): value is AccountKey {
+  return value === "hana" || value === "ibk" || value === "kb";
+}
+
+function statementAccountLabel(value: unknown) {
+  const found = ACCOUNT_OPTIONS.find((option) => option.value === value);
+  return found?.label ?? "계좌 미지정";
+}
+
+function statementDisplay(row: Row) {
+  if (row.specYN !== "Y") return "N";
+  return `Y · ${statementAccountLabel(row.statementAccount)}`;
+}
+
 export default function AdminOrdersPage() {
   const today = useMemo(() => kstTodayYmd(), []);
 
@@ -141,7 +158,6 @@ export default function AdminOrdersPage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
 
   const [selectedStatementIds, setSelectedStatementIds] = useState<string[]>([]);
-  const [statementAccount, setStatementAccount] = useState<AccountKey>("hana");
 
   const load = useCallback(
     async (silent = false) => {
@@ -223,6 +239,9 @@ export default function AdminOrdersPage() {
   const visibleRows = useMemo(() => {
     if (statementFilter === "Y") return rows.filter((row) => row.specYN === "Y");
     if (statementFilter === "N") return rows.filter((row) => row.specYN !== "Y");
+    if (isAccountKey(statementFilter)) {
+      return rows.filter((row) => row.specYN === "Y" && row.statementAccount === statementFilter);
+    }
     return rows;
   }, [rows, statementFilter]);
 
@@ -370,9 +389,7 @@ export default function AdminOrdersPage() {
       return;
     }
 
-    const url = `/statement-print?ids=${encodeURIComponent(ids.join(","))}&account=${encodeURIComponent(
-      statementAccount
-    )}`;
+    const url = `/statement-print?ids=${encodeURIComponent(ids.join(","))}`;
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
@@ -467,7 +484,7 @@ export default function AdminOrdersPage() {
           </div>
 
           <div className="mb-3 flex flex-wrap gap-2">
-            {(["ALL", "Y", "N"] as StatementFilter[]).map((filter) => (
+            {(["ALL", "N", "Y", "hana", "ibk", "kb"] as StatementFilter[]).map((filter) => (
               <button
                 key={filter}
                 className={cls(
@@ -569,33 +586,23 @@ export default function AdminOrdersPage() {
       </section>
 
       <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <button type="button" onClick={toggleAllStatements} className={secondaryButton}>
-            {allStatementSelected ? "명세서 선택 해제" : "현재 목록 Y 전체 선택"}
-          </button>
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={toggleAllStatements} className={secondaryButton}>
+              {allStatementSelected ? "현재 Y 선택 해제" : "현재 Y 전체 선택"}
+            </button>
+            <button type="button" onClick={openAllVisibleStatements} className={secondaryButton}>
+              현재 Y 전체 출력
+            </button>
+          </div>
 
-          <select
-            value={statementAccount}
-            onChange={(e) => setStatementAccount(e.target.value as AccountKey)}
-            className="h-11 min-w-0 rounded-xl border border-emerald-100 bg-white px-3 text-sm font-bold text-slate-900 outline-none lg:min-w-[320px]"
-          >
-            {ACCOUNT_OPTIONS.map((account) => (
-              <option key={account.value} value={account.value}>
-                {account.label}
-              </option>
-            ))}
-          </select>
-
-          <button type="button" onClick={() => openStatements(selectedStatementIds)} className={primaryButton}>
-            선택 명세서 출력
-          </button>
-
-          <button type="button" onClick={openAllVisibleStatements} className={secondaryButton}>
-            현재 목록 Y 전체 출력
-          </button>
-
-          <div className="text-sm font-extrabold text-emerald-800">
-            선택 {selectedStatementIds.length}건 / 현재 출력 가능 {statementRows.length}건
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => openStatements(selectedStatementIds)} className={primaryButton}>
+              선택 명세서 출력
+            </button>
+            <div className="text-sm font-extrabold text-emerald-800">
+              선택 {selectedStatementIds.length}건 / 현재 출력 가능 {statementRows.length}건
+            </div>
           </div>
         </div>
       </section>
@@ -650,6 +657,10 @@ export default function AdminOrdersPage() {
                   <div>
                     <span className="font-black text-slate-950">비고 </span>
                     {row.note || "-"}
+                  </div>
+                  <div>
+                    <span className="font-black text-slate-950">명세서 </span>
+                    {statementDisplay(row)}
                   </div>
                 </div>
 
@@ -751,10 +762,10 @@ export default function AdminOrdersPage() {
                             onChange={() => toggleStatementId(row.id)}
                             className="h-4 w-4"
                           />
-                          Y
+                          {statementDisplay(row)}
                         </label>
                       ) : (
-                        "N"
+                        statementDisplay(row)
                       )}
                     </td>
                     <td className="px-3 py-3 font-bold text-slate-700 whitespace-nowrap">{row.salesName || "-"}</td>

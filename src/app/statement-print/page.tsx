@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 type AccountKey = "hana" | "ibk" | "kb" | "none";
 
 const ACCOUNTS: Record<AccountKey, string> = {
-  hana: "하나은행 871-910010-06204 송현준",
-  ibk: "기업은행 106-054551-04019 송현준",
+  hana: "하나은행 871-910010-06204 송영준",
+  ibk: "기업은행 106-054551-04019 송영준",
   kb: "국민은행 202602-04-157713 송영준",
   none: "",
 };
@@ -38,6 +38,7 @@ function makeGroupKey(order: any) {
     s(order.mobile),
     s(order.note),
     s(order.specYN),
+    s(order.statementAccount),
     s(order.status),
   ].join("|");
 }
@@ -76,6 +77,7 @@ async function getStatementGroups(ids: string[]) {
         mobile: base.mobile,
         note: base.note,
         specYN: base.specYN,
+        statementAccount: base.statementAccount,
         status: base.status,
       },
       include: {
@@ -130,8 +132,7 @@ export default async function StatementPrintPage({
     .split(",")
     .map((id) => id.trim())
     .filter(Boolean);
-  const accountKey = (s(sp.account) || "hana") as AccountKey;
-  const accountText = ACCOUNTS[accountKey] ?? ACCOUNTS.hana;
+  const fallbackAccountKey = (s(sp.account) || "hana") as AccountKey;
   const statements = ids.length ? await getStatementGroups(ids) : [];
 
   return (
@@ -277,6 +278,7 @@ export default async function StatementPrintPage({
           width: 54px;
           height: 54px;
           object-fit: contain;
+          opacity: 0.86;
           pointer-events: none;
         }
 
@@ -458,6 +460,8 @@ export default async function StatementPrintPage({
             const base = statement.base;
             const clientName = s(base.client?.name || base.receiverName || "");
             const rows = Array.from({ length: 11 }, (_, rowIndex) => statement.lines[rowIndex] ?? null);
+            const accountKey = (s(base.statementAccount) || fallbackAccountKey) as AccountKey;
+            const accountText = ACCOUNTS[accountKey] ?? ACCOUNTS.hana;
 
             return (
               <section className="page" key={`${base.id}_${index}`}>
@@ -512,7 +516,7 @@ export default async function StatementPrintPage({
                           </tr>
                         </tbody>
                       </table>
-                      <img className="supplier-stamp" src="/templates/statement_stamp.jpg" alt="" />
+                      <img className="supplier-stamp" src="/templates/statement_stamp.png" alt="" />
                     </div>
                   </div>
 

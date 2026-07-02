@@ -41,6 +41,7 @@ type RowOut = {
 
   note?: string | null;
   specYN?: string | null;
+  statementAccount?: string | null;
 
   itemName: string;
   quantityText: string;
@@ -60,6 +61,7 @@ function makeGroupKey(o: any) {
     s(o.mobile),
     s(o.note),
     s(o.specYN),
+    s(o.statementAccount),
   ].join("|");
 }
 
@@ -91,6 +93,7 @@ export async function GET(req: NextRequest) {
       { mobile: { contains: q } },
       { note: { contains: q, mode: "insensitive" } },
       { specYN: { contains: q, mode: "insensitive" } },
+      { statementAccount: { contains: q, mode: "insensitive" } },
       { client: { name: { contains: q, mode: "insensitive" } } },
       { item: { name: { contains: q, mode: "insensitive" } } },
       { user: { name: { contains: q, mode: "insensitive" } } },
@@ -140,6 +143,7 @@ export async function GET(req: NextRequest) {
 
         note: o.note ?? null,
         specYN: o.specYN ?? "-",
+        statementAccount: o.statementAccount ?? null,
 
         itemName: "",
         quantityText: "",
@@ -153,6 +157,9 @@ export async function GET(req: NextRequest) {
 
     if (!g.specYN && o.specYN) {
       g.specYN = o.specYN;
+    }
+    if (!g.statementAccount && o.statementAccount) {
+      g.statementAccount = o.statementAccount;
     }
 
     g.orderIds.push(o.id);
@@ -176,6 +183,7 @@ export async function GET(req: NextRequest) {
     g.itemName = g.items.map((it) => it.itemName).join("\n");
     g.quantityText = g.items.map((it) => `x${it.quantity}`).join("\n");
     g.specYN = g.specYN ?? "-";
+    g.statementAccount = g.statementAccount ?? null;
   }
 
   return NextResponse.json({ ok: true, rows: Array.from(map.values()) });

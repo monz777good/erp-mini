@@ -37,6 +37,23 @@ type CartLine = {
 };
 
 type OrderRowAny = any;
+type AccountKey = "hana" | "ibk" | "kb";
+
+const ACCOUNT_OPTIONS: { value: AccountKey; label: string; shortLabel: string }[] = [
+  { value: "hana", label: "하나은행 871-910010-06204 송영준", shortLabel: "하나은행" },
+  { value: "ibk", label: "기업은행 106-054551-04019 송영준", shortLabel: "기업은행" },
+  { value: "kb", label: "국민은행 202602-04-157713 송영준", shortLabel: "국민은행" },
+];
+
+function statementAccountLabel(value: unknown) {
+  const found = ACCOUNT_OPTIONS.find((option) => option.value === value);
+  return found?.shortLabel ?? "계좌 미지정";
+}
+
+function statementDisplay(order: any) {
+  if (String(order?.specYN ?? "").toUpperCase() !== "Y") return "N";
+  return `Y · ${statementAccountLabel(order?.statementAccount)}`;
+}
 
 function s(v: any) {
   return String(v ?? "").trim();
@@ -201,6 +218,7 @@ export default function OrdersClient({ isAdmin = false }: { isAdmin?: boolean })
   const [mobile, setMobile] = useState("");
   const [note, setNote] = useState("");
   const [specYN, setSpecYN] = useState("");
+  const [statementAccount, setStatementAccount] = useState<AccountKey | "">("");
 
   const [clientSearch, setClientSearch] = useState("");
   const [itemSearch, setItemSearch] = useState("");
@@ -354,6 +372,7 @@ export default function OrdersClient({ isAdmin = false }: { isAdmin?: boolean })
         o?.mobile,
         o?.note,
         o?.specYN,
+        statementAccountLabel(o?.statementAccount),
         o?.careInstitutionNo,
         o?.bizRegNo,
       ]
@@ -371,6 +390,7 @@ export default function OrdersClient({ isAdmin = false }: { isAdmin?: boolean })
       if (!receiverName.trim()) throw new Error("수하인(필수)을 입력하세요.");
       if (!receiverAddr.trim()) throw new Error("주소(필수)을 입력하세요.");
       if (!specYN) throw new Error("명세서 여부를 선택해주세요.");
+      if (specYN === "Y" && !statementAccount) throw new Error("명세서 계좌를 선택해주세요.");
 
       if (cart.length > 0) {
         await apiPOST("/api/orders", {
@@ -381,6 +401,7 @@ export default function OrdersClient({ isAdmin = false }: { isAdmin?: boolean })
           mobile: s(mobile) || null,
           note: s(note) || null,
           specYN,
+          statementAccount: specYN === "Y" ? statementAccount : null,
           items: cart.map((x) => ({ itemId: x.itemId, quantity: x.quantity })),
         });
         clearCart();
@@ -396,6 +417,7 @@ export default function OrdersClient({ isAdmin = false }: { isAdmin?: boolean })
           mobile: s(mobile) || null,
           note: s(note) || null,
           specYN,
+          statementAccount: specYN === "Y" ? statementAccount : null,
         });
       }
 
@@ -404,6 +426,7 @@ export default function OrdersClient({ isAdmin = false }: { isAdmin?: boolean })
       setQuantity(1);
       setNote("");
       setSpecYN("");
+      setStatementAccount("");
     } catch (e: any) {
       setErrMsg(e?.message || "FAILED_SUBMIT_ORDER");
     } finally {
@@ -683,30 +706,39 @@ export default function OrdersClient({ isAdmin = false }: { isAdmin?: boolean })
                     <div className="space-y-2">
                       <div className={label}>거래명세서 요청</div>
 
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          className={
-                            specYN === "Y"
-                              ? "h-[44px] min-w-[64px] px-4 rounded-2xl border border-emerald-300 bg-emerald-400 text-black font-extrabold shadow-[0_0_0_2px_rgba(16,185,129,0.18)]"
-                              : "h-[44px] min-w-[64px] px-4 rounded-2xl border border-white/14 bg-white/10 text-white font-extrabold hover:bg-white/15 active:bg-white/20"
-                          }
-                          onClick={() => setSpecYN("Y")}
-                        >
-                          Y
-                        </button>
-
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <button
                           type="button"
                           className={
                             specYN === "N"
-                              ? "h-[44px] min-w-[64px] px-4 rounded-2xl border border-emerald-300 bg-emerald-400 text-black font-extrabold shadow-[0_0_0_2px_rgba(16,185,129,0.18)]"
-                              : "h-[44px] min-w-[64px] px-4 rounded-2xl border border-white/14 bg-white/10 text-white font-extrabold hover:bg-white/15 active:bg-white/20"
+                              ? "min-h-[48px] rounded-2xl border border-emerald-300 bg-emerald-500 px-4 py-3 text-left font-extrabold text-white shadow-sm"
+                              : "min-h-[48px] rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-left font-extrabold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
                           }
-                          onClick={() => setSpecYN("N")}
+                          onClick={() => {
+                            setSpecYN("N");
+                            setStatementAccount("");
+                          }}
                         >
-                          N
+                          N · 명세서 없음
                         </button>
+
+                        {ACCOUNT_OPTIONS.map((account) => (
+                          <button
+                            key={account.value}
+                            type="button"
+                            className={
+                              specYN === "Y" && statementAccount === account.value
+                                ? "min-h-[48px] rounded-2xl border border-emerald-300 bg-emerald-500 px-4 py-3 text-left font-extrabold text-white shadow-sm"
+                                : "min-h-[48px] rounded-2xl border border-emerald-100 bg-white px-4 py-3 text-left font-extrabold text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                            }
+                            onClick={() => {
+                              setSpecYN("Y");
+                              setStatementAccount(account.value);
+                            }}
+                          >
+                            Y · {account.label}
+                          </button>
+                        ))}
                       </div>
 
                       {!specYN && (
@@ -819,7 +851,7 @@ export default function OrdersClient({ isAdmin = false }: { isAdmin?: boolean })
                                 {o?.clientName || o?.client?.name || "-"}
                               </td>
                               <td className="px-4 py-3 text-white/85 font-bold">{orderItemsText(o)}</td>
-                              <td className="px-4 py-3 text-white/85 font-extrabold whitespace-nowrap">{o?.specYN ?? "-"}</td>
+                              <td className="px-4 py-3 text-white/85 font-extrabold whitespace-nowrap">{statementDisplay(o)}</td>
                               <td className="px-4 py-3 text-white/85 font-extrabold whitespace-nowrap">{statusKo(o?.status)}</td>
                               <td className="px-4 py-3 text-white/85 font-bold whitespace-nowrap">{o?.receiverName ?? "-"}</td>
                               <td className="px-4 py-3 text-white/75 font-bold">{o?.receiverAddr ?? "-"}</td>

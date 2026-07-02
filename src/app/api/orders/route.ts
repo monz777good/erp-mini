@@ -7,6 +7,8 @@ import { OrderStatus } from "@prisma/client";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const STATEMENT_ACCOUNTS = new Set(["hana", "ibk", "kb"]);
+
 function err(message: string, status = 400) {
   return NextResponse.json({ ok: false, error: message }, { status });
 }
@@ -53,6 +55,7 @@ export async function GET(req: NextRequest) {
       { mobile: { contains: q, mode: "insensitive" } },
       { note: { contains: q, mode: "insensitive" } },
       { specYN: { contains: q, mode: "insensitive" } },
+      { statementAccount: { contains: q, mode: "insensitive" } },
       { client: { is: { name: { contains: q, mode: "insensitive" } } } },
       { item: { is: { name: { contains: q, mode: "insensitive" } } } },
     ];
@@ -67,6 +70,7 @@ export async function GET(req: NextRequest) {
       createdAt: true,
       quantity: true,
       specYN: true,
+      statementAccount: true,
 
       receiverName: true,
       receiverAddr: true,
@@ -85,6 +89,7 @@ export async function GET(req: NextRequest) {
     createdAt: r.createdAt,
     quantity: r.quantity ?? 0,
     specYN: r.specYN ?? "-",
+    statementAccount: r.statementAccount ?? null,
 
     clientName: r.client?.name ?? null,
     itemName: r.item?.name ?? null,
@@ -117,9 +122,14 @@ export async function POST(req: NextRequest) {
   const mobile = s(body.mobile) || null;
   const note = s(body.note) || null;
   const specYN = s(body.specYN);
+  const rawStatementAccount = s(body.statementAccount);
+  const statementAccount = specYN === "Y" ? rawStatementAccount : null;
 
   if (!specYN) return err("명세서 여부를 선택해주세요", 400);
   if (specYN !== "Y" && specYN !== "N") return err("명세서 여부는 Y 또는 N만 가능합니다", 400);
+  if (specYN === "Y" && !STATEMENT_ACCOUNTS.has(statementAccount || "")) {
+    return err("명세서 계좌를 선택해주세요", 400);
+  }
 
   if (!clientId) return err("CLIENT_REQUIRED", 400);
   if (!receiverName) return err("RECEIVER_NAME_REQUIRED", 400);
@@ -157,6 +167,7 @@ export async function POST(req: NextRequest) {
           mobile,
           note,
           specYN,
+          statementAccount,
 
           status: OrderStatus.REQUESTED,
         },
