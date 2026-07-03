@@ -184,7 +184,7 @@ function statementBadge(row: Row, selected: boolean, onToggle: () => void) {
     <label
       title={statementAccountLabel(row.statementAccount)}
       className={cls(
-        "inline-flex h-9 max-w-[150px] items-center gap-2 rounded-full border px-2.5 text-xs font-black",
+        "inline-flex h-9 max-w-full items-center gap-2 rounded-full border px-2.5 text-xs font-black",
         isMissing
           ? "border-amber-200 bg-amber-50 text-amber-700"
           : "border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -934,71 +934,65 @@ export default function AdminOrdersPage() {
       </section>
 
       <section className="hidden overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm lg:block">
-        <div className="overflow-auto">
-          <table className="min-w-[1420px] w-full border-collapse text-sm">
-            <thead className="sticky top-0 z-10 bg-emerald-50 text-slate-800">
+        <table className="w-full table-fixed border-collapse text-[13px]">
+          <colgroup>
+            <col className="w-[130px]" />
+            <col className="w-[300px]" />
+            <col className="w-[140px]" />
+            <col className="w-[145px]" />
+            <col />
+            <col className="w-[220px]" />
+          </colgroup>
+          <thead className="sticky top-0 z-10 bg-emerald-50 text-slate-800">
+            <tr>
+              {["등록일", "품목/수량", "명세서", "영업", "배송정보", "작업"].map((header) => (
+                <th key={header} className="border-b border-emerald-100 px-3 py-3 text-left font-black">
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {visibleRows.length === 0 ? (
               <tr>
-                {[
-                  "등록일",
-                  "품목",
-                  "수량",
-                  "명세서",
-                  "영업사원",
-                  "영업전화",
-                  "수하인",
-                  "주소",
-                  "전화",
-                  "핸드폰",
-                  "거래처",
-                  "요양기관번호",
-                  "비고",
-                  "작업",
-                ].map((header) => (
-                  <th key={header} className="border-b border-emerald-100 px-3 py-3 text-left font-black whitespace-nowrap">
-                    {header}
-                  </th>
-                ))}
+                <td colSpan={6} className="px-4 py-10 text-center font-extrabold text-slate-500">
+                  표시할 주문이 없습니다.
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {visibleRows.length === 0 ? (
-                <tr>
-                  <td colSpan={14} className="px-4 py-10 text-center font-extrabold text-slate-500">
-                    표시할 주문이 없습니다.
-                  </td>
-                </tr>
-              ) : (
-                visibleRows.map((row) => (
+            ) : (
+              visibleRows.map((row) => {
+                const contactText = [row.phone, row.mobile].filter(Boolean).join(" / ") || "-";
+                const clientText = [row.clientName, row.careInstitutionNo].filter(Boolean).join(" · ") || "-";
+
+                return (
                   <tr key={row.id} className="border-b border-emerald-50 align-top hover:bg-emerald-50/50">
-                    <td className="px-3 py-3 font-bold text-slate-700 whitespace-nowrap">{formatKst(row.createdAt)}</td>
-                    <td className="min-w-[240px] px-3 py-3 font-extrabold text-slate-950">
+                    <td className="px-3 py-3 font-bold leading-relaxed text-slate-700">{formatKst(row.createdAt)}</td>
+                    <td className="px-3 py-3 font-extrabold text-slate-950">
                       <div className="space-y-1">
                         {itemLines(row).map((item, index) => (
-                          <div key={`${item.name}_${index}`}>{item.name}</div>
+                          <div key={`${item.name}_${index}`} className="grid grid-cols-[1fr_auto] gap-2">
+                            <span className="min-w-0 break-words">{item.name}</span>
+                            <span className="font-black text-emerald-700">x{item.quantity}</span>
+                          </div>
                         ))}
                       </div>
                     </td>
-                    <td className="px-3 py-3 font-black text-emerald-700 whitespace-nowrap">
-                      <div className="space-y-1">
-                        {itemLines(row).map((item, index) => (
-                          <div key={`${item.name}_${index}`}>x{item.quantity}</div>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="w-[170px] px-3 py-3 font-bold text-slate-700 whitespace-nowrap">
+                    <td className="px-3 py-3 font-bold text-slate-700">
                       {statementBadge(row, selectedStatementIds.includes(row.id), () => toggleStatementId(row.id))}
                     </td>
-                    <td className="px-3 py-3 font-bold text-slate-700 whitespace-nowrap">{row.salesName || "-"}</td>
-                    <td className="px-3 py-3 font-bold text-slate-700 whitespace-nowrap">{row.salesPhone || "-"}</td>
-                    <td className="px-3 py-3 font-black text-slate-950 whitespace-nowrap">{row.receiverName || "-"}</td>
-                    <td className="min-w-[300px] px-3 py-3 font-bold text-slate-700">{row.receiverAddr || "-"}</td>
-                    <td className="px-3 py-3 font-bold text-slate-700 whitespace-nowrap">{row.phone || "-"}</td>
-                    <td className="px-3 py-3 font-bold text-slate-700 whitespace-nowrap">{row.mobile || "-"}</td>
-                    <td className="px-3 py-3 font-bold text-slate-700 whitespace-nowrap">{row.clientName || "-"}</td>
-                    <td className="px-3 py-3 font-bold text-slate-700 whitespace-nowrap">{row.careInstitutionNo || "-"}</td>
-                    <td className="min-w-[180px] px-3 py-3 font-bold text-slate-700">{row.note || "-"}</td>
-                    <td className="min-w-[190px] px-3 py-3">
-                      <div className="flex flex-nowrap items-start gap-2">
+                    <td className="px-3 py-3 font-bold leading-relaxed text-slate-700">
+                      <div className="font-black text-slate-950">{row.salesName || "-"}</div>
+                      <div className="break-all text-xs text-slate-600">{row.salesPhone || "-"}</div>
+                    </td>
+                    <td className="px-3 py-3 font-bold leading-relaxed text-slate-700">
+                      <div className="font-black text-slate-950">{row.receiverName || "-"}</div>
+                      <div className="break-words">{row.receiverAddr || "-"}</div>
+                      <div className="break-all text-xs text-slate-600">{contactText}</div>
+                      <div className="break-words text-xs text-slate-600">{clientText}</div>
+                      {row.note ? <div className="mt-1 break-words text-xs text-slate-500">비고: {row.note}</div> : null}
+                    </td>
+                    <td className="px-3 py-3">
+                      <div className="flex flex-wrap items-start gap-2">
                         {row.specYN === "Y" ? (
                           <button className={primaryButton} onClick={() => openStatements([row.id])}>
                             명세서 출력
@@ -1017,11 +1011,9 @@ export default function AdminOrdersPage() {
                         ) : null}
 
                         {tab === "APPROVED" ? (
-                          <>
-                            <button className={secondaryButton} onClick={() => setStatus(row.id, "DONE")}>
-                              출고완료
-                            </button>
-                          </>
+                          <button className={secondaryButton} onClick={() => setStatus(row.id, "DONE")}>
+                            출고완료
+                          </button>
                         ) : (
                           tab !== "REQUESTED" && row.specYN !== "Y" ? (
                             <span className="font-black text-slate-400">-</span>
@@ -1030,11 +1022,11 @@ export default function AdminOrdersPage() {
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </section>
     </main>
   );
